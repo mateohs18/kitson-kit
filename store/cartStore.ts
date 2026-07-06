@@ -1,46 +1,66 @@
 import { create } from 'zustand';
 
-// 1. Definimos cómo es un Producto
+// 1. Definimos cómo luce un producto
 export interface Product {
   id: string;
   name: string;
   price: number;
-  emoji: string;
+  image_url?: string;
+  emoji?: string;
 }
 
-// 2. Definimos cómo es un ítem en el carrito (Producto + Cantidad)
+// 2. Definimos cómo luce un ítem dentro del carrito (Producto + Cantidad)
 export interface CartItem extends Product {
   quantity: number;
 }
 
-// 3. Definimos qué funciones tendrá nuestro cerebro (Store)
+// 3. Definimos todo lo que nuestro carrito debe saber hacer (El Tipo / Interfaz)
 interface CartState {
   cart: CartItem[];
   addToCart: (product: Product) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  totalPrice: () => number;
   totalItems: () => number;
 }
 
-// 4. Creamos el Store
-export const useCartStore = create((set, get) => ({
+// 4. Creamos la "memoria" del carrito (Aplicando el currying de Zustand v5)
+export const useCartStore = create<CartState>()((set, get) => ({
   cart: [],
-  
-  // Función para añadir productos
-  addToCart: (product) => set((state) => {
-    // Revisamos si el producto ya está en el carrito
-    const existingItem = state.cart.find(item => item.id === product.id);
-    
-    if (existingItem) {
-      // Si existe, le sumamos 1 a la cantidad
-      return {
-        cart: state.cart.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        )
-      };
-    }
-    // Si no existe, lo agregamos con cantidad 1
-    return { cart: [...state.cart, { ...product, quantity: 1 }] };
-  }),
 
-  // Función para contar cuántos ítems hay en total
-  totalItems: () => get().cart.reduce((total, item) => total + item.quantity, 0),
+  addToCart: (product) => {
+    set((state) => {
+      const existingItem = state.cart.find((item) => item.id === product.id);
+      if (existingItem) {
+        return {
+          cart: state.cart.map((item) =>
+            item.id === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          ),
+        };
+      }
+      return { cart: [...state.cart, { ...product, quantity: 1 }] };
+    });
+  },
+
+  removeFromCart: (productId) => {
+    set((state) => ({
+      cart: state.cart.filter((item) => item.id !== productId),
+    }));
+  },
+
+  clearCart: () => {
+    set({ cart: [] });
+  },
+
+  totalPrice: () => {
+    const { cart } = get();
+    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  },
+
+  totalItems: () => {
+    const { cart } = get();
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  },
 }));
