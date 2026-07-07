@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore } from '../../store/cartStore';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface Product {
   id: string;
