@@ -2,113 +2,110 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '../../store/cartStore';
-import { signIn, signOut, useSession } from 'next-auth/react';
+// Rutas corregidas a ../../ para subir desde app/tienda-diaria hasta la raíz
+import { useCartStore } from '../../store/cartStore'; 
 import { supabase } from '../../lib/supabase';
-import { ShoppingCart, Gamepad2, Zap, ShieldCheck, Headphones, LogOut } from 'lucide-react';
+import { signIn, signOut, useSession } from 'next-auth/react';
+import { ShoppingCart, Gamepad2, LogOut } from 'lucide-react';
 
-interface Product {
+type FortniteItem = {
   id: string;
-  name: string;
-  price: number;
-  image_url?: string;
-}
+  name?: string;
+  title?: string;
+  type?: { displayValue: string };
+  rarity?: { displayValue: string; value: string };
+  series?: { name: string };
+  images?: { icon?: string; featured?: string };
+  albumArt?: string;
+  artist?: string;
+};
 
-export default function Home() {
+type FortniteEntry = {
+  regularPrice: number;
+  finalPrice: number;
+  bundle?: { name: string; image: string };
+  brItems?: FortniteItem[];
+  tracks?: FortniteItem[];
+  items?: FortniteItem[];
+  layout?: { name: string };
+  section?: { name: string };
+};
+
+export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
-  const totalItems = useCartStore((state) => state.totalItems());
+  const totalItemsCart = useCartStore((state) => state.totalItems());
   const { data: session } = useSession();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [groupedShop, setGroupedShop] = useState<Record<string, FortniteEntry[]>>({});
   const [loading, setLoading] = useState(true);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchProducts() {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) console.error("Error al cargar productos:", error);
-      else if (data) setProducts(data);
-      
-      setLoading(false);
+    async function fetchShop() {
+      try {
+        const response = await fetch('https://fortnite-api.com/v2/shop?language=es');
+        const data = await response.json();
+        if (data.status === 200 && data.data?.entries) {
+          const entries = data.data.entries as FortniteEntry[];
+          const groups: Record<string, FortniteEntry[]> = {};
+          entries.forEach((entry) => {
+            const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
+            if (!groups[sectionName]) groups[sectionName] = [];
+            groups[sectionName].push(entry);
+          });
+          setGroupedShop(groups);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     }
-    fetchProducts();
+    fetchShop();
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 selection:text-white">
-      
-      {/* NAVEGACIÓN */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
-        <div className="flex items-center justify-between w-full md:w-auto">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition group">
-            <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-orange-500 transition duration-300 object-cover" />
-            <span className="text-2xl font-black tracking-tighter">Kitson <span className="text-orange-500">Kit</span></span>
-          </Link>
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-gray-400 text-2xl">
-            {isMobileMenuOpen ? '✕' : '☰'}
-          </button>
-        </div>
-        
-        <nav className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-6 mt-6 md:mt-0 text-sm text-gray-400 items-center`}>
-          <Link href="/" className="hover:text-orange-400 transition">Inicio</Link>
-          <Link href="#catalogo" className="hover:text-orange-400 transition">Catálogo</Link>
-          <Link href="/tienda-diaria" className="hover:text-orange-400 transition">Tienda Fortnite</Link>
-        </nav>
-
-        <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0`}>
-          <Link href="/carrito" className="flex items-center gap-2 bg-white/5 py-2 px-5 rounded-full border border-white/10">
-            <ShoppingCart size={18} />
-            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItems}</span>
-          </Link>
+    <div className="min-h-screen bg-[#050505] text-white">
+      {/* NAVBAR GLOBAL */}
+      <header className="flex justify-between items-center p-6 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
+        <Link href="/" className="text-2xl font-black">Kitson <span className="text-orange-500">Kit</span></Link>
+        <div className="flex items-center gap-4">
+          <Link href="/carrito" className="bg-white/5 p-2 rounded-full"><ShoppingCart size={20}/></Link>
           {session ? (
-            <div className="flex items-center gap-3 bg-white/5 py-1.5 px-3 rounded-full border border-white/10">
-              <span className="text-sm font-bold">{session.user?.name}</span>
-              <button onClick={() => signOut()} className="text-red-400"><LogOut size={16} /></button>
-            </div>
+            <button onClick={() => signOut()} className="text-red-400"><LogOut size={20}/></button>
           ) : (
-            <button onClick={() => signIn('discord')} className="bg-orange-500 text-[#050505] px-6 py-2.5 rounded-full font-black text-sm">Ingresar</button>
+            <button onClick={() => signIn('discord')} className="bg-orange-500 px-4 py-2 rounded-full font-bold text-sm text-black">Login</button>
           )}
         </div>
       </header>
 
-      {/* HERO */}
-      <main className="relative flex flex-col items-center justify-center text-center px-4 py-32">
-        <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">Sube de nivel con <br/><span className="text-orange-500">Kitson Kit</span></h1>
-        <p className="text-lg text-gray-400 mb-10 max-w-2xl">Recargas digitales, V-Bucks y suscripciones al mejor precio.</p>
-        <Link href="#catalogo" className="bg-orange-500 text-[#050505] px-8 py-4 rounded-full font-black text-lg transition hover:scale-105">Ver Catálogo</Link>
-      </main>
-
-      {/* CARACTERÍSTICAS */}
-      <section className="border-y border-white/5 py-16 grid grid-cols-1 md:grid-cols-3 gap-10 max-w-7xl mx-auto px-6 text-center">
-        <div className="flex flex-col items-center"><Zap className="text-orange-500 mb-4" size={32} /> <h3 className="font-bold">Entrega Instantánea</h3></div>
-        <div className="flex flex-col items-center"><ShieldCheck className="text-orange-500 mb-4" size={32} /> <h3 className="font-bold">Pagos Seguros</h3></div>
-        <div className="flex flex-col items-center"><Headphones className="text-orange-500 mb-4" size={32} /> <h3 className="font-bold">Soporte Dedicado</h3></div>
-      </section>
-
-      {/* CATÁLOGO */}
-      <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24">
-        <h2 className="text-4xl font-black mb-12">🔥 Ofertas Destacadas</h2>
+      <main className="max-w-7xl mx-auto p-6">
+        <h1 className="text-4xl font-black mb-12">Tienda de Hoy</h1>
         {loading ? (
-          <div className="flex justify-center p-20"><div className="animate-spin text-orange-500"><Gamepad2 size={48} /></div></div>
+          <div className="flex justify-center p-20"><Gamepad2 className="animate-spin" size={48} /></div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((p) => (
-              <div key={p.id} className="bg-[#0A0A0A] p-5 rounded-3xl border border-white/5 hover:border-orange-500/50 transition">
-                <div className="aspect-square bg-[#151515] rounded-2xl mb-4 flex items-center justify-center">
-                  {p.image_url ? <img src={p.image_url} className="w-full h-full object-cover rounded-2xl" /> : <Gamepad2 size={48} className="text-gray-600" />}
-                </div>
-                <h3 className="font-bold mb-2">{p.name}</h3>
-                <p className="text-2xl font-black mb-4">${p.price}</p>
-                <button onClick={() => addToCart(p)} className="w-full bg-white/5 hover:bg-orange-500 hover:text-black py-3 rounded-xl font-bold transition">Añadir al carrito</button>
+          Object.entries(groupedShop).map(([section, entries]) => (
+            <section key={section} className="mb-16">
+              <h2 className="text-xl font-bold uppercase mb-6 text-gray-400">{section}</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {entries.map((e, i) => {
+                  const item = (e.brItems?.[0] || e.tracks?.[0] || e.items?.[0]);
+                  const name = e.bundle?.name || item?.name || item?.title || 'Ítem';
+                  const img = e.bundle?.image || item?.images?.featured || item?.images?.icon || item?.albumArt;
+                  if (!img) return null;
+                  return (
+                    <div key={i} className="bg-[#111] p-4 rounded-2xl border border-white/5">
+                      <img src={img} className="w-full aspect-square object-cover mb-4 rounded-lg" />
+                      <h3 className="font-bold truncate">{name}</h3>
+                      <p className="text-orange-500 font-black mb-3">${e.finalPrice}</p>
+                      <button onClick={() => addToCart({ id: e.bundle?.name || item?.id || 'id', name, price: e.finalPrice, image_url: img })} className="w-full bg-white/10 py-2 rounded-lg font-bold hover:bg-orange-500">Añadir</button>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </section>
+          ))
         )}
-      </section>
+      </main>
     </div>
   );
 }
