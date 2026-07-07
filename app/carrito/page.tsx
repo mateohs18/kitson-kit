@@ -1,5 +1,5 @@
 "use client";
-
+import { ShoppingCart, Trash2, ChevronLeft } from 'lucide-react'
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
@@ -61,10 +61,9 @@ export default function CartPage() {
           </div>
 
           {session ? (
-            <div className="flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10 w-full md:w-auto justify-center">
-              <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
-              <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
-              <button onClick={() => signOut()} className="text-xs font-bold text-red-400 hover:text-red-300 ml-2 transition">Salir</button>
+            <div className="flex items-center gap-2 bg-orange-500/10 text-orange-400 py-2 px-5 rounded-full border border-orange-500/20 ...">
+              <ShoppingCart size={64} className="text-gray-700 mb-6" /> 
+              <span className="bg-orange-500 ...">{totalItems()}</span>
             </div>
           ) : (
              <button onClick={() => signIn('discord')} className="bg-orange-500 hover:bg-orange-400 text-[#050505] w-full md:w-auto text-sm px-6 py-2.5 rounded-full font-black transition shadow-[0_0_15px_rgba(249,115,22,0.3)]">
