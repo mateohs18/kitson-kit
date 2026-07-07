@@ -3,23 +3,25 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
+import { signIn, signOut, useSession } from 'next-auth/react';
 
-// Tipos actualizados para soportar skins, música, legos y coches
+// Tipos actualizados para soportar Jam Tracks (albumArt, artist, title)
 type FortniteItem = {
   id: string;
   name?: string;
-  title?: string; // Las pistas de música usan "title" en vez de "name"
+  title?: string;
+  artist?: string;
   type?: { displayValue: string };
   rarity?: { displayValue: string; value: string };
   series?: { name: string };
-  images?: { icon?: string; featured?: string; coverArt?: string };
+  images?: { icon?: string; featured?: string };
+  albumArt?: string; // Exclusivo de Jam Tracks
 };
 
 type FortniteEntry = {
   regularPrice: number;
   finalPrice: number;
   bundle?: { name: string; image: string };
-  // Nuevas divisiones de la API de Epic Games
   brItems?: FortniteItem[];
   tracks?: FortniteItem[];
   instruments?: FortniteItem[];
@@ -32,11 +34,15 @@ type FortniteEntry = {
 
 export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
+  const totalItemsCart = useCartStore((state) => state.totalItems());
+  const { data: session } = useSession();
+
   const [groupedShop, setGroupedShop] = useState<Record<string, FortniteEntry[]>>({});
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     async function fetchShop() {
@@ -51,7 +57,6 @@ export default function TiendaFortnite() {
           
           entries.forEach((entry) => {
             const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
-            
             if (!groups[sectionName]) {
               groups[sectionName] = [];
             }
@@ -72,194 +77,233 @@ export default function TiendaFortnite() {
         setLoading(false);
       }
     }
-
     fetchShop();
   }, []);
 
   const today = new Date();
   const dateString = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  if (errorMsg) {
-    return (
-      <div className="min-h-screen bg-[#09090C] text-white flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-3xl font-bold text-red-500 mb-4">Ups, algo salió mal</h1>
-        <p className="text-gray-400 mb-8">{errorMsg}</p>
-        <Link href="/" className="bg-orange-500 hover:bg-orange-400 text-black px-8 py-3 rounded-full font-bold transition">
-          Volver al inicio
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#09090C] text-white font-sans flex flex-col md:flex-row selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-orange-500 selection:text-white">
       
-      {/* SIDEBAR */}
-      <aside className="w-full md:w-72 bg-[#09090C] border-r border-white/5 p-6 flex-shrink-0 md:sticky md:top-0 md:h-screen md:overflow-y-auto no-scrollbar">
-        <Link href="/" className="text-gray-400 hover:text-white transition font-bold flex items-center gap-2 mb-8 text-sm">
-          <span>←</span> Volver al inicio
-        </Link>
-
-        <div className="mb-8">
-          <h1 className="text-3xl font-black tracking-tight mb-1">Tienda de Hoy</h1>
-          <p className="text-gray-400 text-xs capitalize">{dateString} · {totalItems} ítems disponibles</p>
+      {/* BARRA DE NAVEGACIÓN GLOBAL (Idéntica a la página de inicio) */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition group">
+            <img 
+              src="/logo.jpg" 
+              alt="Kitson Kit Logo" 
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-transparent group-hover:border-orange-500 transition duration-300 object-cover"
+            />
+            <span className="text-2xl font-black tracking-tighter text-white">
+              Kitson <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-500">Kit</span>
+            </span>
+          </Link>
+          
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden text-gray-400 hover:text-white transition"
+          >
+            <span className="text-2xl">{isMobileMenuOpen ? '✕' : '☰'}</span>
+          </button>
         </div>
-
-        <h3 className="text-gray-500 text-xs font-bold tracking-widest uppercase mb-4">Categorías</h3>
         
-        {loading ? (
-          <div className="space-y-3">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="h-8 bg-white/5 rounded-lg animate-pulse"></div>)}
-          </div>
-        ) : (
-          <nav className="space-y-1">
-            <button 
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                setActiveCategory('Todos');
-              }}
-              className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-                activeCategory === 'Todos' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-white/5'
-              }`}
-            >
-              <span>Todos</span>
-              <span className="bg-white/10 px-2 py-0.5 rounded-full text-xs">{totalItems}</span>
-            </button>
+        <nav className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-6 mt-6 md:mt-0 font-medium text-sm text-gray-400 w-full md:w-auto items-center`}>
+          <Link href="/" className="hover:text-orange-400 transition">Inicio</Link>
+          <Link href="/#catalogo" className="hover:text-orange-400 transition">Catálogo</Link>
+          <Link href="/tienda-diaria" className="text-orange-400 transition">Tienda Fortnite</Link>
+          <Link href="/#faq" className="hover:text-orange-400 transition">Soporte</Link>
+        </nav>
 
-            {Object.entries(groupedShop).map(([name, items]) => (
+        <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0 w-full md:w-auto`}>
+          <Link href="/carrito" className="flex items-center gap-2 hover:bg-white/5 transition bg-white/5 py-2 px-5 rounded-full border border-white/10 w-full md:w-auto justify-center">
+            <span className="text-lg">🛒</span> 
+            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItemsCart}</span>
+          </Link>
+          {session ? (
+            <div className="flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10 w-full md:w-auto justify-center">
+              <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
+              <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
+              <button onClick={() => signOut()} className="text-xs font-bold text-red-400 hover:text-red-300 ml-2 transition">Salir</button>
+            </div>
+          ) : (
+            <button onClick={() => signIn('discord')} className="bg-orange-500 hover:bg-orange-400 text-[#050505] w-full md:w-auto text-sm px-6 py-2.5 rounded-full font-black transition shadow-[0_0_15px_rgba(249,115,22,0.3)]">
+              Iniciar Sesión
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* CUERPO DE LA TIENDA (Sidebar + Productos) */}
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        
+        {/* SIDEBAR (Barra lateral de categorías) */}
+        <aside className="w-full md:w-72 bg-[#050505] border-r border-white/5 p-6 flex-shrink-0 md:h-[calc(100vh-80px)] md:overflow-y-auto no-scrollbar hidden md:block">
+          <div className="mb-8">
+            <h1 className="text-3xl font-black tracking-tight mb-1">Tienda de Hoy</h1>
+            <p className="text-gray-400 text-xs capitalize">{dateString} · {totalItems} ítems</p>
+          </div>
+
+          <h3 className="text-gray-500 text-xs font-bold tracking-widest uppercase mb-4">Categorías</h3>
+          
+          {loading ? (
+            <div className="space-y-3">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-8 bg-white/5 rounded-lg animate-pulse"></div>)}
+            </div>
+          ) : (
+            <nav className="space-y-1">
               <button 
-                key={name}
                 onClick={() => {
-                  setActiveCategory(name);
-                  document.getElementById(`section-${name}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  setActiveCategory('Todos');
                 }}
                 className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-                  activeCategory === name ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-white/5'
+                  activeCategory === 'Todos' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-gray-300 hover:bg-white/5'
                 }`}
               >
-                <span className="truncate pr-2 text-left">{name}</span>
-                <span className={`${activeCategory === name ? 'bg-purple-500/30' : 'bg-white/10'} px-2 py-0.5 rounded-full text-xs`}>
-                  {items.length}
-                </span>
+                <span>Todos</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded-full text-xs">{totalItems}</span>
               </button>
-            ))}
-          </nav>
-        )}
-      </aside>
 
-      {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 p-6 md:p-10 md:overflow-y-auto">
-        {loading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-          </div>
-        ) : (
-          <div className="space-y-16 max-w-6xl mx-auto pb-24">
-            {Object.entries(groupedShop).map(([sectionName, items]) => (
-              <section key={sectionName} id={`section-${sectionName}`} className="scroll-mt-10">
-                
-                <div className="flex items-center gap-3 mb-6">
-                  <h2 className="text-xl font-black text-white uppercase tracking-wider">{sectionName}</h2>
-                  <span className="bg-white/10 text-gray-300 px-2.5 py-0.5 rounded-full text-xs font-bold">
+              {Object.entries(groupedShop).map(([name, items]) => (
+                <button 
+                  key={name}
+                  onClick={() => {
+                    setActiveCategory(name);
+                    document.getElementById(`section-${name}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-sm font-medium transition ${
+                    activeCategory === name ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="truncate pr-2 text-left">{name}</span>
+                  <span className={`${activeCategory === name ? 'bg-orange-500/30 text-white' : 'bg-white/10'} px-2 py-0.5 rounded-full text-xs`}>
                     {items.length}
                   </span>
-                  <div className="h-px bg-white/10 flex-grow ml-2"></div>
-                </div>
+                </button>
+              ))}
+            </nav>
+          )}
+        </aside>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {items.map((entry, idx) => {
-                    const isBundle = !!entry.bundle;
-                    
-                    // RECOLECTAMOS TODOS LOS TIPOS POSIBLES DE OBJETOS
-                    const safeItems = [
-                      ...(entry.brItems || []),
-                      ...(entry.tracks || []),
-                      ...(entry.instruments || []),
-                      ...(entry.cars || []),
-                      ...(entry.legoKits || []),
-                      ...(entry.items || [])
-                    ];
-                    
-                    const firstItem = safeItems[0];
-                    
-                    // Aseguramos que tome el nombre y la imagen correcta sea lo que sea
-                    const itemName = firstItem?.name || firstItem?.title || 'Cosmético Desconocido';
-                    const name = isBundle ? entry.bundle?.name : itemName;
-                    const imageUrl = isBundle 
-                      ? entry.bundle?.image 
-                      : (firstItem?.images?.featured || firstItem?.images?.icon || firstItem?.images?.coverArt);
-                    const id = firstItem?.id || `bundle-${idx}`;
+        {/* CONTENIDO PRINCIPAL (Cuadrícula de objetos) */}
+        <main className="flex-1 p-6 md:p-10 md:h-[calc(100vh-80px)] md:overflow-y-auto">
+          {errorMsg ? (
+            <div className="flex justify-center py-20 text-red-500 font-bold">{errorMsg}</div>
+          ) : loading ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+          ) : (
+            <div className="space-y-16 max-w-7xl mx-auto pb-24">
+              {Object.entries(groupedShop).map(([sectionName, items]) => (
+                <section key={sectionName} id={`section-${sectionName}`} className="scroll-mt-24">
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                    <h2 className="text-xl font-black text-white uppercase tracking-wider">{sectionName}</h2>
+                    <span className="bg-white/10 text-gray-300 px-2.5 py-0.5 rounded-full text-xs font-bold">{items.length}</span>
+                    <div className="h-px bg-white/10 flex-grow ml-2"></div>
+                  </div>
 
-                    const rarityLabel = firstItem?.series?.name || firstItem?.rarity?.displayValue || 'COMÚN';
-                    const itemType = firstItem?.type?.displayValue || 'COSMÉTICO';
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {items.map((entry, idx) => {
+                      const isBundle = !!entry.bundle;
+                      
+                      // Agrupamos TODOS los tipos, incluyendo los Jam Tracks ('tracks')
+                      const safeItems = [
+                        ...(entry.brItems || []),
+                        ...(entry.tracks || []),
+                        ...(entry.instruments || []),
+                        ...(entry.cars || []),
+                        ...(entry.legoKits || []),
+                        ...(entry.items || [])
+                      ];
+                      
+                      const firstItem = safeItems[0];
+                      
+                      // SOPORTE PARA JAM TRACKS: Buscamos 'title' y 'albumArt' si 'name' e 'icon' no existen
+                      const itemName = firstItem?.name || firstItem?.title || 'Cosmético Desconocido';
+                      const name = isBundle ? entry.bundle?.name : itemName;
+                      
+                      const imageUrl = isBundle 
+                        ? entry.bundle?.image 
+                        : (firstItem?.images?.featured || firstItem?.images?.icon || firstItem?.albumArt);
+                      
+                      const id = firstItem?.id || `bundle-${idx}`;
 
-                    // Si incluso después de buscar en todas partes sigue sin haber imagen, lo saltamos
-                    if (!name || !imageUrl) return null;
+                      // Etiquetas personalizadas (Si es una pista musical, mostramos al artista)
+                      const rarityLabel = firstItem?.series?.name || firstItem?.rarity?.displayValue || 'COMÚN';
+                      const itemType = firstItem?.artist ? firstItem.artist : (firstItem?.type?.displayValue || 'COSMÉTICO');
 
-                    return (
-                      <div 
-                        key={`${id}-${idx}`} 
-                        className={`bg-[#18181C] rounded-2xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer ${
-                          isBundle ? 'sm:col-span-2 sm:row-span-2 aspect-video sm:aspect-auto' : 'aspect-square'
-                        }`}
-                        onClick={() => addToCart({ id, name, price: entry.finalPrice, image_url: imageUrl })}
-                      >
-                        <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10 pointer-events-none">
-                          <span className="bg-white text-black text-[10px] font-black uppercase px-2 py-1 rounded-md shadow-md">
-                            {rarityLabel}
-                          </span>
-                          {isBundle && (
-                            <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-2 py-1 rounded-md shadow-md">
-                              BUNDLE
+                      if (!name || !imageUrl) return null;
+
+                      return (
+                        <div 
+                          key={`${id}-${idx}`} 
+                          className={`bg-[#0A0A0A] rounded-2xl border border-white/5 hover:border-orange-500/30 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer ${
+                            isBundle ? 'sm:col-span-2 sm:row-span-2 aspect-video sm:aspect-auto' : 'aspect-square'
+                          }`}
+                          onClick={() => addToCart({ id, name, price: entry.finalPrice, image_url: imageUrl })}
+                        >
+                          <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10 pointer-events-none">
+                            <span className="bg-white/90 text-black text-[10px] font-black uppercase px-2 py-1 rounded-md shadow-md backdrop-blur-sm">
+                              {rarityLabel}
                             </span>
-                          )}
-                        </div>
+                            {isBundle && (
+                              <span className="bg-orange-500 text-[#050505] text-[10px] font-black uppercase px-2 py-1 rounded-md shadow-md">
+                                LOTE
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="flex-1 w-full bg-gradient-to-b from-transparent to-[#18181C] relative flex items-center justify-center overflow-hidden">
-                          <img 
-                            src={imageUrl} 
-                            alt={name} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#18181C] via-[#18181C]/20 to-transparent"></div>
-                        </div>
-                        
-                        <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col justify-end z-10 pointer-events-none">
-                          <h3 className="font-black text-white text-lg leading-tight uppercase tracking-wide truncate shadow-black drop-shadow-md">
-                            {name}
-                          </h3>
-                          <span className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1 shadow-black drop-shadow-md">
-                            {isBundle ? 'LOTE' : itemType}
-                          </span>
+                          <div className="flex-1 w-full bg-[#111] relative flex items-center justify-center overflow-hidden">
+                            <img 
+                              src={imageUrl} 
+                              alt={name} 
+                              className={`w-full h-full object-cover group-hover:scale-105 transition duration-500 ${firstItem?.albumArt ? 'scale-100' : ''}`} 
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent"></div>
+                          </div>
                           
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-white font-black text-sm">${entry.finalPrice}</span>
-                            <span className="text-gray-400 text-[10px] font-bold ml-0.5 mt-0.5">USD</span>
+                          <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col justify-end z-10 pointer-events-none">
+                            <h3 className="font-black text-white text-lg leading-tight uppercase tracking-wide truncate shadow-black drop-shadow-md">
+                              {name}
+                            </h3>
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1 truncate shadow-black drop-shadow-md">
+                              {isBundle ? 'CONJUNTO' : itemType}
+                            </span>
                             
-                            <div className="ml-auto flex items-center gap-1 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
-                                <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-3 h-3" />
-                                <span className="text-gray-300 font-bold text-xs">{entry.finalPrice}</span>
-                                {entry.finalPrice < entry.regularPrice && (
-                                  <span className="text-gray-500 text-[10px] line-through ml-1">{entry.regularPrice}</span>
-                                )}
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className="text-white font-black text-sm">${entry.finalPrice}</span>
+                              <span className="text-gray-400 text-[10px] font-bold ml-0.5 mt-0.5">USD</span>
+                              
+                              <div className="ml-auto flex items-center gap-1 bg-black/60 px-2 py-1 rounded-md backdrop-blur-sm border border-white/10">
+                                  <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-3 h-3" />
+                                  <span className="text-gray-200 font-bold text-xs">{entry.finalPrice}</span>
+                                  {entry.finalPrice < entry.regularPrice && (
+                                    <span className="text-gray-500 text-[10px] line-through ml-1">{entry.regularPrice}</span>
+                                  )}
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Hover para añadir al carrito */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
+                             <span className="bg-orange-500 text-[#050505] font-black px-6 py-2.5 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+                               Añadir al Carrito
+                             </span>
+                          </div>
                         </div>
-                        
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
-                           <span className="bg-orange-500 text-black font-black px-6 py-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 shadow-[0_0_15px_rgba(249,115,22,0.5)]">
-                             Añadir al Carrito
-                           </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </main>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
