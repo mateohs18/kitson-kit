@@ -4,22 +4,29 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 
-// Tipos actualizados para capturar la rareza, tipo y el nuevo 'layout'
+// Tipos actualizados para soportar skins, música, legos y coches
 type FortniteItem = {
   id: string;
-  name: string;
-  type: { displayValue: string };
-  rarity: { displayValue: string; value: string };
+  name?: string;
+  title?: string; // Las pistas de música usan "title" en vez de "name"
+  type?: { displayValue: string };
+  rarity?: { displayValue: string; value: string };
   series?: { name: string };
-  images: { icon: string; featured?: string };
+  images?: { icon?: string; featured?: string; coverArt?: string };
 };
 
 type FortniteEntry = {
   regularPrice: number;
   finalPrice: number;
   bundle?: { name: string; image: string };
+  // Nuevas divisiones de la API de Epic Games
+  brItems?: FortniteItem[];
+  tracks?: FortniteItem[];
+  instruments?: FortniteItem[];
+  cars?: FortniteItem[];
+  legoKits?: FortniteItem[];
   items?: FortniteItem[];
-  layout?: { name: string }; // ESTA ES LA CLAVE DE LA NUEVA TIENDA
+  layout?: { name: string };
   section?: { name: string };
 };
 
@@ -43,7 +50,6 @@ export default function TiendaFortnite() {
           let count = 0;
           
           entries.forEach((entry) => {
-            // Priorizamos 'layout.name' que es lo que usa la nueva UI de Fortnite
             const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
             
             if (!groups[sectionName]) {
@@ -55,7 +61,7 @@ export default function TiendaFortnite() {
 
           setGroupedShop(groups);
           setTotalItems(count);
-          setActiveCategory(Object.keys(groups)[0] || ''); // Seleccionar la primera por defecto
+          setActiveCategory(Object.keys(groups)[0] || ''); 
         } else {
           setErrorMsg('No se pudo cargar la tienda desde la API.');
         }
@@ -70,7 +76,6 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
-  // Formateador de fecha similar al del juego
   const today = new Date();
   const dateString = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -87,9 +92,9 @@ export default function TiendaFortnite() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090C] text-white font-sans flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#09090C] text-white font-sans flex flex-col md:flex-row selection:bg-purple-500 selection:text-white">
       
-      {/* SIDEBAR (Barra lateral de categorías) */}
+      {/* SIDEBAR */}
       <aside className="w-full md:w-72 bg-[#09090C] border-r border-white/5 p-6 flex-shrink-0 md:sticky md:top-0 md:h-screen md:overflow-y-auto no-scrollbar">
         <Link href="/" className="text-gray-400 hover:text-white transition font-bold flex items-center gap-2 mb-8 text-sm">
           <span>←</span> Volver al inicio
@@ -153,7 +158,6 @@ export default function TiendaFortnite() {
             {Object.entries(groupedShop).map(([sectionName, items]) => (
               <section key={sectionName} id={`section-${sectionName}`} className="scroll-mt-10">
                 
-                {/* Encabezado de la Sección */}
                 <div className="flex items-center gap-3 mb-6">
                   <h2 className="text-xl font-black text-white uppercase tracking-wider">{sectionName}</h2>
                   <span className="bg-white/10 text-gray-300 px-2.5 py-0.5 rounded-full text-xs font-bold">
@@ -162,23 +166,34 @@ export default function TiendaFortnite() {
                   <div className="h-px bg-white/10 flex-grow ml-2"></div>
                 </div>
 
-                {/* Grid de Tarjetas Estilo Locker */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {items.map((entry, idx) => {
                     const isBundle = !!entry.bundle;
-                    const safeItems = entry.items || [];
+                    
+                    // RECOLECTAMOS TODOS LOS TIPOS POSIBLES DE OBJETOS
+                    const safeItems = [
+                      ...(entry.brItems || []),
+                      ...(entry.tracks || []),
+                      ...(entry.instruments || []),
+                      ...(entry.cars || []),
+                      ...(entry.legoKits || []),
+                      ...(entry.items || [])
+                    ];
+                    
                     const firstItem = safeItems[0];
                     
-                    const name = isBundle ? entry.bundle?.name : firstItem?.name;
+                    // Aseguramos que tome el nombre y la imagen correcta sea lo que sea
+                    const itemName = firstItem?.name || firstItem?.title || 'Cosmético Desconocido';
+                    const name = isBundle ? entry.bundle?.name : itemName;
                     const imageUrl = isBundle 
                       ? entry.bundle?.image 
-                      : (firstItem?.images?.featured || firstItem?.images?.icon);
+                      : (firstItem?.images?.featured || firstItem?.images?.icon || firstItem?.images?.coverArt);
                     const id = firstItem?.id || `bundle-${idx}`;
 
-                    // Etiquetas dinámicas
                     const rarityLabel = firstItem?.series?.name || firstItem?.rarity?.displayValue || 'COMÚN';
                     const itemType = firstItem?.type?.displayValue || 'COSMÉTICO';
 
+                    // Si incluso después de buscar en todas partes sigue sin haber imagen, lo saltamos
                     if (!name || !imageUrl) return null;
 
                     return (
@@ -189,7 +204,6 @@ export default function TiendaFortnite() {
                         }`}
                         onClick={() => addToCart({ id, name, price: entry.finalPrice, image_url: imageUrl })}
                       >
-                        {/* Insignias Superiores */}
                         <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10 pointer-events-none">
                           <span className="bg-white text-black text-[10px] font-black uppercase px-2 py-1 rounded-md shadow-md">
                             {rarityLabel}
@@ -201,7 +215,6 @@ export default function TiendaFortnite() {
                           )}
                         </div>
 
-                        {/* Imagen con Gradiente */}
                         <div className="flex-1 w-full bg-gradient-to-b from-transparent to-[#18181C] relative flex items-center justify-center overflow-hidden">
                           <img 
                             src={imageUrl} 
@@ -211,7 +224,6 @@ export default function TiendaFortnite() {
                           <div className="absolute inset-0 bg-gradient-to-t from-[#18181C] via-[#18181C]/20 to-transparent"></div>
                         </div>
                         
-                        {/* Información Inferior */}
                         <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col justify-end z-10 pointer-events-none">
                           <h3 className="font-black text-white text-lg leading-tight uppercase tracking-wide truncate shadow-black drop-shadow-md">
                             {name}
@@ -224,7 +236,6 @@ export default function TiendaFortnite() {
                             <span className="text-white font-black text-sm">${entry.finalPrice}</span>
                             <span className="text-gray-400 text-[10px] font-bold ml-0.5 mt-0.5">USD</span>
                             
-                            {/* Simulador de V-Bucks */}
                             <div className="ml-auto flex items-center gap-1 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
                                 <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-3 h-3" />
                                 <span className="text-gray-300 font-bold text-xs">{entry.finalPrice}</span>
@@ -235,9 +246,8 @@ export default function TiendaFortnite() {
                           </div>
                         </div>
                         
-                        {/* Hover Overlay para Añadir al Carrito */}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
-                           <span className="bg-orange-500 text-black font-black px-6 py-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                           <span className="bg-orange-500 text-black font-black px-6 py-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 shadow-[0_0_15px_rgba(249,115,22,0.5)]">
                              Añadir al Carrito
                            </span>
                         </div>
