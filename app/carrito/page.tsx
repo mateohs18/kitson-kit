@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore } from '../../store/cartStore';
 import { signIn, signOut, useSession } from 'next-auth/react';
 
 export default function CartPage() {
