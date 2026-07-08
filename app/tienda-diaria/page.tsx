@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
@@ -9,25 +10,21 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
 
 const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
-  const isBundle = !!entry.bundle;
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
+  const isBundle = !!entry.bundle;
   let name = '';
   let displayImage = '';
   let rarityValue = 'common';
 
-  // LÓGICA DIFERENCIADA: LOTE VS SKIN SUELTA
   if (isBundle) {
     name = entry.bundle.name || 'Lote';
     rarityValue = safeItems[0]?.rarity?.value || 'epic';
-    // Prioridad 1: Imagen oficial del lote. Prioridad 2: OfferImage
     displayImage = entry.bundle.image || entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || safeItems[0]?.images?.icon;
   } else {
-    // Si no es lote, buscamos el Outfit (la skin)
     const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
     name = mainItem?.name || mainItem?.title || 'Cosmético';
     rarityValue = mainItem?.rarity?.value || 'common';
-    // Prioridad 1: OfferImage (Render HQ). Prioridad 2: Imagen Base de la Skin
     displayImage = entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || mainItem?.images?.featured || mainItem?.images?.icon || '';
   }
 
@@ -57,11 +54,11 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
       <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
       
       <div className="flex-1 w-full relative flex items-center justify-center z-10 overflow-hidden">
-        <img 
+        <Image 
           src={displayImage} 
           alt={name} 
-          loading="lazy" 
-          decoding="async"
+          width={500}
+          height={500}
           className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl scale-[1.15]" 
         />
       </div>
@@ -74,7 +71,6 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </div>
       </div>
       
-      {/* BOTÓN CARRITO PEQUEÑO */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
         <button
           onClick={(e) => {
@@ -144,7 +140,7 @@ export default function TiendaFortnite() {
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
-            <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
+            <Image src="/logo.jpg" alt="Logo Kitson Kit" width={40} height={40} className="rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
             <span className="text-2xl font-black text-white hidden xl:block">Kitson <span className="text-orange-500">Kit</span></span>
           </Link>
         </div>
@@ -181,7 +177,6 @@ export default function TiendaFortnite() {
         </div>
       </header>
 
-      {/* MENÚ MÓVIL ARREGLADO */}
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
@@ -193,6 +188,7 @@ export default function TiendaFortnite() {
       )}
 
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
+        
         {!loading && Object.keys(groupedShop).length > 0 && (
           <aside className="hidden md:block w-72 shrink-0">
             <div className="sticky top-28 space-y-6">

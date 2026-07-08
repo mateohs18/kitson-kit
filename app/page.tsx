@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '../store/cartStore';
 import { useCurrencyStore } from '../store/currencyStore';
@@ -28,10 +29,9 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // NOTIFICACIÓN EN VIVO
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
+  const lastOrderIdRef = useRef<number | null>(null);
 
   const faqs = [
     { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse tu comprobante de pago, la entrega suele tardar entre 1 y 5 minutos." },
@@ -44,9 +44,12 @@ export default function Home() {
       const { data: productsData } = await supabase.from('products').select('*');
       if (productsData) setProducts(productsData);
 
-      const { count: ordersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
+      const { data: ordersData, count: ordersCount } = await supabase.from('orders').select('id, user_name, items', { count: 'exact', head: false }).order('created_at', { ascending: false }).limit(1);
+      if (ordersData && ordersData.length > 0) {
+        lastOrderIdRef.current = ordersData[0].id;
+      }
+
       const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
-      
       let avg = 5.0; let revCount = 0;
       if (reviewsData && reviewsData.length > 0) {
         setReviews(reviewsData);
@@ -58,22 +61,20 @@ export default function Home() {
     }
     fetchData();
 
-    // SUSCRIPCIÓN EN TIEMPO REAL A SUPABASE
-    const channel = supabase
-      .channel('realtime-orders')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders' },
-        (payload) => {
-          const newOrder = payload.new;
-          const itemName = newOrder.items && newOrder.items.length > 0 ? newOrder.items[0].name : 'Recarga de Saldo';
-          setLivePurchase({ name: newOrder.user_name || 'Gamer Anónimo', item: itemName });
+    const interval = setInterval(async () => {
+      const { data } = await supabase.from('orders').select('id, user_name, items').order('created_at', { ascending: false }).limit(1);
+      if (data && data.length > 0) {
+        const latestOrder = data[0];
+        if (lastOrderIdRef.current !== null && latestOrder.id !== lastOrderIdRef.current) {
+          const itemName = latestOrder.items && latestOrder.items.length > 0 ? latestOrder.items[0].name : 'Recarga de Saldo';
+          setLivePurchase({ name: latestOrder.user_name || 'Gamer Anónimo', item: itemName });
           setTimeout(() => setLivePurchase(null), 6000);
         }
-      )
-      .subscribe();
+        lastOrderIdRef.current = latestOrder.id;
+      }
+    }, 5000);
 
-    return () => { supabase.removeChannel(channel); };
+    return () => clearInterval(interval);
   }, []);
 
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -87,7 +88,7 @@ export default function Home() {
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
-            <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
+            <Image src="/logo.jpg" alt="Logo Kitson Kit" width={40} height={40} className="rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
             <span className="text-2xl font-black text-white hidden xl:block">Kitson <span className="text-orange-500">Kit</span></span>
           </Link>
         </div>
@@ -120,6 +121,16 @@ export default function Home() {
         </div>
       </header>
 
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
+          <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Mi Billetera</Link>
+          <div className="pt-2"><CurrencySelector /></div>
+        </div>
+      )}
+
       <div className={`fixed bottom-6 left-6 z-[120] glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-l-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.2)] transition-all duration-700 ${livePurchase ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
         <div className="bg-orange-500/20 p-2 rounded-full"><BellRing size={20} className="text-orange-500 animate-bounce" /></div>
         <div>
@@ -130,6 +141,10 @@ export default function Home() {
 
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
         <div className="relative z-10 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel mb-8 border border-white/10 text-orange-500">
+            <Flame size={14} className="animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-widest">Tienda Nº1 en Seguridad</span>
+          </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
             El Siguiente Nivel <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
@@ -153,7 +168,6 @@ export default function Home() {
           <PackageSearch className="text-orange-500" size={28} />
           <h2 className="text-3xl md:text-4xl font-black">Ofertas Exclusivas</h2>
         </div>
-
         {loading ? (
           <div className="flex justify-center p-20"><Gamepad2 size={48} className="animate-spin text-orange-500" /></div>
         ) : (
@@ -162,8 +176,10 @@ export default function Home() {
               const localPrice = (p.price * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               return (
                 <div key={p.id} className="group bg-[#0A0A0A] rounded-2xl p-5 border border-white/5 hover:border-white/10 transition-all cursor-pointer">
-                  <div className="aspect-square bg-[#111] rounded-xl mb-5 flex items-center justify-center overflow-hidden">
-                    {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" /> : <Gamepad2 size={64} className="text-gray-700" />}
+                  <div className="aspect-square bg-[#111] rounded-xl mb-5 flex items-center justify-center overflow-hidden relative">
+                    {p.image_url ? (
+                      <Image src={p.image_url} alt={p.name} width={400} height={400} className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" />
+                    ) : <Gamepad2 size={64} className="text-gray-700" />}
                   </div>
                   <h3 className="font-bold text-lg mb-1 text-gray-100">{p.name}</h3>
                   <div className="flex items-end gap-1 mb-5">
@@ -186,11 +202,9 @@ export default function Home() {
             <h2 className="text-4xl md:text-5xl font-black text-white leading-tight uppercase italic tracking-widest drop-shadow-md">Nuestra Squad <br/><span className="text-orange-500">de Leyendas</span></h2>
             <p className="text-gray-400 mt-4 max-w-xl font-medium">Lee las opiniones reales de los gamers que ya aseguraron su cuenta con nosotros.</p>
           </div>
-
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="w-full lg:w-[350px] shrink-0 bg-[#0f0f0f] p-8 rounded-3xl border border-white/5 shadow-2xl h-fit relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-orange-600"></div>
-              
               <div className="flex items-center gap-4 mb-2">
                 <span className="text-6xl font-black text-white drop-shadow-md">{stats.averageRating.toFixed(1)}</span>
                 <div>
@@ -199,10 +213,9 @@ export default function Home() {
                       <Star key={i} size={18} className={i <= Math.round(stats.averageRating) ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
                     ))}
                   </div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{stats.totalReviews} REVIEWS</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{stats.totalReviews} REVIEWS REALES</p>
                 </div>
               </div>
-
               <div className="space-y-3 mt-8 mb-8">
                 {[5, 4, 3, 2, 1].map((stars) => {
                   const count = ratingCounts[stars as keyof typeof ratingCounts];
@@ -218,48 +231,33 @@ export default function Home() {
                   );
                 })}
               </div>
-
-              <button onClick={() => alert("¡Escribe tu reseña verificada en nuestro Discord Oficial!")} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10">
+              <button onClick={() => alert("Escribe tu reseña verificada en nuestro Discord Oficial")} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10 hover:border-orange-500">
                 <MessageSquare size={18} /> Dejar mi Reseña
               </button>
             </div>
-
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <div className="relative flex-1">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input 
-                    type="text" 
-                    placeholder="Buscar por usuario o palabra..." 
-                    value={searchReview}
-                    onChange={(e) => setSearchReview(e.target.value)}
-                    className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50"
-                  />
+                  <input type="text" placeholder="Buscar por usuario o palabra..." value={searchReview} onChange={(e) => setSearchReview(e.target.value)} className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50 transition-colors" />
                 </div>
               </div>
-
               <div className="space-y-4">
                 {filteredReviews.length > 0 ? filteredReviews.map((r, idx) => (
                   <div key={idx} className="bg-[#0f0f0f] border border-white/5 p-6 rounded-2xl hover:border-white/10 transition-colors relative overflow-hidden">
                     <div className="flex items-start justify-between mb-4 relative z-10">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div className="w-12 h-12 bg-white/5 border border-white/10 text-orange-500 rounded-full flex items-center justify-center font-black text-xl">
-                            {r.user_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="absolute -bottom-1 -right-1 bg-[#0f0f0f] rounded-full p-0.5">
-                            <CheckCircle2 size={14} className="text-orange-500 bg-black rounded-full" />
-                          </div>
+                          <div className="w-12 h-12 bg-white/5 border border-white/10 text-orange-500 rounded-full flex items-center justify-center font-black text-xl">{r.user_name.charAt(0).toUpperCase()}</div>
+                          <div className="absolute -bottom-1 -right-1 bg-[#0f0f0f] rounded-full p-0.5"><CheckCircle2 size={14} className="text-orange-500 bg-black rounded-full" /></div>
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-bold text-white text-lg">{r.user_name}</span>
-                            <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-md">Verificado</span>
+                            <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1">Verificado</span>
                           </div>
                           <div className="flex gap-0.5">
-                            {[...Array(5)].map((_, i) => (
-                              <Star key={i} size={14} className={i < r.rating ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
-                            ))}
+                            {[...Array(5)].map((_, i) => <Star key={i} size={14} className={i < r.rating ? "text-orange-500 fill-orange-500" : "text-gray-800"} />)}
                           </div>
                         </div>
                       </div>
@@ -267,9 +265,7 @@ export default function Home() {
                     <p className="text-gray-300 leading-relaxed font-medium relative z-10 italic">"{r.comment}"</p>
                   </div>
                 )) : (
-                  <div className="text-center py-12 bg-[#0f0f0f] rounded-2xl border border-white/5 text-gray-500 font-bold">
-                    El radar no encontró reseñas.
-                  </div>
+                  <div className="text-center py-12 bg-[#0f0f0f] rounded-2xl border border-white/5 text-gray-500 font-bold">El radar no encontró reseñas con esa búsqueda.</div>
                 )}
               </div>
             </div>
@@ -277,7 +273,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SECCIÓN PREGUNTAS FRECUENTES (FAQ) */}
       <section id="faq" className="max-w-4xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-black mb-4">Preguntas Frecuentes</h2>
@@ -286,7 +281,7 @@ export default function Home() {
         <div className="space-y-4">
           {faqs.map((faq, idx) => (
             <div key={idx} className="bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden">
-              <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 text-left focus:outline-none">
+              <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 text-left focus:outline-none hover:bg-white/5 transition-colors">
                 <span className="font-bold text-lg text-gray-200">{faq.q}</span>
                 <ChevronDown className={`text-orange-500 transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} />
               </button>
@@ -298,12 +293,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER PREMIUM */}
       <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
           <div className="md:col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-8 h-8 rounded-full" />
+              <Image src="/logo.jpg" alt="Logo Kitson Kit" width={32} height={32} className="rounded-full" />
               <span className="text-xl font-black tracking-tighter text-white">Kitson <span className="text-orange-500">Kit</span></span>
             </Link>
             <p className="text-gray-400 text-sm max-w-sm leading-relaxed mb-6">
@@ -311,10 +305,9 @@ export default function Home() {
             </p>
             <div className="flex gap-4">
               <div className="bg-white/5 p-2 rounded-md"><CreditCard size={20} className="text-gray-400" /></div>
-              <div className="bg-white/5 p-2 rounded-md"><ShieldCheck size={20} className="text-gray-400" /></div>
+              <div className="bg-white/5 p-2 rounded-md"><Shield size={20} className="text-gray-400" /></div>
             </div>
           </div>
-          
           <div>
             <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Enlaces Rápidos</h4>
             <ul className="space-y-3 text-sm text-gray-400">
@@ -323,21 +316,17 @@ export default function Home() {
               <li><Link href="/billetera" className="hover:text-orange-500 transition">Mi Billetera</Link></li>
             </ul>
           </div>
-
           <div>
             <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Legal & Soporte</h4>
             <ul className="space-y-3 text-sm text-gray-400">
               <li><Link href="#" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
               <li><Link href="#" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
-              <li><a href="https://discord.gg/tu-enlace" target="_blank" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
+              <li><a href="#" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
             </ul>
           </div>
         </div>
-        
         <div className="max-w-7xl mx-auto border-t border-white/5 pt-8 text-center">
-          <p className="text-xs text-gray-500 font-medium">
-            &copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados. No afiliados a Epic Games Inc.
-          </p>
+          <p className="text-xs text-gray-500 font-medium">&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados. No afiliados a Epic Games Inc.</p>
         </div>
       </footer>
     </div>
