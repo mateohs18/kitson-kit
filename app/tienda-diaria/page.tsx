@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '../store/cartStore';
-import { useCurrencyStore, PAYMENT_OPTIONS } from '../store/currencyStore';
+import { useCartStore } from '../../store/cartStore';
+import { useCurrencyStore, PAYMENT_OPTIONS } from '../../store/currencyStore';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { 
   ShoppingCart, Gamepad2, Zap, ShieldCheck, LogOut, 
   PackageSearch, Menu, X, Star, Users, ChevronDown, CreditCard, Globe
