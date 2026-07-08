@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { supabase } from "../../../../lib/supabase"; // Ajusta la ruta a tu archivo supabase si es distinta
+import { supabase } from "../../../../lib/supabase"; 
 
 const handler = NextAuth({
   providers: [
@@ -10,12 +10,10 @@ const handler = NextAuth({
       clientId: process.env.DISCORD_CLIENT_ID || "",
       clientSecret: process.env.DISCORD_CLIENT_SECRET || "",
     }),
-    // NUEVO: PROVEEDOR DE GOOGLE
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
-    // NUEVO: PROVEEDOR DE CORREO Y CONTRASEÑA
     CredentialsProvider({
       name: "Correo y Contraseña",
       credentials: {
@@ -25,7 +23,6 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         
-        // Verificamos la contraseña directamente con tu base de datos de Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
           email: credentials.email,
           password: credentials.password,
@@ -38,7 +35,8 @@ const handler = NextAuth({
         return {
           id: data.user.id,
           email: data.user.email,
-          name: data.user.user_metadata?.name || data.user.email.split('@')[0], // Usa la primera parte del email como nombre si no tiene
+          // CORRECCIÓN TYPESCRIPT: Verificamos de forma segura que exista el correo antes de extraer el nombre
+          name: data.user.user_metadata?.name || (data.user.email ? data.user.email.split('@')[0] : 'Usuario'), 
         };
       }
     })
