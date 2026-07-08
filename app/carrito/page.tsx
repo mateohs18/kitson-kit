@@ -19,6 +19,7 @@ export default function CartPage() {
 
   const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [gamerId, setGamerId] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -26,7 +27,6 @@ export default function CartPage() {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
-  // NUEVO: SISTEMA DE SALDO
   const [balance, setBalance] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'saldo' | 'manual'>('manual');
 
@@ -34,13 +34,16 @@ export default function CartPage() {
 
   useEffect(() => {
     async function checkBalance() {
-      if (session?.user?.email) {
-        const { data } = await supabase.from('profiles').select('balance').eq('email', session.user.email).single();
+      // CORRECCIÓN TYPESCRIPT: Verificamos de forma segura el email
+      const userEmail = session?.user?.email;
+      const userName = session?.user?.name || 'Usuario';
+
+      if (userEmail) {
+        const { data } = await supabase.from('profiles').select('balance').eq('email', userEmail).single();
         if (data) {
           setBalance(data.balance);
         } else {
-          // Si no existe, creamos su perfil
-          await supabase.from('profiles').insert([{ email: session.user.email, name: session.user.name, balance: 0 }]);
+          await supabase.from('profiles').insert([{ email: userEmail, name: userName, balance: 0 }]);
         }
       }
     }
@@ -61,6 +64,10 @@ export default function CartPage() {
     if (!session) return alert("Inicia sesión para continuar.");
     if (!gamerId.trim()) return alert("Necesita tu ID de Epic Games.");
     
+    // CORRECCIÓN TYPESCRIPT: Variables seguras
+    const userEmail = session.user?.email || '';
+    const userName = session.user?.name || 'Usuario';
+
     setIsProcessing(true);
     
     try {
@@ -70,18 +77,15 @@ export default function CartPage() {
           return alert("No tienes saldo suficiente. Ve a la Billetera para recargar.");
         }
         
-        // Descontamos el saldo
-        await supabase.from('profiles').update({ balance: balance - totalPrice() }).eq('email', session.user.email);
+        await supabase.from('profiles').update({ balance: balance - totalPrice() }).eq('email', userEmail);
         
-        // Creamos la orden como PAGADA
         await supabase.from('orders').insert([{
-          user_email: session.user?.email, user_name: session.user?.name,
+          user_email: userEmail, user_name: userName,
           gamer_id: gamerId, items: cart, total_price: totalPrice(), status: 'PAGADO CON SALDO',
           country: 'Kitson Wallet', local_currency: 'USD', local_price: totalPrice()
         }]);
 
       } else {
-        // Pago manual (foto)
         if (!receiptFile) {
           setIsProcessing(false);
           return alert("Sube la imagen de tu comprobante.");
@@ -92,7 +96,7 @@ export default function CartPage() {
         const { data: publicUrlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
         
         await supabase.from('orders').insert([{
-          user_email: session.user?.email, user_name: session.user?.name,
+          user_email: userEmail, user_name: userName,
           gamer_id: gamerId, items: cart, total_price: totalPrice(), status: 'PENDIENTE',
           country: activeCurrency.name, local_currency: activeCurrency.currency,
           local_price: parseFloat(convertedTotal.replace(/,/g, '')), payment_proof: publicUrlData.publicUrl
@@ -109,90 +113,162 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 relative">
+      
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
-        <Link href="/" className="text-2xl font-black text-white">Kitson <span className="text-orange-500">Kit</span></Link>
-        <nav className="hidden lg:flex gap-8 font-medium text-sm text-gray-400">
-          <Link href="/">Inicio</Link>
-          <Link href="/tienda-diaria">Tienda Fortnite</Link>
-          <Link href="/billetera">Mi Billetera</Link>
+        <div className="flex-1 flex justify-start">
+          <Link href="/" className="flex items-center gap-3 group">
+            <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition object-cover" />
+            <span className="text-2xl font-black text-white hidden xl:block">Kitson <span className="text-orange-500">Kit</span></span>
+          </Link>
+        </div>
+        
+        <nav className="hidden lg:flex flex-1 justify-center gap-8 font-medium text-sm text-gray-400">
+          <Link href="/" className="hover:text-white transition">Inicio</Link>
+          <Link href="/#catalogo" className="hover:text-white transition">Catálogo</Link>
+          <Link href="/tienda-diaria" className="hover:text-white transition">Tienda Fortnite</Link>
         </nav>
-        <div className="flex items-center gap-4">
-          <CurrencySelector />
-          {session && (
-            <div className="bg-white/5 py-1.5 px-3 rounded-full border border-white/10 flex items-center gap-2 text-sm font-bold">
-              <Wallet size={16} className="text-orange-500"/> ${balance.toFixed(2)}
+
+        <div className="flex-1 flex items-center justify-end gap-4">
+          <div className="hidden sm:block"><CurrencySelector /></div>
+          
+          {session ? (
+            <div className="hidden sm:flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
+              <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
+                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
+                <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
+              </Link>
+              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
+          ) : (
+            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black">Login</button>
           )}
+
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2">
+            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-[#0A0A0A] border-b border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] left-0 w-full h-[calc(100vh-73px)] z-[90] overflow-y-auto">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
+          <div className="pt-2"><CurrencySelector /></div>
+        </div>
+      )}
+
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 relative z-10">
         {orderSuccess ? (
-          <div className="text-center py-24 bg-green-500/5 border border-green-500/20 rounded-3xl">
+          <div className="text-center py-24 bg-green-500/5 border border-green-500/20 rounded-3xl max-w-2xl mx-auto">
             <CheckCircle2 size={80} className="text-green-500 mx-auto mb-6" />
             <h2 className="text-3xl font-black mb-4">¡Pedido Realizado!</h2>
-            <Link href="/mis-pedidos" className="bg-orange-500 text-black px-8 py-3 rounded-full font-black">Ver mis pedidos</Link>
+            <Link href="/mis-pedidos" className="bg-orange-500 text-[#050505] px-8 py-3 rounded-full font-black shadow-lg">Ver mis pedidos</Link>
           </div>
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="flex-1 space-y-6">
               <div className="bg-[#0A0A0A] p-6 rounded-3xl border border-white/5">
-                <h3 className="text-xl font-black mb-4"><Gamepad2 className="text-orange-500 inline mr-2"/>1. Cuenta Destino</h3>
-                <input type="text" placeholder="ID de Epic Games" value={gamerId} onChange={(e) => setGamerId(e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none" />
+                <h3 className="text-xl font-black mb-4 flex items-center gap-2"><Gamepad2 className="text-orange-500"/> 1. Cuenta Destino</h3>
+                <input 
+                  type="text" placeholder="ID de Epic Games o GamerTag"
+                  value={gamerId} onChange={(e) => setGamerId(e.target.value)}
+                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
+                />
               </div>
+
               <div className="bg-[#0A0A0A] p-6 rounded-3xl border border-white/5">
-                <h3 className="text-xl font-black mb-4">2. Resumen</h3>
-                {cart.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center bg-[#111] p-3 rounded-xl border border-white/5 mb-2">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span className="font-black">${(item.price * item.quantity).toFixed(2)} USD <button onClick={() => removeFromCart(item.id)} className="text-red-500 ml-2"><Trash2 size={16}/></button></span>
-                  </div>
-                ))}
+                <div className="flex justify-between mb-4"><h3 className="text-xl font-black">2. Resumen ({totalItems()})</h3></div>
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex items-center gap-4 bg-[#111] p-3 rounded-xl border border-white/5">
+                      <div className="flex-1"><h4 className="font-bold text-sm">{item.name} <span className="text-gray-500">x{item.quantity}</span></h4></div>
+                      <p className="font-black">${(item.price * item.quantity).toFixed(2)} USD</p>
+                      <button onClick={() => removeFromCart(item.id)} className="text-red-500/50 hover:text-red-500 p-2"><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="w-full lg:w-[450px]">
               <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-3xl sticky top-24">
-                <h2 className="text-2xl font-black mb-6">3. Método de Pago</h2>
+                <h2 className="text-2xl font-black mb-6">3. Pago Final</h2>
                 
                 <div className="flex gap-2 mb-6">
-                  <button onClick={() => setPaymentMethod('saldo')} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${paymentMethod === 'saldo' ? 'bg-orange-500 text-black border-orange-500' : 'bg-[#111] text-gray-400 border-white/10'}`}>Saldo Kitson</button>
-                  <button onClick={() => setPaymentMethod('manual')} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${paymentMethod === 'manual' ? 'bg-orange-500 text-black border-orange-500' : 'bg-[#111] text-gray-400 border-white/10'}`}>Transferencia</button>
+                  <button onClick={() => setPaymentMethod('saldo')} className={`flex-1 py-3 rounded-xl text-sm font-bold border transition ${paymentMethod === 'saldo' ? 'bg-orange-500/10 text-orange-500 border-orange-500' : 'bg-[#111] text-gray-400 border-white/10 hover:border-white/20'}`}>Saldo Kitson</button>
+                  <button onClick={() => setPaymentMethod('manual')} className={`flex-1 py-3 rounded-xl text-sm font-bold border transition ${paymentMethod === 'manual' ? 'bg-orange-500/10 text-orange-500 border-orange-500' : 'bg-[#111] text-gray-400 border-white/10 hover:border-white/20'}`}>Transferencia</button>
                 </div>
 
-                <div className="mb-6 bg-[#111] p-5 rounded-2xl border border-white/5 flex justify-between">
-                  <span className="text-gray-400 font-medium">Total a pagar:</span>
-                  <span className="text-2xl font-black text-orange-500">${totalPrice().toFixed(2)} USD</span>
+                <div className="space-y-3 mb-6 bg-[#111] p-5 rounded-2xl border border-white/5">
+                  <div className="flex justify-between text-gray-400 text-sm font-medium"><span>Total USD</span><span>${totalPrice().toFixed(2)}</span></div>
+                  <div className="flex justify-between items-end pt-3 border-t border-white/10">
+                    <span className="text-gray-300 font-bold">Total a Transferir</span>
+                    <div className="text-right">
+                      <span className="text-3xl font-black text-orange-500">{activeCurrency.symbol}{convertedTotal}</span>
+                      <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">{activeCurrency.currency}</p>
+                    </div>
+                  </div>
                 </div>
 
                 {paymentMethod === 'saldo' ? (
-                  <div className="mb-8 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-                    <p className="text-sm text-center">Tu saldo actual es de <strong>${balance.toFixed(2)} USD</strong>. Se descontará automáticamente de tu cuenta.</p>
+                  <div className="mb-8 p-5 bg-[#111] border border-white/10 rounded-xl flex items-center gap-4">
+                    <div className="bg-orange-500/20 p-3 rounded-full text-orange-500"><Wallet size={24}/></div>
+                    <div>
+                      <p className="text-sm text-gray-400">Tu saldo disponible:</p>
+                      <p className={`text-xl font-black ${balance >= totalPrice() ? 'text-green-400' : 'text-red-400'}`}>${balance.toFixed(2)} USD</p>
+                    </div>
                   </div>
                 ) : (
                   <>
-                    <div className="mb-6 space-y-2">
-                      {activeCurrency.accounts.map((acc, idx) => (
-                        <div key={idx} className="bg-[#111] p-3 rounded-lg flex justify-between items-center">
-                          <span className="text-xs text-gray-400">{acc.method}</span>
-                          <span className="font-mono font-bold text-orange-500 text-sm flex gap-2">{acc.number} <button onClick={() => handleCopy(acc.number)}><Copy size={14}/></button></span>
-                        </div>
-                      ))}
+                    <div className="mb-8">
+                      <label className="block text-sm font-bold text-gray-400 mb-3">Cuentas de depósito ({activeCurrency.name}):</label>
+                      <div className="space-y-3">
+                        {activeCurrency.accounts.map((acc, idx) => (
+                          <div key={idx} className="bg-[#111] border border-white/10 rounded-xl p-4">
+                            <p className="text-xs text-gray-400 mb-2 font-medium">{acc.method}</p>
+                            <div className="flex items-center justify-between bg-[#050505] border border-white/5 p-3 rounded-lg group">
+                              <span className="font-mono font-bold text-orange-500 tracking-wider text-sm">{acc.number}</span>
+                              <button onClick={() => handleCopy(acc.number)} className="text-gray-500 hover:text-white transition-colors p-1" title="Copiar número">
+                                {copiedId === acc.number ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="group-hover:scale-110 transition-transform" />}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <label className="relative flex flex-col items-center justify-center w-full py-4 mb-6 bg-[#111] border-2 border-dashed border-white/10 rounded-xl cursor-pointer">
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { if(e.target.files) setReceiptFile(e.target.files[0]) }} />
-                      {receiptFile ? <span className="text-green-500 font-bold">{receiptFile.name}</span> : <span className="text-sm text-gray-400"><UploadCloud size={20} className="inline mr-2"/>Subir comprobante</span>}
-                    </label>
+
+                    <div className="mb-8">
+                      <label className="block text-sm font-bold text-gray-300 mb-2">Sube la captura de pago <span className="text-red-500">*</span></label>
+                      <label className="relative flex flex-col items-center justify-center w-full py-6 px-4 bg-[#111] border-2 border-dashed border-white/10 hover:border-orange-500/50 rounded-2xl cursor-pointer transition-colors group">
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { if(e.target.files) setReceiptFile(e.target.files[0]) }} />
+                        {receiptFile ? (
+                          <div className="flex flex-col items-center text-center">
+                            <CheckCircle2 size={32} className="text-green-500 mb-2" />
+                            <p className="text-sm font-bold text-white truncate max-w-[200px]">{receiptFile.name}</p>
+                            <p className="text-xs text-gray-500 mt-1">Clic para cambiar</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center text-center">
+                            <div className="bg-orange-500/10 p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                              <UploadCloud size={24} className="text-orange-500" />
+                            </div>
+                            <p className="text-sm font-bold text-gray-300 mb-1">Toca para subir tu comprobante</p>
+                            <p className="text-xs text-gray-500">Soporta JPG y PNG</p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
                   </>
                 )}
 
                 {session ? (
-                  <button onClick={handleCheckout} disabled={isProcessing} className="w-full bg-orange-500 text-black py-4 rounded-xl font-black flex items-center justify-center gap-2">
-                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : `Pagar $${totalPrice().toFixed(2)}`}
+                  <button onClick={handleCheckout} disabled={isProcessing} className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all">
+                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : "Confirmar Compra"}
                   </button>
                 ) : (
-                  <button onClick={() => signIn('discord')} className="w-full bg-[#5865F2] text-white py-4 rounded-xl font-black">Inicia sesión</button>
+                  <button onClick={() => signIn('discord')} className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white py-4 rounded-xl font-black flex items-center justify-center shadow-lg transition-all">Inicia sesión para finalizar</button>
                 )}
               </div>
             </div>
