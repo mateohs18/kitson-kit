@@ -2,44 +2,23 @@ import { create } from 'zustand';
 
 export const PAYMENT_OPTIONS = [
   { 
-    id: 'US', 
-    flag: '🇺🇸', 
-    name: 'EEUU / Otros', 
-    currency: 'USD', 
-    fullName: 'United States Dollar', 
-    rate: 1, 
-    symbol: '$', 
-    instructions: 'Binance Pay ID:\n468856753' 
+    id: 'US', flag: '🇺🇸', name: 'EEUU / Otros', currency: 'USD', fullName: 'United States Dollar', rate: 1, symbol: '$', 
+    accounts: [{ method: 'Binance Pay ID', number: '468856753' }]
   },
   { 
-    id: 'MX', 
-    flag: '🇲🇽', 
-    name: 'México', 
-    currency: 'MXN', 
-    fullName: 'Mexican Peso', 
-    rate: 17.50, 
-    symbol: '$', 
-    instructions: 'Transferencia Interbancaria:\n728969000114678903\n\nSpin pago por OXXO:\n2242 1701 8064 3778' 
+    id: 'MX', flag: '🇲🇽', name: 'México', currency: 'MXN', fullName: 'Mexican Peso', rate: 17.50, symbol: '$', 
+    accounts: [
+      { method: 'Transferencia Interbancaria', number: '728969000114678903' },
+      { method: 'Spin pago por OXXO', number: '2242 1701 8064 3778' }
+    ]
   },
   { 
-    id: 'CO', 
-    flag: '🇨🇴', 
-    name: 'Colombia', 
-    currency: 'COP', 
-    fullName: 'Colombian Peso', 
-    rate: 3900, 
-    symbol: '$', 
-    instructions: 'Nequi:\n3173326415' 
+    id: 'CO', flag: '🇨🇴', name: 'Colombia', currency: 'COP', fullName: 'Colombian Peso', rate: 3900, symbol: '$', 
+    accounts: [{ method: 'Nequi', number: '3173326415' }]
   },
   { 
-    id: 'PE', 
-    flag: '🇵🇪', 
-    name: 'Perú', 
-    currency: 'PEN', 
-    fullName: 'Sol', 
-    rate: 3.75, 
-    symbol: 'S/', 
-    instructions: 'Yape:\n998329414' 
+    id: 'PE', flag: '🇵🇪', name: 'Perú', currency: 'PEN', fullName: 'Sol', rate: 3.75, symbol: 'S/', 
+    accounts: [{ method: 'Yape', number: '998329414' }]
   }
 ];
 

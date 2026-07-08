@@ -8,8 +8,8 @@ import CurrencySelector from '../../components/CurrencySelector';
 import { supabase } from '../../lib/supabase';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { 
-  ShoppingCart, Trash2, Gamepad2, Menu, X,
-  Loader2, CheckCircle2, UploadCloud, LogOut 
+  ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut,
+  Loader2, CheckCircle2, UploadCloud, Copy, Check 
 } from 'lucide-react';
 
 export default function CartPage() {
@@ -25,12 +25,20 @@ export default function CartPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null); // Estado para el botón copiar
 
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null; 
 
   const convertedTotal = (totalPrice() * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // FUNCIÓN PARA COPIAR AL PORTAPAPELES
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(text);
+    setTimeout(() => setCopiedId(null), 2000); // Vuelve al icono de copiar después de 2 segundos
+  };
 
   const handleCheckout = async () => {
     if (!session) return alert("Por favor, inicia sesión para continuar.");
@@ -92,7 +100,7 @@ export default function CartPage() {
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] text-white text-sm px-6 py-2.5 rounded-full font-black">Login</button>
+            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black">Login</button>
           )}
 
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-2">
@@ -106,7 +114,6 @@ export default function CartPage() {
           <Link href="/" className="text-lg font-bold">Inicio</Link>
           <Link href="#catalogo" className="text-lg font-bold">Catálogo</Link>
           <Link href="/tienda-diaria" className="text-lg font-bold">Tienda Fortnite</Link>
-          <Link href="#soporte" className="text-lg font-bold">Soporte</Link>
           <div className="pt-4 border-t border-white/10"><CurrencySelector /></div>
         </div>
       )}
@@ -160,12 +167,29 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-sm font-bold text-gray-400 mb-2">Transfiere a la siguiente cuenta:</label>
-                  <div className="bg-orange-500/10 border border-orange-500/20 p-5 rounded-xl"><pre className="whitespace-pre-wrap font-mono text-sm text-orange-400 font-bold">{activeCurrency.instructions}</pre></div>
+                {/* BLOQUE DE CUENTAS CON BOTÓN DE COPIAR */}
+                <div className="mb-8">
+                  <label className="block text-sm font-bold text-gray-400 mb-3">Cuentas de depósito ({activeCurrency.name}):</label>
+                  <div className="space-y-3">
+                    {activeCurrency.accounts.map((acc, idx) => (
+                      <div key={idx} className="bg-[#111] border border-white/10 rounded-xl p-4">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">{acc.method}</p>
+                        <div className="flex items-center justify-between bg-[#050505] border border-white/5 p-3 rounded-lg group">
+                          <span className="font-mono font-bold text-orange-500 tracking-wider text-sm">{acc.number}</span>
+                          <button 
+                            onClick={() => handleCopy(acc.number)}
+                            className="text-gray-500 hover:text-white transition-colors p-1"
+                            title="Copiar número"
+                          >
+                            {copiedId === acc.number ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="group-hover:scale-110 transition-transform" />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* NUEVO DROPZONE PARA SUBIR IMÁGENES */}
+                {/* DROPZONE PARA SUBIR IMÁGENES */}
                 <div className="mb-8">
                   <label className="block text-sm font-bold text-gray-300 mb-2">Sube la captura de pago <span className="text-red-500">*</span></label>
                   
