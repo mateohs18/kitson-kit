@@ -29,8 +29,6 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
-  
-  // SOLUCIÓN: Estado del FAQ restaurado
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
@@ -112,25 +110,37 @@ export default function Home() {
           {session ? (
             <div className="hidden sm:flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
               <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full" />
+                <img src={session.user?.image || "/logo.jpg"} alt="Avatar" className="w-8 h-8 rounded-full" />
                 <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
               </Link>
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] px-6 py-2 rounded-full font-black text-sm transition">Login</button>
+            // CAMBIO: Botón genérico Iniciar Sesión (Abre opciones de Google, Discord y Email)
+            <button onClick={() => signIn()} className="hidden sm:block bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full font-black text-sm transition">Iniciar Sesión</button>
           )}
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2"><Menu size={28} /></button>
         </div>
       </header>
 
+      {/* MENÚ MÓVIL ARREGLADO CON BOTONES DE SESIÓN */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
-          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
-          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
-          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
-          <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Mi Billetera</Link>
-          <div className="pt-2"><CurrencySelector /></div>
+        <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
+          <div className="flex flex-col gap-6 flex-1">
+            <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
+            <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
+            <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
+            <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Mi Billetera</Link>
+            <div className="pt-2"><CurrencySelector /></div>
+          </div>
+          
+          <div className="mt-6 pt-6 border-t border-white/10 pb-10">
+            {!session ? (
+              <button onClick={() => signIn()} className="w-full bg-orange-500 text-black py-4 rounded-xl font-black text-lg shadow-lg">Iniciar Sesión</button>
+            ) : (
+              <button onClick={() => signOut()} className="w-full bg-red-500/10 text-red-500 py-4 rounded-xl font-black text-lg border border-red-500/20">Cerrar Sesión</button>
+            )}
+          </div>
         </div>
       )}
 
