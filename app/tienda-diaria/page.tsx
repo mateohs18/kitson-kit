@@ -6,7 +6,7 @@ import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2 } from 'lucide-react';
+import { ShoppingCart, Menu, X, Gamepad2, LogOut } from 'lucide-react';
 
 export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
@@ -27,8 +27,10 @@ export default function TiendaFortnite() {
         const data = await response.json();
         if (data.status === 200 && data.data?.entries) {
           const groups: Record<string, any[]> = {};
+          
+          // Agrupamos por el nombre de la sección que viene directo del juego
           data.data.entries.forEach((entry: any) => {
-            const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
+            const sectionName = entry.section?.name || 'Otras Ofertas';
             if (!groups[sectionName]) groups[sectionName] = [];
             groups[sectionName].push(entry);
           });
@@ -43,10 +45,24 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
+  // Función para obtener el color según la rareza del juego
+  const getRarityGradient = (rarity: string) => {
+    switch (rarity?.toLowerCase()) {
+      case 'legendary': return 'from-orange-600/60 to-transparent';
+      case 'epic': return 'from-purple-600/60 to-transparent';
+      case 'rare': return 'from-blue-500/60 to-transparent';
+      case 'uncommon': return 'from-green-500/60 to-transparent';
+      case 'marvel': return 'from-red-600/60 to-transparent';
+      case 'starwars': return 'from-blue-800/60 to-transparent';
+      case 'icon': return 'from-teal-400/60 to-transparent';
+      default: return 'from-gray-600/60 to-transparent'; // Common u otros
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-orange-500">
       
-      {/* NAVBAR CENTRADA EXACTAMENTE IGUAL AL INICIO */}
+      {/* NAVBAR CENTRADA */}
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
@@ -78,7 +94,7 @@ export default function TiendaFortnite() {
                 <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
                 <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
               </Link>
-              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3">Salir</button>
+              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
             <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black transition">
@@ -92,52 +108,83 @@ export default function TiendaFortnite() {
         </div>
       </header>
 
-      {/* CUERPO DE LA TIENDA */}
-      <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl font-black mb-10">Tienda de Fortnite</h1>
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-[#111] border-b border-white/10 flex flex-col p-6 gap-6 absolute w-full z-40">
+          <Link href="/" className="text-lg font-bold">Inicio</Link>
+          <Link href="/#catalogo" className="text-lg font-bold">Catálogo</Link>
+          <Link href="/tienda-diaria" className="text-lg font-bold">Tienda Fortnite</Link>
+          <div className="pt-4 border-t border-white/10"><CurrencySelector /></div>
+        </div>
+      )}
+
+      {/* CUERPO DE LA TIENDA ESTILO FORTNITE */}
+      <main className="flex-1 p-6 md:p-10 max-w-[1400px] mx-auto w-full">
+        
         {loading ? (
-          <div className="flex justify-center items-center py-20"><Gamepad2 size={48} className="animate-spin text-orange-500" /></div>
+          <div className="flex flex-col justify-center items-center py-40">
+            <Gamepad2 size={64} className="animate-spin text-orange-500 mb-4" />
+            <h2 className="text-2xl font-black uppercase italic tracking-widest text-gray-400 animate-pulse">Cargando Tienda...</h2>
+          </div>
         ) : (
-          <div className="space-y-16 pb-24">
+          <div className="space-y-16 pb-24 mt-6">
             {Object.entries(groupedShop).map(([sectionName, items]) => (
-              <section key={sectionName}>
-                <h2 className="text-xl font-black text-white uppercase tracking-wider mb-6 border-b border-white/5 pb-2">{sectionName}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <section key={sectionName} className="relative">
+                
+                {/* TÍTULO DE SECCIÓN ESTILO JUEGO (Letra grande, cursiva, negrita) */}
+                <div className="flex items-center gap-6 mb-8">
+                  <h2 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-widest drop-shadow-md">
+                    {sectionName}
+                  </h2>
+                  <div className="flex-1 h-1 bg-gradient-to-r from-white/20 to-transparent rounded-full"></div>
+                </div>
+
+                {/* GRILLA AUTO-AJUSTABLE PARA VER MÁS ITEMS */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {items.map((entry, idx) => {
                     const isBundle = !!entry.bundle;
                     const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
                     const firstItem = safeItems[0];
+                    
                     const name = isBundle ? entry.bundle?.name : (firstItem?.name || firstItem?.title || 'Cosmético');
                     const imageUrl = isBundle ? entry.bundle?.image : (firstItem?.images?.featured || firstItem?.images?.icon || firstItem?.albumArt);
                     const id = firstItem?.id || `bundle-${idx}`;
+                    
+                    // Extraemos la rareza para el color de fondo
+                    const rarityValue = firstItem?.rarity?.value || 'common';
+                    const bgGradient = getRarityGradient(rarityValue);
 
                     if (!name || !imageUrl) return null;
 
-                    // CONVERSIÓN DE PAVOS A DINERO REAL (Dividimos por 100 y aplicamos la moneda actual)
+                    // Conversión de pavos a precio real
                     const baseUsdPrice = entry.finalPrice / 100;
                     const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                     return (
                       <div 
                         key={`${id}-${idx}`} 
-                        className="bg-[#0A0A0A] rounded-2xl border border-white/5 hover:border-white/10 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer aspect-square"
+                        className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer aspect-[4/5] shadow-lg"
                         onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: imageUrl })}
                       >
-                        <div className="flex-1 w-full bg-[#111] relative flex items-center justify-center overflow-hidden p-4">
-                          <img src={imageUrl} alt={name} className="w-full h-full object-contain group-hover:scale-105 transition duration-500" />
+                        {/* FONDO DINÁMICO SEGÚN RAREZA */}
+                        <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
+                        
+                        <div className="flex-1 w-full relative flex items-center justify-center p-6 z-10">
+                          <img src={imageUrl} alt={name} className="w-full h-full object-contain group-hover:scale-110 transition duration-500 drop-shadow-2xl" />
                         </div>
                         
-                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col justify-end">
-                          <h3 className="font-bold text-white text-sm leading-tight uppercase truncate">{name}</h3>
+                        {/* FOOTER DE LA TARJETA (Nombre y Precio) */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20">
+                          <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
                           <div className="flex items-center gap-1 mt-1">
-                            <span className="text-orange-500 font-black text-lg">{activeCurrency.symbol}{localPrice}</span>
-                            <span className="text-gray-400 text-[10px] font-bold mt-0.5">{activeCurrency.currency}</span>
+                            <span className="text-white font-black text-xl">{activeCurrency.symbol}{localPrice}</span>
+                            <span className="text-gray-400 text-xs font-bold mt-1 uppercase">{activeCurrency.currency}</span>
                           </div>
                         </div>
                         
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <span className="bg-orange-500 text-[#050505] text-sm font-black px-4 py-2 rounded-full">
-                            Añadir al Carrito
+                        {/* HOVER EFFECT - AÑADIR AL CARRITO */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30 backdrop-blur-sm">
+                          <span className="bg-orange-500 hover:bg-orange-400 text-[#050505] text-sm font-black px-6 py-3 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                            <ShoppingCart size={18} /> Añadir
                           </span>
                         </div>
                       </div>
