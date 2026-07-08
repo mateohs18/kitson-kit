@@ -29,6 +29,7 @@ export default function Home() {
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
 
+  // NOTIFICACIÓN EN VIVO
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
 
   useEffect(() => {
@@ -36,12 +37,7 @@ export default function Home() {
       const { data: productsData } = await supabase.from('products').select('*');
       if (productsData) setProducts(productsData);
 
-      const { data: ordersData, count: ordersCount } = await supabase
-        .from('orders')
-        .select('user_name, items', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(10);
-
+      const { count: ordersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
       const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
       
       let avg = 5.0; let revCount = 0;
@@ -52,29 +48,35 @@ export default function Home() {
       }
       setStats({ totalOrders: (ordersCount || 0) + 150, averageRating: avg, totalReviews: revCount });
       setLoading(false);
-
-      // NOTIFICACIONES LIMITADAS A LAS ÚLTIMAS 3 COMPRAS REALES
-      if (ordersData && ordersData.length > 0) {
-        let idx = 0;
-        const maxPopups = Math.min(ordersData.length, 3); 
-        
-        const interval = setInterval(() => {
-          if (idx >= maxPopups) {
-            clearInterval(interval);
-            return;
-          }
-          const order = ordersData[idx];
-          const itemName = order.items && order.items.length > 0 ? order.items[0].name : 'Recarga de Saldo';
-          
-          setLivePurchase({ name: order.user_name || 'Gamer Anónimo', item: itemName });
-          setTimeout(() => setLivePurchase(null), 5000); 
-          
-          idx++;
-        }, 12000);
-        return () => clearInterval(interval);
-      }
     }
     fetchData();
+
+    // =======================================================
+    // SISTEMA DE NOTIFICACIONES 100% EN TIEMPO REAL
+    // =======================================================
+    const channel = supabase
+      .channel('realtime-orders')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          // Esto se ejecuta SOLAMENTE cuando alguien hace un pedido nuevo
+          const newOrder = payload.new;
+          const itemName = newOrder.items && newOrder.items.length > 0 ? newOrder.items[0].name : 'Recarga de Saldo';
+          
+          setLivePurchase({ name: newOrder.user_name || 'Gamer Anónimo', item: itemName });
+          
+          // Oculta la notificación después de 6 segundos
+          setTimeout(() => {
+            setLivePurchase(null);
+          }, 6000);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -83,7 +85,6 @@ export default function Home() {
 
   const handleWriteReview = () => {
     alert("¡Para mantener 100% la autenticidad, todas las reseñas se escriben y verifican a través de nuestro servidor oficial de Discord!");
-    // Aquí puedes poner: window.open("https://discord.gg/TU_LINK", "_blank");
   };
 
   return (
@@ -126,10 +127,11 @@ export default function Home() {
         </div>
       </header>
 
+      {/* POP-UP DE COMPRA 100% REAL */}
       <div className={`fixed bottom-6 left-6 z-[120] glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-l-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.2)] transition-all duration-700 ${livePurchase ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
         <div className="bg-orange-500/20 p-2 rounded-full"><BellRing size={20} className="text-orange-500 animate-bounce" /></div>
         <div>
-          <p className="text-sm text-gray-300"><span className="font-bold text-white">{livePurchase?.name}</span> acaba de adquirir</p>
+          <p className="text-sm text-gray-300"><span className="font-bold text-white">{livePurchase?.name}</span> acaba de comprar</p>
           <p className="text-sm font-black text-orange-400">{livePurchase?.item}</p>
         </div>
       </div>
@@ -185,7 +187,7 @@ export default function Home() {
                     <p className="text-white font-black text-2xl">{activeCurrency.symbol}{localPrice}</p>
                     <span className="text-gray-500 text-xs font-bold mb-1">{activeCurrency.currency}</span>
                   </div>
-                  <button onClick={() => addToCart(p)} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2">
+                  <button onClick={() => addToCart(p)} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-[#050505] py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2">
                     <ShoppingCart size={18} /> Añadir
                   </button>
                 </div>
@@ -195,7 +197,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* SECCIÓN DE RESEÑAS 100% ESTILO KITSON KIT */}
       <section id="reseñas" className="px-6 py-24 relative z-10 border-t border-white/5 bg-gradient-to-b from-[#050505] to-[#0A0A0A]">
         <div className="max-w-7xl mx-auto">
           
@@ -205,7 +206,6 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-10">
-            {/* Panel de Estadísticas Gamer */}
             <div className="w-full lg:w-[350px] shrink-0 bg-[#0f0f0f] p-8 rounded-3xl border border-white/5 shadow-2xl h-fit relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-orange-600"></div>
               
@@ -247,7 +247,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Lista de Reseñas y Buscador */}
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <div className="relative flex-1">
@@ -296,7 +295,6 @@ export default function Home() {
                                 <Star key={i} size={14} className={i < r.rating ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
                               ))}
                             </div>
-                            <span>• Hace unos días</span>
                           </div>
                         </div>
                       </div>

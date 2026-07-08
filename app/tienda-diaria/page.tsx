@@ -12,10 +12,13 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   const isBundle = !!entry.bundle;
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
-  const name = isBundle ? entry.bundle?.name : (safeItems[0]?.name || safeItems[0]?.title || 'Cosmético');
-  const id = safeItems[0]?.id || `bundle-${Math.random()}`;
+  // 1. FILTRADO ESTRICTO: Buscar específicamente el "Outfit" (La Skin principal) o quedarse con el primer objeto.
+  const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
   
-  const rarityValue = safeItems[0]?.rarity?.value || 'common';
+  const name = isBundle ? entry.bundle?.name : (mainItem?.name || mainItem?.title || 'Cosmético');
+  const id = mainItem?.id || `bundle-${Math.random()}`;
+  
+  const rarityValue = mainItem?.rarity?.value || 'common';
   const getRarityGradient = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
       case 'legendary': return 'from-orange-600/60 to-transparent';
@@ -30,25 +33,26 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   };
   const bgGradient = getRarityGradient(rarityValue);
 
-  // RECOPILACIÓN INTELIGENTE DE IMÁGENES (INCLUYE LEGO Y ESTILOS EXTRA)
+  // 2. EXTRACCIÓN LIMPIA DE ESTILOS (Solo de mainItem, sin mochilas ni picos)
   let allImages: string[] = [];
-  if (entry.bundle?.image) allImages.push(entry.bundle.image);
-  safeItems.forEach((item: any) => {
-    if (item.images?.featured) allImages.push(item.images.featured);
-    if (item.images?.icon) allImages.push(item.images.icon);
-    // Extracción de imagen LEGO si existe
-    if (item.images?.lego?.large) allImages.push(item.images.lego.large);
-    else if (item.images?.lego) allImages.push(item.images.lego);
-    
-    // Extracción de estilos adicionales (Ej. versiones sin máscara)
-    if (item.styles) {
-      item.styles.forEach((style: any) => {
-        if (style.image) allImages.push(style.image);
-      });
-    }
-  });
   
-  // Limpiar duplicados
+  // A) Imagen Base
+  if (mainItem?.images?.featured) allImages.push(mainItem.images.featured);
+  else if (mainItem?.images?.icon) allImages.push(mainItem.images.icon);
+  else if (entry.bundle?.image) allImages.push(entry.bundle.image); // Fallback si es un lote raro
+  
+  // B) Versión LEGO
+  if (mainItem?.images?.lego?.large) allImages.push(mainItem.images.lego.large);
+  else if (typeof mainItem?.images?.lego === 'string') allImages.push(mainItem.images.lego);
+  
+  // C) Estilos Seleccionables (Colores, Máscaras, etc.)
+  if (mainItem?.styles) {
+    mainItem.styles.forEach((style: any) => {
+      if (style.image) allImages.push(style.image);
+    });
+  }
+  
+  // Limpiar duplicados y nulos
   allImages = Array.from(new Set(allImages)).filter(Boolean);
 
   const [currentImgIdx, setCurrentImgIdx] = useState(0);
@@ -59,7 +63,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
     if (isHovered && allImages.length > 1) {
       interval = setInterval(() => {
         setCurrentImgIdx((prev) => (prev + 1) % allImages.length);
-      }, 1200); // Cambia cada 1.2 segundos para que se aprecie
+      }, 1000); 
     } else {
       setCurrentImgIdx(0);
     }
@@ -90,7 +94,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         />
         
         {allImages.length > 1 && (
-          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/10 text-white">
+          <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-md text-[10px] font-bold px-2 py-1 rounded-full border border-white/10 text-gray-300 z-40">
             {allImages.length} Estilos
           </div>
         )}
@@ -104,17 +108,18 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </div>
       </div>
       
-      {/* BOTÓN DE AÑADIR CHIQUITO (FAB) PARA NO TAPAR LA IMAGEN */}
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-40">
+      {/* BOTÓN CHIQUITO AÑADIR */}
+      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
         <button
           onClick={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] });
           }}
-          className="bg-orange-500 hover:bg-orange-400 text-black p-2.5 rounded-full shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:scale-110 transition-transform flex items-center justify-center"
+          className="bg-orange-500 hover:bg-orange-400 text-black p-2 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center border-2 border-[#0f0f0f]"
           title="Añadir al carrito"
         >
-          <ShoppingCart size={18} />
+          <ShoppingCart size={16} />
         </button>
       </div>
     </div>
