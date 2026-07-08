@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+// IMPORTANTE: Asegúrate de que las rutas tengan ../../
 import { useCartStore } from '../../store/cartStore';
+import { supabase } from '../../lib/supabase';
 import { signIn, signOut, useSession } from 'next-auth/react';
-// ¡Aquí está la corrección! Añadimos ShieldCheck a la lista de importaciones
-import { ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
 
 export default function CartPage() {
   const { cart, removeFromCart, clearCart, totalPrice, totalItems } = useCartStore();
@@ -13,10 +14,52 @@ export default function CartPage() {
   
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // NUEVO: Estados para el ID del jugador y el proceso de pago
+  const [gamerId, setGamerId] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null; 
+
+  // NUEVO: Función para enviar la orden a Supabase
+  const handleCheckout = async () => {
+    if (!session) {
+      alert("Por favor, inicia sesión para continuar.");
+      return;
+    }
+    if (!gamerId.trim()) {
+      alert("¡Oye! Necesitamos tu ID de Epic Games o GamerTag para enviarte los productos.");
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const { data, error } = await supabase.from('orders').insert([
+        {
+          user_email: session.user?.email || '',
+          user_name: session.user?.name || '',
+          gamer_id: gamerId,
+          items: cart, // Guardamos el carrito completo como JSON
+          total_price: totalPrice(),
+          status: 'PENDIENTE'
+        }
+      ]);
+
+      if (error) throw error;
+
+      alert("¡Orden creada con éxito! En Supabase ya aparece como PENDIENTE. Pronto conectaremos esto con Stripe.");
+      // Aquí en el futuro redigiremos a Stripe (ej: window.location.href = urlStripe)
+      
+    } catch (error) {
+      console.error("Error al crear la orden:", error);
+      alert("Hubo un error al procesar tu pedido. Intenta de nuevo.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 selection:text-[#050505]">
@@ -133,7 +176,7 @@ export default function CartPage() {
                   <div className="flex justify-between"><span>Impuestos</span><span className="text-green-400">Calculados en el pago</span></div>
                 </div>
 
-                <div className="flex justify-between items-end mb-8">
+                <div className="flex justify-between items-end mb-6">
                   <span className="text-gray-300 font-bold">Total</span>
                   <div className="text-right">
                     <span className="text-4xl font-black text-orange-500">${totalPrice().toFixed(2)}</span>
@@ -141,9 +184,32 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* NUEVO: FORMULARIO DE ID DE JUGADOR */}
+                {session && (
+                  <div className="mb-6 bg-[#111] p-4 rounded-2xl border border-white/5">
+                    <label className="block text-sm font-bold text-gray-300 mb-2">
+                      Tu ID de Epic / GamerTag <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej: Ninja, usuario_123"
+                      value={gamerId}
+                      onChange={(e) => setGamerId(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition placeholder-gray-600 text-sm"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-2 leading-tight">
+                      Requerido para poder enviarte los cosméticos o recargas.
+                    </p>
+                  </div>
+                )}
+
                 {session ? (
-                  <button className="w-full bg-orange-500 hover:bg-orange-400 text-[#050505] py-4 rounded-xl font-black text-lg transition shadow-[0_0_20px_rgba(249,115,22,0.3)]">
-                    Proceder al Pago
+                  <button 
+                    onClick={handleCheckout}
+                    disabled={isProcessing}
+                    className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 disabled:cursor-not-allowed text-[#050505] py-4 rounded-xl font-black text-lg transition shadow-[0_0_20px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2"
+                  >
+                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : "Proceder al Pago"}
                   </button>
                 ) : (
                   <button onClick={() => signIn('discord')} className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white py-4 rounded-xl font-black transition flex items-center justify-center gap-2">
