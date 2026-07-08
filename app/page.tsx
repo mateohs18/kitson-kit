@@ -29,6 +29,9 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
+  
+  // SOLUCIÓN: Estado del FAQ restaurado
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
   const lastOrderIdRef = useRef<number | null>(null);
