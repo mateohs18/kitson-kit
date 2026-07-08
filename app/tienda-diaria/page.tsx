@@ -11,11 +11,12 @@ import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-re
 const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
-  // Extraemos la skin principal (outfit) o el primer item si no hay skin.
+  // Extraemos la skin principal o el primer objeto disponible
   const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
   const name = entry.bundle?.name || mainItem?.name || mainItem?.title || 'Cosmético';
   const id = mainItem?.id || `bundle-${Math.random()}`;
   
+  // Obtenemos el color de fondo
   const rarityValue = mainItem?.rarity?.value || 'common';
   const getRarityGradient = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
@@ -32,67 +33,36 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   const bgGradient = getRarityGradient(rarityValue);
 
   // ===============================================
-  // EXTRACCIÓN AVANZADA DE IMÁGENES (ESTILOS REALES)
+  // IMAGEN ÚNICA ESTÁTICA (Estado Inicial)
   // ===============================================
-  let allImages: string[] = [];
+  let displayImage = '';
   
-  // 1. Buscamos el render oficial de alta calidad de la tienda (newDisplayAsset)
-  if (entry.newDisplayAsset?.materialInstances) {
-    entry.newDisplayAsset.materialInstances.forEach((mi: any) => {
-      if (mi.images?.OfferImage) allImages.push(mi.images.OfferImage);
-    });
+  // 1. Prioridad: Render de alta calidad de la tienda si existe
+  if (entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage) {
+    displayImage = entry.newDisplayAsset.materialInstances[0].images.OfferImage;
+  } 
+  // 2. Fallback: Imagen base de la skin o el lote
+  else if (mainItem?.images?.featured) {
+    displayImage = mainItem.images.featured;
+  } else if (mainItem?.images?.icon) {
+    displayImage = mainItem.images.icon;
+  } else if (entry.bundle?.image) {
+    displayImage = entry.bundle.image;
   }
 
-  // 2. Si no hay render de tienda, usamos el ícono base
-  if (allImages.length === 0) {
-    if (mainItem?.images?.featured) allImages.push(mainItem.images.featured);
-    else if (mainItem?.images?.icon) allImages.push(mainItem.images.icon);
-  }
-  
-  // 3. Extraemos el estilo LEGO
-  if (mainItem?.images?.lego?.large) allImages.push(mainItem.images.lego.large);
-  
-  // 4. Extraemos estilos seleccionables (ej. Skin con máscara / sin máscara, colores)
-  if (mainItem?.styles) {
-    mainItem.styles.forEach((style: any) => {
-      if (style.image) allImages.push(style.image);
-    });
-  }
-
-  // Limpiamos duplicados
-  allImages = Array.from(new Set(allImages)).filter(Boolean);
-
-  const [currentImgIdx, setCurrentImgIdx] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isHovered && allImages.length > 1) {
-      interval = setInterval(() => {
-        setCurrentImgIdx((prev) => (prev + 1) % allImages.length);
-      }, 1200); 
-    } else {
-      setCurrentImgIdx(0);
-    }
-    return () => clearInterval(interval);
-  }, [isHovered, allImages.length]);
-
-  if (!name || allImages.length === 0) return null;
+  if (!name || !displayImage) return null;
 
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const displayImage = allImages[currentImgIdx];
 
   return (
     <div 
       className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative aspect-[4/5] shadow-lg cursor-pointer"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] })}
+      onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: displayImage })}
     >
       <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
       
-      {/* IMAGEN GRANDE SIN PADDING AL ESTILO FORTNITE */}
+      {/* IMAGEN ESTÁTICA */}
       <div className="flex-1 w-full relative flex items-center justify-center z-10 overflow-hidden">
         <img 
           src={displayImage} 
@@ -101,14 +71,9 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
           decoding="async"
           className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl scale-[1.15]" 
         />
-        
-        {allImages.length > 1 && (
-          <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/10 text-white z-40">
-            {allImages.length} Estilos
-          </div>
-        )}
       </div>
       
+      {/* TEXTOS INFERIORES */}
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20 pointer-events-none">
         <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
         <div className="flex items-center gap-1 mt-1">
@@ -117,14 +82,14 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </div>
       </div>
       
-      {/* BOTÓN FLOTANTE */}
+      {/* BOTÓN FLOTANTE CHIQUITO PARA EL CARRITO */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
         <button
           onClick={(e) => {
             e.stopPropagation();
-            addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] });
+            addToCart({ id, name, price: baseUsdPrice, image_url: displayImage });
           }}
-          className="bg-orange-500 hover:bg-orange-400 text-black p-2 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center"
+          className="bg-orange-500 hover:bg-orange-400 text-black p-2.5 rounded-full shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:scale-110 transition-transform flex items-center justify-center"
           title="Añadir al carrito"
         >
           <ShoppingCart size={16} />
@@ -169,6 +134,7 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
+  // Buscador Lateral
   const filteredShop = Object.entries(groupedShop).reduce((acc, [section, items]) => {
     const filteredItems = items.filter(entry => {
       const searchLower = searchTerm.toLowerCase();
@@ -233,10 +199,7 @@ export default function TiendaFortnite() {
               <div className="bg-[#0A0A0A] border border-white/5 rounded-2xl p-2 relative shadow-lg">
                 <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input 
-                  type="text" 
-                  placeholder="Buscar cosmético..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  type="text" placeholder="Buscar cosmético..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-[#111] border border-white/5 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50 font-medium transition-colors"
                 />
               </div>
