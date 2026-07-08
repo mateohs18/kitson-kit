@@ -8,32 +8,27 @@ import CurrencySelector from '../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { 
-  ShoppingCart, Gamepad2, Zap, ShieldCheck, Headphones, LogOut, 
-  PackageSearch, Menu, X, Star, Users, ChevronDown, CreditCard
+  ShoppingCart, Gamepad2, Zap, ShieldCheck, LogOut, 
+  PackageSearch, Menu, X, Star, Users, Flame, BellRing
 } from 'lucide-react';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image_url?: string;
-}
+interface Product { id: string; name: string; price: number; image_url?: string; }
 
 export default function Home() {
   const addToCart = useCartStore((state) => state.addToCart);
   const totalItemsCount = useCartStore((state) => state.totalItems());
-  
   const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
-
   const { data: session } = useSession();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: "5.0", totalReviews: 0 });
+
+  // EFECTO DINÁMICO DE COMPRAS EN VIVO (ESTILO PEEKSTORE)
+  const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -53,159 +48,107 @@ export default function Home() {
       setLoading(false);
     }
     fetchData();
-  }, []);
 
-  const faqs = [
-    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse tu comprobante de pago, la entrega suele tardar entre 1 y 5 minutos." },
-    { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos pagos manuales directos en tu moneda local: Binance, Yape, Nequi, Transferencia Bancaria y Oxxo." },
-    { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos. Nunca pediremos tu contraseña." }
-  ];
+    // Simular compras en vivo cada 8 segundos
+    const interval = setInterval(() => {
+      const names = ['Carlos_Gamer', 'Alejandro', 'Luisa_FTN', 'Santi123', 'Mati_pro', 'JoseX'];
+      const items = ['Club de Fortnite', '1000 Pavos', 'Pack de Inicio', '2800 Pavos', 'Pase de Batalla'];
+      setLivePurchase({
+        name: names[Math.floor(Math.random() * names.length)],
+        item: items[Math.floor(Math.random() * items.length)]
+      });
+      setTimeout(() => setLivePurchase(null), 4000); // Lo esconde después de 4 seg
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 overflow-hidden relative">
       
-      <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+      {/* FRANJA ANIMADA (MARQUEE) TOP */}
+      <div className="bg-orange-500 text-black py-1.5 overflow-hidden flex whitespace-nowrap font-black text-xs uppercase tracking-[0.2em] relative z-[101]">
+        <div className="animate-marquee flex gap-12">
+          <span>🔥 Entrega en 5 minutos</span><span>⚡ 100% Seguro y sin riesgo de ban</span><span>💎 Precios exclusivos</span>
+          <span>🔥 Entrega en 5 minutos</span><span>⚡ 100% Seguro y sin riesgo de ban</span><span>💎 Precios exclusivos</span>
+          <span>🔥 Entrega en 5 minutos</span><span>⚡ 100% Seguro y sin riesgo de ban</span><span>💎 Precios exclusivos</span>
+          <span>🔥 Entrega en 5 minutos</span><span>⚡ 100% Seguro y sin riesgo de ban</span><span>💎 Precios exclusivos</span>
+        </div>
+      </div>
 
-      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
+      <div className="fixed top-[10%] left-[-10%] w-[60%] h-[60%] bg-orange-600/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+
+      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
-            <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
-            <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80 hidden xl:block">
-              Kitson <span className="text-orange-500">Kit</span>
-            </span>
+            <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-full border border-white/10 group-hover:shadow-[0_0_15px_rgba(249,115,22,0.5)] transition duration-300" />
+            <span className="text-2xl font-black text-white hidden xl:block">Kitson <span className="text-orange-500">Kit</span></span>
           </Link>
         </div>
         
-        <nav className="hidden lg:flex flex-1 justify-center gap-8 font-medium text-sm text-gray-400">
-          <Link href="/" className="hover:text-white transition">Inicio</Link>
+        <nav className="hidden lg:flex flex-1 justify-center gap-8 font-bold text-sm text-gray-400">
+          <Link href="/" className="text-white">Inicio</Link>
           <Link href="#catalogo" className="hover:text-white transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:text-white transition">Tienda Fortnite</Link>
-          <Link href="#soporte" className="hover:text-white transition">Soporte</Link>
+          <Link href="/mis-pedidos" className="hover:text-white transition">Mis Pedidos</Link>
         </nav>
 
-        <div className="flex-1 flex items-center justify-end gap-4">
+        <div className="flex-1 flex items-center justify-end gap-3 md:gap-4">
           <div className="hidden sm:block"><CurrencySelector /></div>
-          
           <Link href="/carrito" className="flex items-center gap-2 hover:bg-white/10 transition bg-white/5 py-2 px-4 rounded-full border border-white/10">
-            <ShoppingCart size={18} className="text-gray-400" /> 
-            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItemsCount}</span>
+            <ShoppingCart size={18} className="text-orange-500" /> 
+            <span className="bg-orange-500 text-black text-xs font-black px-2 py-0.5 rounded-full">{totalItemsCount}</span>
           </Link>
 
           {session ? (
             <div className="hidden sm:flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
               <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
+                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full" />
                 <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
               </Link>
-              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3">Salir</button>
+              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black transition">
-              Login
-            </button>
+            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black shadow-lg">Login</button>
           )}
-
-          {/* BOTÓN MÓVIL ARREGLADO */}
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2">
-            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-          </button>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2"><Menu size={28} /></button>
         </div>
       </header>
 
-      {/* MENÚ MÓVIL ARREGLADO (Z-INDEX Y FIXED) */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#0A0A0A] border-b border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] left-0 w-full h-[calc(100vh-73px)] z-[90] overflow-y-auto">
-          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
-          <Link href="#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
-          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
-          <Link href="#soporte" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Soporte</Link>
-          <div className="pt-2"><CurrencySelector /></div>
-          {!session && (
-            <button onClick={() => signIn('discord')} className="bg-[#5865F2] text-white text-center py-4 rounded-xl font-black mt-4">
-              Iniciar sesión con Discord
-            </button>
-          )}
+      {/* NOTIFICACIÓN FLOTANTE DE COMPRA EN VIVO */}
+      <div className={`fixed bottom-6 left-6 z-[120] glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-l-orange-500 shadow-2xl transition-all duration-500 ${livePurchase ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
+        <div className="bg-orange-500/20 p-2 rounded-full"><BellRing size={20} className="text-orange-500 animate-bounce" /></div>
+        <div>
+          <p className="text-sm text-gray-300"><span className="font-bold text-white">{livePurchase?.name}</span> acaba de comprar</p>
+          <p className="text-sm font-black text-orange-400">{livePurchase?.item}</p>
         </div>
-      )}
+      </div>
 
-      <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
-        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)]"></div>
-          <div className="absolute w-[600px] h-[300px] bg-orange-600/20 blur-[120px] rounded-full"></div>
-        </div>
-
+      <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10">
         <div className="relative z-10 flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-md">
-            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Sistemas 100% Operativos</span>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel mb-8 border border-white/10 text-orange-500">
+            <Flame size={14} className="animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-widest">Tienda Nº1 en Seguridad</span>
           </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
-            El Siguiente Nivel <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
+            Sube de Nivel <br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Al Instante</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl font-medium">
-            Adquiere cosméticos exclusivos, recargas y suscripciones de forma automatizada, segura y sin riesgo de ban.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="#catalogo" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-[#050505] px-8 py-4 rounded-full font-black text-lg transition-all shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:shadow-[0_0_40px_rgba(249,115,22,0.5)] hover:-translate-y-1">
-              Explorar Catálogo
+          <p className="text-lg text-gray-400 mb-10 max-w-xl font-medium">Automatizamos tus recargas de Fortnite para que no tengas que esperar. Precios justos, entrega récord.</p>
+          <div className="flex gap-4">
+            <Link href="#catalogo" className="bg-orange-500 hover:bg-orange-400 text-black px-8 py-4 rounded-full font-black text-lg transition-all shadow-[0_0_30px_rgba(249,115,22,0.4)] hover:shadow-[0_0_50px_rgba(249,115,22,0.6)] hover:-translate-y-1">
+              Ver Catálogo
+            </Link>
+            <Link href="/tienda-diaria" className="glass-panel hover:bg-white/10 text-white px-8 py-4 rounded-full font-black text-lg transition-all hover:-translate-y-1">
+              Tienda Diaria
             </Link>
           </div>
         </div>
       </main>
 
-      <section className="border-y border-white/5 bg-[#080808]/50 backdrop-blur-lg relative z-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/5 max-w-7xl mx-auto">
-          <div className="p-8 text-center flex flex-col items-center">
-            <Users className="text-gray-500 mb-3" size={24} />
-            <span className="text-3xl font-black text-white">{stats.totalOrders > 0 ? `+${stats.totalOrders}` : '---'}</span>
-            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Órdenes Procesadas</span>
-          </div>
-          <div className="p-8 text-center flex flex-col items-center">
-            <Zap className="text-orange-500 mb-3" size={24} />
-            <span className="text-3xl font-black text-white">1 - 5 Min</span>
-            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Tiempo de Entrega</span>
-          </div>
-          <div className="p-8 text-center flex flex-col items-center">
-            <ShieldCheck className="text-green-500 mb-3" size={24} />
-            <span className="text-3xl font-black text-white">100%</span>
-            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Seguro y Legal</span>
-          </div>
-          <div className="p-8 text-center flex flex-col items-center">
-            <Star className="text-yellow-500 mb-3" size={24} />
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-white">{stats.averageRating}</span>
-              <span className="text-lg text-gray-500 font-bold">/5</span>
-            </div>
-            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Basado en {stats.totalReviews} reseñas</span>
-          </div>
-        </div>
-      </section>
-
-      <section id="soporte" className="relative z-10 py-16 bg-[#050505]">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto px-6 text-center">
-          <div className="flex flex-col items-center">
-            <div className="bg-orange-500/10 p-4 rounded-full mb-4 text-orange-500"><Zap size={32} /></div>
-            <h3 className="font-bold text-lg mb-2">Entrega Inmediata</h3>
-            <p className="text-sm text-gray-400">Verificamos tu pago y entregamos tus items rápidamente.</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="bg-orange-500/10 p-4 rounded-full mb-4 text-orange-500"><ShieldCheck size={32} /></div>
-            <h3 className="font-bold text-lg mb-2">100% Legal</h3>
-            <p className="text-sm text-gray-400">Métodos oficiales sin riesgo de baneos para tu cuenta.</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="bg-orange-500/10 p-4 rounded-full mb-4 text-orange-500"><Headphones size={32} /></div>
-            <h3 className="font-bold text-lg mb-2">Soporte Dedicado</h3>
-            <p className="text-sm text-gray-400">¿Dudas? Nuestro equipo en Discord está listo para ayudarte.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
-        <div className="flex items-center gap-3 mb-12">
-          <PackageSearch className="text-orange-500" size={28} />
-          <h2 className="text-3xl md:text-4xl font-black">Ofertas Exclusivas</h2>
+      <section id="catalogo" className="max-w-7xl mx-auto px-6 py-16 relative z-10">
+        <div className="flex items-center gap-3 mb-10">
+          <PackageSearch className="text-orange-500" size={32} />
+          <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-wider">Ofertas Exclusivas</h2>
         </div>
 
         {loading ? (
@@ -215,30 +158,20 @@ export default function Home() {
             {products.map((p) => {
               const localPrice = (p.price * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               return (
-                <div key={p.id} className="group relative bg-[#0A0A0A] rounded-3xl p-1 overflow-hidden transition-all duration-500 hover:shadow-[0_0_30px_rgba(249,115,22,0.15)]">
-                  <div className="absolute inset-0 bg-gradient-to-b from-orange-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative bg-[#0A0A0A] p-5 rounded-[22px] h-full flex flex-col z-10 border border-white/5">
-                    <div className="aspect-square bg-[#111] rounded-2xl mb-5 flex items-center justify-center overflow-hidden relative border border-white/5">
-                      {/* OPTIMIZACIÓN: LAZY LOADING Y ASYNC */}
+                <div key={p.id} className="group glass-panel rounded-3xl p-1 overflow-hidden transition-all duration-500 hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] hover:border-orange-500/30 cursor-pointer">
+                  <div className="bg-[#0A0A0A] p-5 rounded-[22px] h-full flex flex-col relative z-10">
+                    <div className="aspect-square bg-[#111] rounded-xl mb-5 flex items-center justify-center overflow-hidden relative">
                       {p.image_url ? (
-                        <img 
-                          src={p.image_url} 
-                          alt={p.name} 
-                          loading="lazy" 
-                          decoding="async" 
-                          className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" 
-                        />
-                      ) : (
-                        <Gamepad2 size={64} className="text-gray-700" />
-                      )}
+                        <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" />
+                      ) : <Gamepad2 size={48} className="text-gray-700" />}
                     </div>
                     <div className="flex-1 flex flex-col justify-end">
-                      <h3 className="font-bold text-lg mb-1 leading-tight text-gray-100">{p.name}</h3>
+                      <h3 className="font-bold text-lg mb-1 leading-tight text-white group-hover:text-orange-400 transition-colors">{p.name}</h3>
                       <div className="flex items-end gap-1 mb-5">
                         <p className="text-white font-black text-2xl">{activeCurrency.symbol}{localPrice}</p>
                         <span className="text-gray-500 text-xs font-bold mb-1">{activeCurrency.currency}</span>
                       </div>
-                      <button onClick={() => addToCart(p)} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-[#050505] py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2">
+                      <button onClick={() => addToCart(p)} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2">
                         <ShoppingCart size={18} /> Añadir al carrito
                       </button>
                     </div>
@@ -249,93 +182,20 @@ export default function Home() {
           </div>
         )}
       </section>
-
-      {reviews.length > 0 && (
-        <section id="reseñas" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black mb-4">Lo que dicen nuestros Gamers</h2>
-            <p className="text-gray-400">Reseñas reales de clientes que ya subieron de nivel con nosotros.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reviews.map((r, idx) => (
-              <div key={idx} className="bg-[#0A0A0A] border border-white/5 p-8 rounded-3xl relative hover:border-white/10 transition">
-                <div className="flex gap-1 mb-6">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={18} className={i < r.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-700"} />
-                  ))}
-                </div>
-                <p className="text-gray-300 italic mb-6 text-sm leading-relaxed">"{r.comment}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-500/20 text-orange-500 rounded-full flex items-center justify-center font-black text-lg">
-                    {r.user_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-bold text-white text-sm">{r.user_name}</p>
-                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Comprador Verificado</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section id="faq" className="max-w-4xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-black mb-4">Preguntas Frecuentes</h2>
-          <p className="text-gray-400">Todo lo que necesitas saber sobre cómo funciona Kitson Kit.</p>
-        </div>
-        <div className="space-y-4">
-          {faqs.map((faq, idx) => (
-            <div key={idx} className="bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden">
-              <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 text-left focus:outline-none">
-                <span className="font-bold text-lg text-gray-200">{faq.q}</span>
-                <ChevronDown className={`text-orange-500 transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} />
-              </button>
-              <div className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-40 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
-                <p className="text-gray-400 leading-relaxed">{faq.a}</p>
-              </div>
-            </div>
-          ))}
+      
+      {/* SECCIÓN ESTADÍSTICAS */}
+      <section className="glass-panel border-y border-white/10 relative z-10 py-12 my-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/5 max-w-7xl mx-auto">
+          <div className="text-center"><span className="text-4xl font-black text-white">+{stats.totalOrders}</span><p className="text-xs text-orange-500 font-bold tracking-widest mt-1">ÓRDENES</p></div>
+          <div className="text-center"><span className="text-4xl font-black text-white">&lt; 5m</span><p className="text-xs text-orange-500 font-bold tracking-widest mt-1">ENTREGA</p></div>
+          <div className="text-center"><span className="text-4xl font-black text-white">100%</span><p className="text-xs text-orange-500 font-bold tracking-widest mt-1">SEGURO</p></div>
+          <div className="text-center"><span className="text-4xl font-black text-white">{stats.averageRating}</span><p className="text-xs text-orange-500 font-bold tracking-widest mt-1">ESTRELLAS</p></div>
         </div>
       </section>
 
-      <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10 mt-10">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
-          <div className="md:col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-8 h-8 rounded-full" />
-              <span className="text-xl font-black tracking-tighter text-white">Kitson <span className="text-orange-500">Kit</span></span>
-            </Link>
-            <p className="text-gray-400 text-sm max-w-sm leading-relaxed mb-6">
-              Tu tienda de confianza para recargas, cosméticos y suscripciones. Operamos de forma 100% legal y segura para proteger tu cuenta en todo momento.
-            </p>
-            <div className="flex gap-4">
-              <div className="bg-white/5 p-2 rounded-md"><CreditCard size={20} className="text-gray-400" /></div>
-              <div className="bg-white/5 p-2 rounded-md"><ShieldCheck size={20} className="text-gray-400" /></div>
-            </div>
-          </div>
-          <div>
-            <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Enlaces Rápidos</h4>
-            <ul className="space-y-3 text-sm text-gray-400">
-              <li><Link href="#catalogo" className="hover:text-orange-500 transition">Catálogo</Link></li>
-              <li><Link href="/tienda-diaria" className="hover:text-orange-500 transition">Tienda Fortnite</Link></li>
-              <li><Link href="/carrito" className="hover:text-orange-500 transition">Tu Carrito</Link></li>
-              <li><Link href="/mis-pedidos" className="hover:text-orange-500 transition">Mis Pedidos</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Legal & Soporte</h4>
-            <ul className="space-y-3 text-sm text-gray-400">
-              <li><Link href="#" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
-              <li><Link href="#" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
-              <li><a href="https://discord.gg/tu-enlace" target="_blank" rel="noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-gray-500 font-medium">&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados.</p>
-        </div>
+      {/* FOOTER BÁSICO */}
+      <footer className="bg-[#050505] py-10 px-6 border-t border-white/5 text-center text-sm text-gray-500">
+        <p>&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados. Operamos de forma independiente a Epic Games.</p>
       </footer>
     </div>
   );
