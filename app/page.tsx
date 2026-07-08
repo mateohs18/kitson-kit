@@ -263,10 +263,16 @@ export default function Home() {
       <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10 mt-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
           <div className="md:col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-8 h-8 rounded-full" />
-              <span className="text-xl font-black tracking-tighter text-white">Kitson <span className="text-orange-500">Kit</span></span>
-            </Link>
+            <Link href="/" className="flex items-center gap-3 group">
+  <img 
+    src="/kitsonkit.png" 
+    alt="Logo Kitson Kit" 
+    className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-orange-500 transition duration-300 object-cover" 
+  />
+  <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80 hidden sm:block">
+    Kitson <span className="text-orange-500">Kit</span>
+  </span>
+</Link>
             <p className="text-gray-400 text-sm max-w-sm leading-relaxed mb-6">
               Tu tienda de confianza para recargas, cosméticos y suscripciones. Operamos de forma 100% legal y segura para proteger tu cuenta en todo momento.
             </p>
