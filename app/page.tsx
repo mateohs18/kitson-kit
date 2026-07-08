@@ -29,6 +29,7 @@ export default function Home() {
   const { data: session } = useSession();
   
   const [products, setProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]); // NUEVO ESTADO PARA RESEÑAS
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -41,10 +42,13 @@ export default function Home() {
       if (productsData) setProducts(productsData);
 
       const { count: ordersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
-      const { data: reviewsData } = await supabase.from('reviews').select('rating');
+      
+      // CARGAMOS LAS RESEÑAS CON SUS COMENTARIOS Y NOMBRES
+      const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(6);
       
       let avg = 5.0; let revCount = 0;
       if (reviewsData && reviewsData.length > 0) {
+        setReviews(reviewsData); // Guardamos las reseñas en pantalla
         revCount = reviewsData.length;
         avg = reviewsData.reduce((acc, curr) => acc + curr.rating, 0) / revCount;
       }
@@ -65,7 +69,6 @@ export default function Home() {
       
       <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
 
-      {/* NAVBAR CENTRADA PERFECTAMENTE */}
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
@@ -111,22 +114,6 @@ export default function Home() {
         </div>
       </header>
 
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#111] border-b border-white/10 flex flex-col p-6 gap-6 absolute w-full z-40">
-          <Link href="/" className="text-lg font-bold">Inicio</Link>
-          <Link href="#catalogo" className="text-lg font-bold">Catálogo</Link>
-          <Link href="/tienda-diaria" className="text-lg font-bold">Tienda Fortnite</Link>
-          <Link href="#soporte" className="text-lg font-bold">Soporte</Link>
-          <div className="pt-4 border-t border-white/10"><CurrencySelector /></div>
-          {!session && (
-            <button onClick={() => signIn('discord')} className="bg-[#5865F2] text-white text-center py-3 rounded-xl font-black">
-              Iniciar sesión con Discord
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* HERO SECTION */}
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-20 md:py-32 z-10">
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
           El Siguiente Nivel <br/>
@@ -142,7 +129,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* ESTADÍSTICAS */}
       <section className="border-y border-white/5 bg-[#080808]/50 backdrop-blur-lg relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/5 max-w-7xl mx-auto">
           <div className="p-8 text-center flex flex-col items-center">
@@ -171,7 +157,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CARACTERÍSTICAS */}
       <section id="soporte" className="relative z-10 py-16 bg-[#050505]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto px-6 text-center">
           <div className="flex flex-col items-center">
@@ -192,7 +177,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CATÁLOGO DINÁMICO */}
       <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
         <div className="flex items-center gap-3 mb-12">
           <PackageSearch className="text-orange-500" size={28} />
@@ -230,8 +214,39 @@ export default function Home() {
         )}
       </section>
 
-      {/* PREGUNTAS FRECUENTES (FAQ) RESTAURADO */}
-      <section id="faq" className="max-w-4xl mx-auto px-6 py-24 relative z-10">
+      {/* NUEVA SECCIÓN DE RESEÑAS REALES */}
+      {reviews.length > 0 && (
+        <section id="reseñas" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-black mb-4">Lo que dicen nuestros Gamers</h2>
+            <p className="text-gray-400">Reseñas reales de clientes que ya subieron de nivel con nosotros.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {reviews.map((r, idx) => (
+              <div key={idx} className="bg-[#0A0A0A] border border-white/5 p-8 rounded-3xl relative hover:border-white/10 transition">
+                <div className="flex gap-1 mb-6">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={18} className={i < r.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-700"} />
+                  ))}
+                </div>
+                <p className="text-gray-300 italic mb-6 text-sm leading-relaxed">"{r.comment}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-orange-500/20 text-orange-500 rounded-full flex items-center justify-center font-black text-lg">
+                    {r.user_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-sm">{r.user_name}</p>
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Comprador Verificado</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section id="faq" className="max-w-4xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-black mb-4">Preguntas Frecuentes</h2>
           <p className="text-gray-400">Todo lo que necesitas saber sobre cómo funciona Kitson Kit.</p>
@@ -255,7 +270,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER RESTAURADO */}
       <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10 mt-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
           <div className="md:col-span-2">
