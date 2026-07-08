@@ -38,11 +38,16 @@ export default function Home() {
       {/* BARRA DE NAVEGACIÓN GLOBAL */}
       <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center justify-between w-full md:w-auto">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80">
-              Kitson <span className="text-orange-500">Kit</span>
-            </span>
-          </Link>
+          <Link href="/" className="flex items-center gap-3 group">
+  <img 
+    src="/kitsonkit.png" 
+    alt="Logo Kitson Kit" 
+    className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-orange-500 transition duration-300 object-cover" 
+  />
+  <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80 hidden sm:block">
+    Kitson <span className="text-orange-500">Kit</span>
+  </span>
+</Link>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-gray-400">
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
