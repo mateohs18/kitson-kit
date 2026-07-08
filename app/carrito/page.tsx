@@ -6,13 +6,15 @@ import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { supabase } from '../../lib/supabase';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
 import { 
-  Gamepad2, Loader2, FileImage, CheckCircle2, Trash2
+  ShoppingCart, Trash2, Gamepad2, LogOut, 
+  Loader2, FileImage, CheckCircle2 
 } from 'lucide-react';
 
 export default function CartPage() {
   const { cart, removeFromCart, clearCart, totalPrice, totalItems } = useCartStore();
+  
   const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
 
@@ -45,7 +47,7 @@ export default function CartPage() {
         .from('comprobantes')
         .upload(fileName, receiptFile);
 
-      if (uploadError) throw new Error("Error al subir imagen. Revisa que el bucket 'comprobantes' exista y sea público.");
+      if (uploadError) throw new Error("Error al subir imagen. Revisa que el bucket 'comprobantes' exista y sea público en Supabase.");
 
       const { data: publicUrlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
       const proofUrl = publicUrlData.publicUrl;
@@ -80,15 +82,29 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500">
-      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
-        <Link href="/" className="flex items-center gap-3">
-          <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-full object-cover" />
+      {/* NAVBAR UNIFICADA (Igual a la página principal) */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
+        <Link href="/" className="flex items-center gap-3 mb-4 md:mb-0">
+          <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-full object-cover border border-white/10" />
           <span className="text-2xl font-black text-white hidden sm:block">Kitson <span className="text-orange-500">Kit</span></span>
         </Link>
         
         <div className="flex items-center gap-4">
           <CurrencySelector />
-          <Link href="/mis-pedidos" className="text-sm font-bold text-gray-400 hover:text-white transition">Mis Pedidos</Link>
+          
+          {session ? (
+            <div className="flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
+              <Link href="/mis-pedidos" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition">
+                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
+                <span className="text-sm font-bold text-gray-200 hidden sm:block">{session.user?.name}</span>
+              </Link>
+              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
+            </div>
+          ) : (
+            <button onClick={() => signIn('discord')} className="bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black transition">
+              Login
+            </button>
+          )}
         </div>
       </header>
 
@@ -104,8 +120,18 @@ export default function CartPage() {
               Ver mis pedidos
             </Link>
           </div>
+        ) : cart.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 bg-[#0A0A0A] border border-white/5 rounded-3xl">
+            <ShoppingCart size={64} strokeWidth={1} className="text-gray-600 mb-6" />
+            <h2 className="text-2xl font-bold mb-2">Tu carrito está vacío</h2>
+            <p className="text-gray-500 mb-8 max-w-md text-center">Explora nuestro catálogo para empezar a armar tu pedido.</p>
+            <Link href="/#catalogo" className="bg-white/5 hover:bg-white/10 text-white px-8 py-3 rounded-full font-bold transition border border-white/10">
+              Ver Catálogo
+            </Link>
+          </div>
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
+            {/* COLUMNA IZQUIERDA */}
             <div className="flex-1 space-y-6">
               <div className="bg-[#0A0A0A] p-6 rounded-3xl border border-white/5">
                 <h3 className="text-xl font-black mb-4 flex items-center gap-2"><Gamepad2 className="text-orange-500"/> 1. Cuenta Destino</h3>
@@ -119,8 +145,9 @@ export default function CartPage() {
               </div>
 
               <div className="bg-[#0A0A0A] p-6 rounded-3xl border border-white/5">
-                <div className="flex justify-between mb-4">
+                <div className="flex justify-between mb-4 items-center">
                   <h3 className="text-xl font-black">2. Resumen ({totalItems()})</h3>
+                  <button onClick={clearCart} className="text-xs font-bold text-red-500 hover:text-red-400">Vaciar Todo</button>
                 </div>
                 <div className="space-y-3">
                   {cart.map((item) => (
@@ -129,7 +156,7 @@ export default function CartPage() {
                         <h4 className="font-bold text-sm">{item.name} <span className="text-gray-500">x{item.quantity}</span></h4>
                       </div>
                       <p className="font-black">${(item.price * item.quantity).toFixed(2)} USD</p>
-                      <button onClick={() => removeFromCart(item.id)} className="text-red-500/50 hover:text-red-500 p-2">
+                      <button onClick={() => removeFromCart(item.id)} className="text-red-500/50 hover:text-red-500 p-2 transition">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -138,6 +165,7 @@ export default function CartPage() {
               </div>
             </div>
 
+            {/* COLUMNA DERECHA: PAGOS */}
             <div className="w-full lg:w-[450px]">
               <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-3xl sticky top-24">
                 <h2 className="text-2xl font-black mb-6">3. Pago Final</h2>
@@ -174,11 +202,12 @@ export default function CartPage() {
                   />
                 </div>
 
+                {/* BOTÓN RESTAURADO Y FUNCIONAL */}
                 {session ? (
                   <button 
                     onClick={handleCheckout}
                     disabled={isProcessing}
-                    className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2"
+                    className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2 transition"
                   >
                     {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Subiendo imagen...</> : "Confirmar Pago Manual"}
                   </button>
