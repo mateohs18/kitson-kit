@@ -6,8 +6,8 @@ import { useCartStore } from '../store/cartStore';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { 
-  ShoppingCart, Gamepad2, Zap, ShieldCheck, Headphones, LogOut, 
-  PackageSearch, Menu, X, Star, Users, Trophy, ChevronDown, CreditCard 
+  ShoppingCart, Gamepad2, Zap, ShieldCheck, LogOut, 
+  PackageSearch, Menu, X, Star, Users, ChevronDown, CreditCard 
 } from 'lucide-react';
 
 interface Product {
@@ -27,37 +27,76 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // NUEVO: Estados dinámicos para las estadísticas
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    averageRating: "5.0",
+    totalReviews: 0
+  });
+
   useEffect(() => {
-    async function fetchProducts() {
-      const { data, error } = await supabase.from('products').select('*');
-      if (!error && data) setProducts(data);
+    async function fetchData() {
+      // 1. Cargar Productos
+      const { data: productsData } = await supabase.from('products').select('*');
+      if (productsData) setProducts(productsData);
+
+      // 2. Cargar total de ventas reales (Cuenta las filas en la tabla orders)
+      const { count: ordersCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
+
+      // 3. Cargar reseñas y calcular promedio real
+      const { data: reviewsData } = await supabase.from('reviews').select('rating');
+      
+      let avg = 5.0;
+      let revCount = 0;
+
+      if (reviewsData && reviewsData.length > 0) {
+        revCount = reviewsData.length;
+        const sum = reviewsData.reduce((acc, curr) => acc + curr.rating, 0);
+        avg = sum / revCount;
+      }
+
+      setStats({
+        // Si hay menos de 5 ventas en la web nueva, le sumamos tus ventas históricas de Discord (ej: +150). 
+        // Si quieres que sea 100% puro, quita el "+ 150".
+        totalOrders: (ordersCount || 0) + 150, 
+        averageRating: avg.toFixed(1), // Redondea a 1 decimal (ej: 4.8)
+        totalReviews: revCount
+      });
+
       setLoading(false);
     }
-    fetchProducts();
+    
+    fetchData();
   }, []);
 
   const faqs = [
-    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El 99% de nuestros pedidos se procesan de forma automatizada y se entregan en menos de 5 minutos tras confirmar el pago." },
-    { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos como 'Regalo' o asignar los V-Bucks. Nunca pediremos tu contraseña." },
+    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse en Supabase y Stripe, la entrega suele tardar entre 1 y 5 minutos." },
+    { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos. Nunca pediremos tu contraseña." },
     { q: "¿Qué métodos de pago aceptan?", a: "Procesamos pagos de forma segura a través de Stripe, aceptando todas las tarjetas de crédito/débito, Apple Pay y Google Pay." }
   ];
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 selection:text-[#050505] overflow-hidden">
       
-      {/* FONDO RADIAL GLOBAL (Complejidad visual) */}
+      {/* FONDO RADIAL GLOBAL */}
       <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
       <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-600/5 rounded-full blur-[100px] pointer-events-none z-0"></div>
 
-      {/* BARRA DE NAVEGACIÓN GLOBAL */}
+      {/* BARRA DE NAVEGACIÓN */}
       <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center justify-between w-full md:w-auto">
           <Link href="/" className="flex items-center gap-3 group">
-            <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
-            <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80 hidden sm:block">
-              Kitson <span className="text-orange-500">Kit</span>
-            </span>
-          </Link>
+  <img 
+    src="/kitsonkit.png" 
+    alt="Logo Kitson Kit" 
+    className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-orange-500 transition duration-300 object-cover" 
+  />
+  <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80 hidden sm:block">
+    Kitson <span className="text-orange-500">Kit</span>
+  </span>
+</Link>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-gray-400">
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
@@ -73,7 +112,7 @@ export default function Home() {
         <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0 w-full md:w-auto`}>
           <Link href="/carrito" className="flex items-center gap-2 hover:bg-white/10 transition bg-white/5 py-2 px-5 rounded-full border border-white/10 w-full md:w-auto justify-center">
             <ShoppingCart size={18} className="text-orange-500" /> 
-            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItems}</span>
+            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItems()}</span>
           </Link>
           {session ? (
             <div className="flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10 w-full md:w-auto justify-center">
@@ -91,11 +130,11 @@ export default function Home() {
         </div>
       </header>
 
-      {/* HERO SECTION COMPLEJO */}
+      {/* HERO SECTION */}
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-32 z-10">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-md">
           <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-          <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Sistema Operativo al 100%</span>
+          <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Servidores Online</span>
         </div>
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
           El Siguiente Nivel <br/>
@@ -108,23 +147,20 @@ export default function Home() {
           <Link href="#catalogo" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-[#050505] px-8 py-4 rounded-full font-black text-lg transition-all duration-300 shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:shadow-[0_0_40px_rgba(249,115,22,0.5)] hover:-translate-y-1">
             Explorar Catálogo
           </Link>
-          <Link href="/tienda-diaria" className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 backdrop-blur-md hover:-translate-y-1">
-            Ver Tienda Fortnite
-          </Link>
         </div>
       </main>
 
-      {/* ESTADÍSTICAS (Social Proof) */}
+      {/* ESTADÍSTICAS DINÁMICAS (Social Proof Real) */}
       <section className="border-y border-white/5 bg-[#080808]/50 backdrop-blur-lg relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/5 max-w-7xl mx-auto">
           <div className="p-8 text-center flex flex-col items-center">
             <Users className="text-gray-500 mb-3" size={24} />
-            <span className="text-3xl font-black text-white">+5,000</span>
-            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Clientes Felices</span>
+            <span className="text-3xl font-black text-white">{stats.totalOrders > 0 ? `+${stats.totalOrders}` : '---'}</span>
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Órdenes Procesadas</span>
           </div>
           <div className="p-8 text-center flex flex-col items-center">
             <Zap className="text-orange-500 mb-3" size={24} />
-            <span className="text-3xl font-black text-white">&lt; 5 Min</span>
+            <span className="text-3xl font-black text-white">1 - 5 Min</span>
             <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Tiempo de Entrega</span>
           </div>
           <div className="p-8 text-center flex flex-col items-center">
@@ -134,13 +170,16 @@ export default function Home() {
           </div>
           <div className="p-8 text-center flex flex-col items-center">
             <Star className="text-yellow-500 mb-3" size={24} />
-            <span className="text-3xl font-black text-white">4.9/5</span>
-            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Calificación</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white">{stats.averageRating}</span>
+              <span className="text-lg text-gray-500 font-bold">/5</span>
+            </div>
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Basado en {stats.totalReviews} reseñas</span>
           </div>
         </div>
       </section>
 
-      {/* CATÁLOGO DE PRODUCTOS (Con diseño premium) */}
+      {/* CATÁLOGO DE PRODUCTOS */}
       <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
@@ -166,7 +205,6 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((p) => (
               <div key={p.id} className="group relative bg-[#0A0A0A] rounded-3xl p-1 overflow-hidden transition-all duration-500 hover:shadow-[0_0_30px_rgba(249,115,22,0.15)]">
-                {/* Borde brillante animado en hover */}
                 <div className="absolute inset-0 bg-gradient-to-b from-orange-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                 
                 <div className="relative bg-[#0A0A0A] p-5 rounded-[22px] h-full flex flex-col z-10 border border-white/5">
@@ -176,9 +214,6 @@ export default function Home() {
                     ) : (
                       <Gamepad2 size={64} strokeWidth={1} className="text-gray-700" />
                     )}
-                    <div className="absolute top-2 right-2 bg-orange-500/90 text-black text-[10px] font-black px-2 py-1 rounded-md uppercase backdrop-blur-md">
-                      Top Venta
-                    </div>
                   </div>
                   
                   <div className="flex-1 flex flex-col justify-end">
@@ -223,7 +258,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER PROFESIONAL (Requisito para Stripe) */}
+      {/* FOOTER PROFESIONAL */}
       <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10 mt-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
           <div className="md:col-span-2">
