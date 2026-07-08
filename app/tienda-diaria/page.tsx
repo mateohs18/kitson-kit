@@ -9,13 +9,11 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
 
 const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
-  const isBundle = !!entry.bundle;
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
-  // 1. FILTRADO ESTRICTO: Buscar específicamente el "Outfit" (La Skin principal) o quedarse con el primer objeto.
+  // Extraemos la skin principal (outfit) o el primer item si no hay skin.
   const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
-  
-  const name = isBundle ? entry.bundle?.name : (mainItem?.name || mainItem?.title || 'Cosmético');
+  const name = entry.bundle?.name || mainItem?.name || mainItem?.title || 'Cosmético';
   const id = mainItem?.id || `bundle-${Math.random()}`;
   
   const rarityValue = mainItem?.rarity?.value || 'common';
@@ -33,26 +31,35 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   };
   const bgGradient = getRarityGradient(rarityValue);
 
-  // 2. EXTRACCIÓN LIMPIA DE ESTILOS (Solo de mainItem, sin mochilas ni picos)
+  // ===============================================
+  // EXTRACCIÓN AVANZADA DE IMÁGENES (ESTILOS REALES)
+  // ===============================================
   let allImages: string[] = [];
   
-  // A) Imagen Base
-  if (mainItem?.images?.featured) allImages.push(mainItem.images.featured);
-  else if (mainItem?.images?.icon) allImages.push(mainItem.images.icon);
-  else if (entry.bundle?.image) allImages.push(entry.bundle.image); // Fallback si es un lote raro
+  // 1. Buscamos el render oficial de alta calidad de la tienda (newDisplayAsset)
+  if (entry.newDisplayAsset?.materialInstances) {
+    entry.newDisplayAsset.materialInstances.forEach((mi: any) => {
+      if (mi.images?.OfferImage) allImages.push(mi.images.OfferImage);
+    });
+  }
+
+  // 2. Si no hay render de tienda, usamos el ícono base
+  if (allImages.length === 0) {
+    if (mainItem?.images?.featured) allImages.push(mainItem.images.featured);
+    else if (mainItem?.images?.icon) allImages.push(mainItem.images.icon);
+  }
   
-  // B) Versión LEGO
+  // 3. Extraemos el estilo LEGO
   if (mainItem?.images?.lego?.large) allImages.push(mainItem.images.lego.large);
-  else if (typeof mainItem?.images?.lego === 'string') allImages.push(mainItem.images.lego);
   
-  // C) Estilos Seleccionables (Colores, Máscaras, etc.)
+  // 4. Extraemos estilos seleccionables (ej. Skin con máscara / sin máscara, colores)
   if (mainItem?.styles) {
     mainItem.styles.forEach((style: any) => {
       if (style.image) allImages.push(style.image);
     });
   }
-  
-  // Limpiar duplicados y nulos
+
+  // Limpiamos duplicados
   allImages = Array.from(new Set(allImages)).filter(Boolean);
 
   const [currentImgIdx, setCurrentImgIdx] = useState(0);
@@ -63,7 +70,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
     if (isHovered && allImages.length > 1) {
       interval = setInterval(() => {
         setCurrentImgIdx((prev) => (prev + 1) % allImages.length);
-      }, 1000); 
+      }, 1200); 
     } else {
       setCurrentImgIdx(0);
     }
@@ -78,23 +85,25 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
 
   return (
     <div 
-      className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative aspect-[4/5] shadow-lg"
+      className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative aspect-[4/5] shadow-lg cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] })}
     >
       <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
       
-      <div className="flex-1 w-full relative flex items-center justify-center p-6 z-10">
+      {/* IMAGEN GRANDE SIN PADDING AL ESTILO FORTNITE */}
+      <div className="flex-1 w-full relative flex items-center justify-center z-10 overflow-hidden">
         <img 
           src={displayImage} 
           alt={name} 
           loading="lazy" 
           decoding="async"
-          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl" 
+          className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl scale-[1.15]" 
         />
         
         {allImages.length > 1 && (
-          <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-md text-[10px] font-bold px-2 py-1 rounded-full border border-white/10 text-gray-300 z-40">
+          <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/10 text-white z-40">
             {allImages.length} Estilos
           </div>
         )}
@@ -108,15 +117,14 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </div>
       </div>
       
-      {/* BOTÓN CHIQUITO AÑADIR */}
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
+      {/* BOTÓN FLOTANTE */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
         <button
           onClick={(e) => {
-            e.preventDefault();
             e.stopPropagation();
             addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] });
           }}
-          className="bg-orange-500 hover:bg-orange-400 text-black p-2 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center border-2 border-[#0f0f0f]"
+          className="bg-orange-500 hover:bg-orange-400 text-black p-2 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center"
           title="Añadir al carrito"
         >
           <ShoppingCart size={16} />

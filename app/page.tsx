@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { 
   ShoppingCart, Gamepad2, Zap, ShieldCheck, Headphones, LogOut, 
   PackageSearch, Menu, X, Star, Wallet, Flame, BellRing, 
-  Search, ChevronDown, CheckCircle2, MessageSquare, Shield
+  Search, ChevronDown, CheckCircle2, MessageSquare, Shield, CreditCard
 } from 'lucide-react';
 
 interface Product { id: string; name: string; price: number; image_url?: string; }
@@ -28,9 +28,16 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // NOTIFICACIÓN EN VIVO
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
+
+  const faqs = [
+    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse tu comprobante de pago, la entrega suele tardar entre 1 y 5 minutos." },
+    { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos pagos manuales directos en tu moneda local: Binance, Yape, Nequi, Transferencia Bancaria y Oxxo." },
+    { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos. Nunca pediremos tu contraseña." }
+  ];
 
   useEffect(() => {
     async function fetchData() {
@@ -51,41 +58,27 @@ export default function Home() {
     }
     fetchData();
 
-    // =======================================================
-    // SISTEMA DE NOTIFICACIONES 100% EN TIEMPO REAL
-    // =======================================================
+    // SUSCRIPCIÓN EN TIEMPO REAL A SUPABASE
     const channel = supabase
       .channel('realtime-orders')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
-          // Esto se ejecuta SOLAMENTE cuando alguien hace un pedido nuevo
           const newOrder = payload.new;
           const itemName = newOrder.items && newOrder.items.length > 0 ? newOrder.items[0].name : 'Recarga de Saldo';
-          
           setLivePurchase({ name: newOrder.user_name || 'Gamer Anónimo', item: itemName });
-          
-          // Oculta la notificación después de 6 segundos
-          setTimeout(() => {
-            setLivePurchase(null);
-          }, 6000);
+          setTimeout(() => setLivePurchase(null), 6000);
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
   reviews.forEach(r => { if(ratingCounts[r.rating as keyof typeof ratingCounts] !== undefined) ratingCounts[r.rating as keyof typeof ratingCounts]++; });
   const filteredReviews = reviews.filter(r => r.comment.toLowerCase().includes(searchReview.toLowerCase()) || r.user_name.toLowerCase().includes(searchReview.toLowerCase()));
-
-  const handleWriteReview = () => {
-    alert("¡Para mantener 100% la autenticidad, todas las reseñas se escriben y verifican a través de nuestro servidor oficial de Discord!");
-  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 overflow-hidden relative">
@@ -127,26 +120,16 @@ export default function Home() {
         </div>
       </header>
 
-      {/* POP-UP DE COMPRA 100% REAL */}
       <div className={`fixed bottom-6 left-6 z-[120] glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-l-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.2)] transition-all duration-700 ${livePurchase ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
         <div className="bg-orange-500/20 p-2 rounded-full"><BellRing size={20} className="text-orange-500 animate-bounce" /></div>
         <div>
-          <p className="text-sm text-gray-300"><span className="font-bold text-white">{livePurchase?.name}</span> acaba de comprar</p>
+          <p className="text-sm text-gray-300"><span className="font-bold text-white">{livePurchase?.name}</span> acaba de adquirir</p>
           <p className="text-sm font-black text-orange-400">{livePurchase?.item}</p>
         </div>
       </div>
 
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
-        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)]"></div>
-          <div className="absolute w-[600px] h-[300px] bg-orange-600/10 blur-[120px] rounded-full"></div>
-        </div>
-
         <div className="relative z-10 flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel mb-8 border border-white/10 text-orange-500">
-            <Flame size={14} className="animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest">Tienda Nº1 en Seguridad</span>
-          </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
             El Siguiente Nivel <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
@@ -199,10 +182,9 @@ export default function Home() {
 
       <section id="reseñas" className="px-6 py-24 relative z-10 border-t border-white/5 bg-gradient-to-b from-[#050505] to-[#0A0A0A]">
         <div className="max-w-7xl mx-auto">
-          
           <div className="mb-12 border-l-4 border-orange-500 pl-6">
             <h2 className="text-4xl md:text-5xl font-black text-white leading-tight uppercase italic tracking-widest drop-shadow-md">Nuestra Squad <br/><span className="text-orange-500">de Leyendas</span></h2>
-            <p className="text-gray-400 mt-4 max-w-xl font-medium">No confíes solo en nuestras stats. Lee las opiniones reales de los gamers que ya aseguraron su cuenta y subieron al siguiente nivel con nosotros.</p>
+            <p className="text-gray-400 mt-4 max-w-xl font-medium">Lee las opiniones reales de los gamers que ya aseguraron su cuenta con nosotros.</p>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-10">
@@ -217,7 +199,7 @@ export default function Home() {
                       <Star key={i} size={18} className={i <= Math.round(stats.averageRating) ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
                     ))}
                   </div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{stats.totalReviews} REVIEWS REALES</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{stats.totalReviews} REVIEWS</p>
                 </div>
               </div>
 
@@ -237,14 +219,9 @@ export default function Home() {
                 })}
               </div>
 
-              <button onClick={handleWriteReview} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10 hover:border-orange-500">
+              <button onClick={() => alert("¡Escribe tu reseña verificada en nuestro Discord Oficial!")} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10">
                 <MessageSquare size={18} /> Dejar mi Reseña
               </button>
-
-              <div className="space-y-4 text-sm font-bold text-gray-400">
-                <p className="flex items-center gap-3"><Shield size={18} className="text-orange-500"/> Trust Score: 100%</p>
-                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-orange-500"/> Transacciones Blindadas</p>
-              </div>
             </div>
 
             <div className="flex-1">
@@ -256,22 +233,14 @@ export default function Home() {
                     placeholder="Buscar por usuario o palabra..." 
                     value={searchReview}
                     onChange={(e) => setSearchReview(e.target.value)}
-                    className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50 transition-colors"
+                    className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50"
                   />
-                </div>
-                <div className="relative min-w-[200px]">
-                  <select className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 px-4 text-white appearance-none focus:outline-none focus:border-orange-500/50 font-bold cursor-pointer">
-                    <option>Más Recientes</option>
-                    <option>Top Valoradas</option>
-                  </select>
-                  <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 </div>
               </div>
 
               <div className="space-y-4">
                 {filteredReviews.length > 0 ? filteredReviews.map((r, idx) => (
                   <div key={idx} className="bg-[#0f0f0f] border border-white/5 p-6 rounded-2xl hover:border-white/10 transition-colors relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/5 rounded-bl-full -z-0"></div>
                     <div className="flex items-start justify-between mb-4 relative z-10">
                       <div className="flex items-center gap-3">
                         <div className="relative">
@@ -285,26 +254,21 @@ export default function Home() {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-bold text-white text-lg">{r.user_name}</span>
-                            <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1">
-                              Verificado
-                            </span>
+                            <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-md">Verificado</span>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <div className="flex gap-0.5">
-                              {[...Array(5)].map((_, i) => (
-                                <Star key={i} size={14} className={i < r.rating ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
-                              ))}
-                            </div>
+                          <div className="flex gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} size={14} className={i < r.rating ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
+                            ))}
                           </div>
                         </div>
                       </div>
                     </div>
-                    
                     <p className="text-gray-300 leading-relaxed font-medium relative z-10 italic">"{r.comment}"</p>
                   </div>
                 )) : (
                   <div className="text-center py-12 bg-[#0f0f0f] rounded-2xl border border-white/5 text-gray-500 font-bold">
-                    El radar no encontró reseñas con esa búsqueda.
+                    El radar no encontró reseñas.
                   </div>
                 )}
               </div>
@@ -313,8 +277,68 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-[#050505] py-10 px-6 border-t border-white/5 text-center text-sm text-gray-500">
-        <p>&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados. Operamos de forma independiente a Epic Games.</p>
+      {/* SECCIÓN PREGUNTAS FRECUENTES (FAQ) */}
+      <section id="faq" className="max-w-4xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-black mb-4">Preguntas Frecuentes</h2>
+          <p className="text-gray-400">Todo lo que necesitas saber sobre cómo funciona Kitson Kit.</p>
+        </div>
+        <div className="space-y-4">
+          {faqs.map((faq, idx) => (
+            <div key={idx} className="bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden">
+              <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 text-left focus:outline-none">
+                <span className="font-bold text-lg text-gray-200">{faq.q}</span>
+                <ChevronDown className={`text-orange-500 transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} />
+              </button>
+              <div className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-40 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <p className="text-gray-400 leading-relaxed">{faq.a}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FOOTER PREMIUM */}
+      <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
+          <div className="md:col-span-2">
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-8 h-8 rounded-full" />
+              <span className="text-xl font-black tracking-tighter text-white">Kitson <span className="text-orange-500">Kit</span></span>
+            </Link>
+            <p className="text-gray-400 text-sm max-w-sm leading-relaxed mb-6">
+              Tu tienda de confianza para recargas, cosméticos y suscripciones. Operamos de forma 100% legal y segura para proteger tu cuenta en todo momento.
+            </p>
+            <div className="flex gap-4">
+              <div className="bg-white/5 p-2 rounded-md"><CreditCard size={20} className="text-gray-400" /></div>
+              <div className="bg-white/5 p-2 rounded-md"><ShieldCheck size={20} className="text-gray-400" /></div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Enlaces Rápidos</h4>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li><Link href="#catalogo" className="hover:text-orange-500 transition">Catálogo</Link></li>
+              <li><Link href="/tienda-diaria" className="hover:text-orange-500 transition">Tienda Fortnite</Link></li>
+              <li><Link href="/billetera" className="hover:text-orange-500 transition">Mi Billetera</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Legal & Soporte</h4>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li><Link href="#" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
+              <li><Link href="#" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
+              <li><a href="https://discord.gg/tu-enlace" target="_blank" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto border-t border-white/5 pt-8 text-center">
+          <p className="text-xs text-gray-500 font-medium">
+            &copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados. No afiliados a Epic Games Inc.
+          </p>
+        </div>
       </footer>
     </div>
   );
