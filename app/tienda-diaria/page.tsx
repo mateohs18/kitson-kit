@@ -6,12 +6,115 @@ import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2, LogOut, List } from 'lucide-react';
+import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
 
+// ==========================================
+// COMPONENTE TARJETA DINÁMICA (IMÁGENES AL HOVER)
+// ==========================================
+const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
+  const isBundle = !!entry.bundle;
+  const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
+  
+  // Extraer el nombre principal
+  const name = isBundle ? entry.bundle?.name : (safeItems[0]?.name || safeItems[0]?.title || 'Cosmético');
+  const id = safeItems[0]?.id || `bundle-${Math.random()}`;
+  
+  // Extraer el color según rareza
+  const rarityValue = safeItems[0]?.rarity?.value || 'common';
+  const getRarityGradient = (rarity: string) => {
+    switch (rarity?.toLowerCase()) {
+      case 'legendary': return 'from-orange-600/60 to-transparent';
+      case 'epic': return 'from-purple-600/60 to-transparent';
+      case 'rare': return 'from-blue-500/60 to-transparent';
+      case 'uncommon': return 'from-green-500/60 to-transparent';
+      case 'marvel': return 'from-red-600/60 to-transparent';
+      case 'starwars': return 'from-blue-800/60 to-transparent';
+      case 'icon': return 'from-teal-400/60 to-transparent';
+      default: return 'from-gray-600/60 to-transparent'; 
+    }
+  };
+  const bgGradient = getRarityGradient(rarityValue);
+
+  // Recopilar TODAS las imágenes disponibles para el efecto Hover
+  let allImages: string[] = [];
+  if (entry.bundle?.image) allImages.push(entry.bundle.image);
+  safeItems.forEach((item: any) => {
+    if (item.images?.featured) allImages.push(item.images.featured);
+    if (item.images?.icon) allImages.push(item.images.icon);
+  });
+  // Eliminar duplicados y vacíos
+  allImages = Array.from(new Set(allImages)).filter(Boolean);
+
+  const [currentImgIdx, setCurrentImgIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Lógica de rotación de imágenes al hacer hover
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isHovered && allImages.length > 1) {
+      interval = setInterval(() => {
+        setCurrentImgIdx((prev) => (prev + 1) % allImages.length);
+      }, 1000); // Cambia imagen cada segundo
+    } else {
+      setCurrentImgIdx(0); // Vuelve a la original al quitar cursor
+    }
+    return () => clearInterval(interval);
+  }, [isHovered, allImages.length]);
+
+  if (!name || allImages.length === 0) return null;
+
+  const baseUsdPrice = entry.finalPrice / 100;
+  const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const displayImage = allImages[currentImgIdx];
+
+  return (
+    <div 
+      className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer aspect-[4/5] shadow-lg"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] })}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
+      <div className="flex-1 w-full relative flex items-center justify-center p-6 z-10">
+        <img 
+          src={displayImage} 
+          alt={name} 
+          loading="lazy" 
+          decoding="async"
+          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl" 
+        />
+        {/* Indicador de múltiples estilos */}
+        {allImages.length > 1 && (
+          <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md text-[10px] font-bold px-2 py-1 rounded-full border border-white/10 text-gray-300">
+            {allImages.length} Estilos
+          </div>
+        )}
+      </div>
+      
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20">
+        <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-white font-black text-xl">{activeCurrency.symbol}{localPrice}</span>
+          <span className="text-gray-400 text-xs font-bold mt-1 uppercase">{activeCurrency.currency}</span>
+        </div>
+      </div>
+      
+      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30 backdrop-blur-sm">
+        <span className="bg-orange-500 hover:bg-orange-400 text-[#050505] text-sm font-black px-6 py-3 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+          <ShoppingCart size={18} /> Añadir
+        </span>
+      </div>
+    </div>
+  );
+};
+
+
+// ==========================================
+// PÁGINA PRINCIPAL DE LA TIENDA
+// ==========================================
 export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
   const totalItemsCount = useCartStore((state) => state.totalItems());
-  
   const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
   const { data: session } = useSession();
@@ -19,6 +122,9 @@ export default function TiendaFortnite() {
   const [groupedShop, setGroupedShop] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // ESTADO PARA EL BUSCADOR
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     async function fetchShop() {
@@ -27,7 +133,6 @@ export default function TiendaFortnite() {
         const data = await response.json();
         if (data.status === 200 && data.data?.entries) {
           const groups: Record<string, any[]> = {};
-          
           data.data.entries.forEach((entry: any) => {
             const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
             if (!groups[sectionName]) groups[sectionName] = [];
@@ -44,29 +149,27 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
-  const getRarityGradient = (rarity: string) => {
-    switch (rarity?.toLowerCase()) {
-      case 'legendary': return 'from-orange-600/60 to-transparent';
-      case 'epic': return 'from-purple-600/60 to-transparent';
-      case 'rare': return 'from-blue-500/60 to-transparent';
-      case 'uncommon': return 'from-green-500/60 to-transparent';
-      case 'marvel': return 'from-red-600/60 to-transparent';
-      case 'starwars': return 'from-blue-800/60 to-transparent';
-      case 'icon': return 'from-teal-400/60 to-transparent';
-      default: return 'from-gray-600/60 to-transparent'; 
-    }
-  };
+  // Lógica de filtrado en tiempo real
+  const filteredShop = Object.entries(groupedShop).reduce((acc, [section, items]) => {
+    const filteredItems = items.filter(entry => {
+      const searchLower = searchTerm.toLowerCase();
+      const isBundle = !!entry.bundle;
+      const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
+      const name = isBundle ? entry.bundle?.name : (safeItems[0]?.name || safeItems[0]?.title || '');
+      return name?.toLowerCase().includes(searchLower);
+    });
+    
+    if (filteredItems.length > 0) acc[section] = filteredItems;
+    return acc;
+  }, {} as Record<string, any[]>);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-orange-500 scroll-smooth">
-      
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
             <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
-            <span className="text-2xl font-black tracking-tighter text-white transition group-hover:opacity-80 hidden xl:block">
-              Kitson <span className="text-orange-500">Kit</span>
-            </span>
+            <span className="text-2xl font-black text-white hidden xl:block">Kitson <span className="text-orange-500">Kit</span></span>
           </Link>
         </div>
         
@@ -74,6 +177,7 @@ export default function TiendaFortnite() {
           <Link href="/" className="hover:text-white transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:text-white transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="text-white transition">Tienda Fortnite</Link>
+          <Link href="/billetera" className="hover:text-white transition">Mi Billetera</Link>
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-4">
@@ -87,15 +191,12 @@ export default function TiendaFortnite() {
           {session ? (
             <div className="hidden sm:flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
               <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
-                <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
+                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full" />
               </Link>
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black transition">
-              Login
-            </button>
+            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] px-6 py-2 rounded-full font-black text-sm">Login</button>
           )}
 
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2">
@@ -104,36 +205,39 @@ export default function TiendaFortnite() {
         </div>
       </header>
 
-      {/* MENÚ MÓVIL ARREGLADO */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#0A0A0A] border-b border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] left-0 w-full h-[calc(100vh-73px)] z-[90] overflow-y-auto">
-          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
-          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
-          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
-          <div className="pt-2"><CurrencySelector /></div>
-        </div>
-      )}
-
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
         
+        {/* SIDEBAR - CON BUSCADOR AÑADIDO */}
         {!loading && Object.keys(groupedShop).length > 0 && (
-          <aside className="hidden md:block w-64 shrink-0">
-            <div className="sticky top-28 bg-[#0A0A0A] border border-white/5 rounded-3xl p-6 shadow-2xl">
-              <h3 className="text-white font-black text-lg mb-6 flex items-center gap-2 uppercase tracking-wider">
-                <List size={20} className="text-orange-500"/> Secciones
-              </h3>
-              <ul className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-                {Object.keys(groupedShop).map((section) => (
-                  <li key={section}>
-                    <a 
-                      href={`#${section.replace(/\s+/g, '-')}`} 
-                      className="text-gray-400 hover:text-white hover:text-orange-500 hover:pl-2 transition-all font-bold text-sm block"
-                    >
-                      {section}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+          <aside className="hidden md:block w-72 shrink-0">
+            <div className="sticky top-28 space-y-6">
+              
+              {/* BUSCADOR PREMIUM */}
+              <div className="bg-[#0A0A0A] border border-white/5 rounded-2xl p-2 relative shadow-lg">
+                <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar cosmético..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-[#111] border border-white/5 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50 font-medium transition-colors"
+                />
+              </div>
+
+              <div className="bg-[#0A0A0A] border border-white/5 rounded-3xl p-6 shadow-2xl">
+                <h3 className="text-white font-black text-lg mb-6 flex items-center gap-2 uppercase tracking-wider">
+                  <List size={20} className="text-orange-500"/> Secciones
+                </h3>
+                <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {Object.keys(filteredShop).map((section) => (
+                    <li key={section}>
+                      <a href={`#${section.replace(/\s+/g, '-')}`} className="text-gray-400 hover:text-white hover:text-orange-500 hover:pl-2 transition-all font-bold text-sm block">
+                        {section}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </aside>
         )}
@@ -144,68 +248,31 @@ export default function TiendaFortnite() {
               <Gamepad2 size={64} className="animate-spin text-orange-500 mb-4" />
               <h2 className="text-2xl font-black uppercase italic tracking-widest text-gray-400 animate-pulse">Cargando Tienda...</h2>
             </div>
+          ) : Object.keys(filteredShop).length === 0 ? (
+            <div className="flex flex-col justify-center items-center py-40 bg-[#0A0A0A] rounded-3xl border border-white/5">
+              <Search size={64} className="text-gray-600 mb-4" />
+              <h2 className="text-2xl font-bold text-gray-300">No se encontraron cosméticos</h2>
+              <p className="text-gray-500 mt-2">Intenta buscar con otro nombre.</p>
+              <button onClick={() => setSearchTerm('')} className="mt-6 text-orange-500 font-bold hover:underline">Limpiar búsqueda</button>
+            </div>
           ) : (
             <div className="space-y-20 pb-24">
-              {Object.entries(groupedShop).map(([sectionName, items]) => (
+              {Object.entries(filteredShop).map(([sectionName, items]) => (
                 <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
                   <div className="flex items-center gap-6 mb-8">
-                    <h2 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-widest drop-shadow-md">
-                      {sectionName}
-                    </h2>
+                    <h2 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-widest drop-shadow-md">{sectionName}</h2>
                     <div className="flex-1 h-1 bg-gradient-to-r from-white/20 to-transparent rounded-full"></div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                    {items.map((entry, idx) => {
-                      const isBundle = !!entry.bundle;
-                      const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
-                      const firstItem = safeItems[0];
-                      
-                      const name = isBundle ? entry.bundle?.name : (firstItem?.name || firstItem?.title || 'Cosmético');
-                      const imageUrl = isBundle ? entry.bundle?.image : (firstItem?.images?.featured || firstItem?.images?.icon || firstItem?.albumArt);
-                      const id = firstItem?.id || `bundle-${idx}`;
-                      const rarityValue = firstItem?.rarity?.value || 'common';
-                      const bgGradient = getRarityGradient(rarityValue);
-
-                      if (!name || !imageUrl) return null;
-
-                      const baseUsdPrice = entry.finalPrice / 100;
-                      const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-                      return (
-                        <div 
-                          key={`${id}-${idx}`} 
-                          className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer aspect-[4/5] shadow-lg"
-                          onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: imageUrl })}
-                        >
-                          <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
-                          <div className="flex-1 w-full relative flex items-center justify-center p-6 z-10">
-                            {/* OPTIMIZACIÓN: LAZY LOADING Y ASYNC APLICADO AQUÍ */}
-                            <img 
-                              src={imageUrl} 
-                              alt={name} 
-                              loading="lazy" 
-                              decoding="async"
-                              className="w-full h-full object-contain group-hover:scale-110 transition duration-500 drop-shadow-2xl" 
-                            />
-                          </div>
-                          
-                          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20">
-                            <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className="text-white font-black text-xl">{activeCurrency.symbol}{localPrice}</span>
-                              <span className="text-gray-400 text-xs font-bold mt-1 uppercase">{activeCurrency.currency}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30 backdrop-blur-sm">
-                            <span className="bg-orange-500 hover:bg-orange-400 text-[#050505] text-sm font-black px-6 py-3 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                              <ShoppingCart size={18} /> Añadir
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {items.map((entry, idx) => (
+                      <FortniteItemCard 
+                        key={`${entry.bundle?.name || idx}-${idx}`} 
+                        entry={entry} 
+                        activeCurrency={activeCurrency} 
+                        addToCart={addToCart} 
+                      />
+                    ))}
                   </div>
                 </section>
               ))}

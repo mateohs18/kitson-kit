@@ -9,7 +9,8 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { 
   ShoppingCart, Gamepad2, Zap, ShieldCheck, Headphones, LogOut, 
-  PackageSearch, Menu, X, Star, Users, Wallet
+  PackageSearch, Menu, X, Star, Users, Wallet, Flame, BellRing, 
+  Search, ChevronDown, CheckCircle2, PenLine, CalendarCheck
 } from 'lucide-react';
 
 interface Product { id: string; name: string; price: number; image_url?: string; }
@@ -25,15 +26,27 @@ export default function Home() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [stats, setStats] = useState({ totalOrders: 0, averageRating: "5.0", totalReviews: 0 });
+  const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
+  const [searchReview, setSearchReview] = useState('');
+
+  // NOTIFICACIONES CON DATOS REALES DE SUPABASE
+  const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
 
   useEffect(() => {
     async function fetchData() {
+      // 1. Cargar productos
       const { data: productsData } = await supabase.from('products').select('*');
       if (productsData) setProducts(productsData);
 
-      const { count: ordersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
-      const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(6);
+      // 2. Cargar órdenes para estadísticas y para el Pop-up de compras reales
+      const { data: ordersData, count: ordersCount } = await supabase
+        .from('orders')
+        .select('user_name, items', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // 3. Cargar reseñas
+      const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
       
       let avg = 5.0; let revCount = 0;
       if (reviewsData && reviewsData.length > 0) {
@@ -41,15 +54,34 @@ export default function Home() {
         revCount = reviewsData.length;
         avg = reviewsData.reduce((acc, curr) => acc + curr.rating, 0) / revCount;
       }
-      setStats({ totalOrders: (ordersCount || 0) + 150, averageRating: avg.toFixed(1), totalReviews: revCount });
+      setStats({ totalOrders: (ordersCount || 0) + 150, averageRating: avg, totalReviews: revCount });
       setLoading(false);
+
+      // 4. Iniciar ciclo de notificaciones reales
+      if (ordersData && ordersData.length > 0) {
+        let idx = 0;
+        const interval = setInterval(() => {
+          const order = ordersData[idx];
+          const itemName = order.items && order.items.length > 0 ? order.items[0].name : 'Recarga de Saldo';
+          
+          setLivePurchase({ name: order.user_name || 'Gamer Anónimo', item: itemName });
+          setTimeout(() => setLivePurchase(null), 5000); // Ocultar a los 5 segundos
+          
+          idx = (idx + 1) % ordersData.length;
+        }, 12000); // Mostrar nueva compra cada 12 segundos
+        return () => clearInterval(interval);
+      }
     }
     fetchData();
   }, []);
 
+  // Cálculos para las barras de progreso de reseñas
+  const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  reviews.forEach(r => { if(ratingCounts[r.rating as keyof typeof ratingCounts] !== undefined) ratingCounts[r.rating as keyof typeof ratingCounts]++; });
+  const filteredReviews = reviews.filter(r => r.comment.toLowerCase().includes(searchReview.toLowerCase()) || r.user_name.toLowerCase().includes(searchReview.toLowerCase()));
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 overflow-hidden relative">
-      
       <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
 
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
@@ -61,7 +93,7 @@ export default function Home() {
         </div>
         
         <nav className="hidden lg:flex flex-1 justify-center gap-8 font-medium text-sm text-gray-400">
-          <Link href="/" className="hover:text-white transition">Inicio</Link>
+          <Link href="/" className="text-white transition">Inicio</Link>
           <Link href="#catalogo" className="hover:text-white transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:text-white transition">Tienda Fortnite</Link>
           <Link href="/billetera" className="hover:text-white transition">Mi Billetera</Link>
@@ -82,11 +114,20 @@ export default function Home() {
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] px-6 py-2 rounded-full font-black text-sm">Login</button>
+            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] px-6 py-2 rounded-full font-black text-sm transition">Login</button>
           )}
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2"><Menu size={28} /></button>
         </div>
       </header>
+
+      {/* NOTIFICACIÓN FLOTANTE DE COMPRA EN VIVO (DATOS REALES) */}
+      <div className={`fixed bottom-6 left-6 z-[120] glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-l-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.2)] transition-all duration-700 ${livePurchase ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
+        <div className="bg-orange-500/20 p-2 rounded-full"><BellRing size={20} className="text-orange-500 animate-bounce" /></div>
+        <div>
+          <p className="text-sm text-gray-300"><span className="font-bold text-white">{livePurchase?.name}</span> acaba de adquirir</p>
+          <p className="text-sm font-black text-orange-400">{livePurchase?.item}</p>
+        </div>
+      </div>
 
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
@@ -95,6 +136,10 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel mb-8 border border-white/10 text-orange-500">
+            <Flame size={14} className="animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-widest">Tienda Nº1 en Seguridad</span>
+          </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
             El Siguiente Nivel <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
@@ -106,32 +151,15 @@ export default function Home() {
             <Link href="#catalogo" className="bg-gradient-to-r from-orange-500 to-orange-600 text-black px-8 py-4 rounded-full font-black text-lg transition-all hover:scale-105">
               Explorar Catálogo
             </Link>
+            <Link href="/tienda-diaria" className="glass-panel hover:bg-white/10 text-white px-8 py-4 rounded-full font-black text-lg transition-all hover:-translate-y-1 hidden sm:block">
+              Tienda Diaria
+            </Link>
           </div>
         </div>
       </main>
 
-      {/* SECCIÓN CARACTERÍSTICAS LÍMPIA */}
-      <section className="border-y border-white/5 bg-[#080808]/50 relative z-10 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto px-6 text-center">
-          <div className="flex flex-col items-center">
-            <div className="bg-orange-500/10 p-4 rounded-full mb-4 text-orange-500"><Zap size={32} /></div>
-            <h3 className="font-bold text-lg mb-2">Entrega Inmediata</h3>
-            <p className="text-sm text-gray-400">Verificamos tu pago y entregamos tus items rápidamente.</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="bg-orange-500/10 p-4 rounded-full mb-4 text-orange-500"><Wallet size={32} /></div>
-            <h3 className="font-bold text-lg mb-2">Billetera Virtual</h3>
-            <p className="text-sm text-gray-400">Recarga saldo en tu cuenta y compra al instante sin esperas.</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="bg-orange-500/10 p-4 rounded-full mb-4 text-orange-500"><Headphones size={32} /></div>
-            <h3 className="font-bold text-lg mb-2">Soporte Dedicado</h3>
-            <p className="text-sm text-gray-400">Nuestro equipo en Discord está listo para ayudarte en todo.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10">
+      {/* CATÁLOGO DINÁMICO */}
+      <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
         <div className="flex items-center gap-3 mb-12">
           <PackageSearch className="text-orange-500" size={28} />
           <h2 className="text-3xl md:text-4xl font-black">Ofertas Exclusivas</h2>
@@ -144,7 +172,7 @@ export default function Home() {
             {products.map((p) => {
               const localPrice = (p.price * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               return (
-                <div key={p.id} className="group bg-[#0A0A0A] rounded-2xl p-5 border border-white/5 hover:border-white/10 transition-all">
+                <div key={p.id} className="group bg-[#0A0A0A] rounded-2xl p-5 border border-white/5 hover:border-white/10 transition-all cursor-pointer">
                   <div className="aspect-square bg-[#111] rounded-xl mb-5 flex items-center justify-center overflow-hidden">
                     {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" /> : <Gamepad2 size={64} className="text-gray-700" />}
                   </div>
@@ -162,6 +190,135 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      {/* SECCIÓN DE RESEÑAS PROFESIONAL (ESTILO REFERENCIA) */}
+      <section id="reseñas" className="px-6 py-24 relative z-10 border-t border-white/5 bg-gradient-to-b from-[#050505] to-[#121217]">
+        <div className="max-w-7xl mx-auto">
+          
+          <div className="mb-12">
+            <p className="text-orange-400 font-bold text-sm mb-2 uppercase tracking-widest">{stats.totalReviews} reseñas verificadas con un promedio de ⭐ {stats.averageRating.toFixed(1)}</p>
+            <h2 className="text-4xl md:text-6xl font-black text-white leading-tight">Lo dicen ellos.<br/>No nosotros.</h2>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-10">
+            {/* Panel de Estadísticas (Izquierda) */}
+            <div className="w-full lg:w-[350px] shrink-0 bg-[#1a1a24] p-8 rounded-3xl border border-white/5 shadow-2xl h-fit">
+              <div className="flex items-center gap-4 mb-2">
+                <span className="text-6xl font-black text-white">{stats.averageRating.toFixed(1)}</span>
+                <div>
+                  <div className="flex gap-1 mb-1">
+                    {[1,2,3,4,5].map(i => (
+                      <Star key={i} size={18} className={i <= Math.round(stats.averageRating) ? "text-yellow-400 fill-yellow-400" : "text-gray-600"} />
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-400">{stats.totalReviews} reseñas reales</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mt-8 mb-8">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count = ratingCounts[stars as keyof typeof ratingCounts];
+                  const percentage = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
+                  return (
+                    <div key={stars} className="flex items-center gap-3 text-sm">
+                      <span className="font-bold text-gray-300 w-4">{stars}★</span>
+                      <div className="flex-1 h-2.5 bg-[#2a2a36] rounded-full overflow-hidden">
+                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${percentage}%` }}></div>
+                      </div>
+                      <span className="text-gray-500 w-8 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-colors mb-6">
+                <PenLine size={18} /> Escribir reseña
+              </button>
+
+              <div className="space-y-3 text-sm font-medium text-gray-300">
+                <p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-[#3b82f6]"/> Compras verificadas</p>
+                <p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-[#3b82f6]"/> Entrega garantizada</p>
+                <p className="flex items-center gap-2"><CalendarCheck size={16} className="text-[#3b82f6]"/> Operando desde 2024</p>
+              </div>
+            </div>
+
+            {/* Lista de Reseñas y Buscador (Derecha) */}
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                <div className="relative flex-1">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar en las reseñas..." 
+                    value={searchReview}
+                    onChange={(e) => setSearchReview(e.target.value)}
+                    className="w-full bg-[#1a1a24] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-white/20 transition-colors"
+                  />
+                </div>
+                <div className="relative min-w-[200px]">
+                  <select className="w-full bg-[#1a1a24] border border-white/5 rounded-xl py-4 px-4 text-white appearance-none focus:outline-none focus:border-white/20 font-bold cursor-pointer">
+                    <option>Más nuevas</option>
+                    <option>Mejores valoradas</option>
+                  </select>
+                  <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-500 font-bold mb-4">Mostrando {filteredReviews.length} reseñas</p>
+
+              <div className="space-y-4">
+                {filteredReviews.length > 0 ? filteredReviews.map((r, idx) => (
+                  <div key={idx} className="bg-[#1a1a24] border border-white/5 p-6 rounded-2xl hover:border-white/10 transition-colors">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-orange-500 text-black rounded-full flex items-center justify-center font-black text-xl">
+                            {r.user_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 bg-[#1a1a24] rounded-full p-0.5">
+                            <CheckCircle2 size={14} className="text-green-500 bg-black rounded-full" />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-white text-lg">{r.user_name}</span>
+                            <span className="bg-green-500/10 text-green-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-green-500/20 flex items-center gap-1">
+                              <CheckCircle2 size={10} /> Verificada
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <div className="flex gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} size={14} className={i < r.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-600"} />
+                              ))}
+                            </div>
+                            <span>• Hace unos días</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <p className="text-gray-200 leading-relaxed font-medium mb-4">{r.comment}</p>
+                    
+                    <button className="flex items-center gap-2 text-sm font-bold text-gray-400 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors border border-white/5">
+                      👍 ¿Te resultó útil?
+                    </button>
+                  </div>
+                )) : (
+                  <div className="text-center py-12 bg-[#1a1a24] rounded-2xl border border-white/5 text-gray-500 font-bold">
+                    No se encontraron reseñas con esa búsqueda.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-[#050505] py-10 px-6 border-t border-white/5 text-center text-sm text-gray-500">
+        <p>&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados.</p>
+      </footer>
     </div>
   );
 }
