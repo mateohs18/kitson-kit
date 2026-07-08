@@ -9,17 +9,32 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
 
 const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
+  const isBundle = !!entry.bundle;
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
-  // Extraemos la skin principal o el primer objeto disponible
-  const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
-  const name = entry.bundle?.name || mainItem?.name || mainItem?.title || 'Cosmético';
-  const id = mainItem?.id || `bundle-${Math.random()}`;
-  
-  // Obtenemos el color de fondo
-  const rarityValue = mainItem?.rarity?.value || 'common';
-  const getRarityGradient = (rarity: string) => {
-    switch (rarity?.toLowerCase()) {
+  let name = '';
+  let displayImage = '';
+  let rarityValue = 'common';
+
+  // LÓGICA DIFERENCIADA: LOTE VS SKIN SUELTA
+  if (isBundle) {
+    name = entry.bundle.name || 'Lote';
+    rarityValue = safeItems[0]?.rarity?.value || 'epic';
+    // Prioridad 1: Imagen oficial del lote. Prioridad 2: OfferImage
+    displayImage = entry.bundle.image || entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || safeItems[0]?.images?.icon;
+  } else {
+    // Si no es lote, buscamos el Outfit (la skin)
+    const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
+    name = mainItem?.name || mainItem?.title || 'Cosmético';
+    rarityValue = mainItem?.rarity?.value || 'common';
+    // Prioridad 1: OfferImage (Render HQ). Prioridad 2: Imagen Base de la Skin
+    displayImage = entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || mainItem?.images?.featured || mainItem?.images?.icon || '';
+  }
+
+  if (!name || !displayImage) return null;
+
+  const bgGradient = (() => {
+    switch (rarityValue.toLowerCase()) {
       case 'legendary': return 'from-orange-600/60 to-transparent';
       case 'epic': return 'from-purple-600/60 to-transparent';
       case 'rare': return 'from-blue-500/60 to-transparent';
@@ -29,28 +44,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
       case 'icon': return 'from-teal-400/60 to-transparent';
       default: return 'from-gray-600/60 to-transparent'; 
     }
-  };
-  const bgGradient = getRarityGradient(rarityValue);
-
-  // ===============================================
-  // IMAGEN ÚNICA ESTÁTICA (Estado Inicial)
-  // ===============================================
-  let displayImage = '';
-  
-  // 1. Prioridad: Render de alta calidad de la tienda si existe
-  if (entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage) {
-    displayImage = entry.newDisplayAsset.materialInstances[0].images.OfferImage;
-  } 
-  // 2. Fallback: Imagen base de la skin o el lote
-  else if (mainItem?.images?.featured) {
-    displayImage = mainItem.images.featured;
-  } else if (mainItem?.images?.icon) {
-    displayImage = mainItem.images.icon;
-  } else if (entry.bundle?.image) {
-    displayImage = entry.bundle.image;
-  }
-
-  if (!name || !displayImage) return null;
+  })();
 
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,11 +52,10 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   return (
     <div 
       className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative aspect-[4/5] shadow-lg cursor-pointer"
-      onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: displayImage })}
+      onClick={() => addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage })}
     >
       <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
       
-      {/* IMAGEN ESTÁTICA */}
       <div className="flex-1 w-full relative flex items-center justify-center z-10 overflow-hidden">
         <img 
           src={displayImage} 
@@ -73,7 +66,6 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         />
       </div>
       
-      {/* TEXTOS INFERIORES */}
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20 pointer-events-none">
         <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
         <div className="flex items-center gap-1 mt-1">
@@ -82,12 +74,12 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </div>
       </div>
       
-      {/* BOTÓN FLOTANTE CHIQUITO PARA EL CARRITO */}
+      {/* BOTÓN CARRITO PEQUEÑO */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
         <button
           onClick={(e) => {
             e.stopPropagation();
-            addToCart({ id, name, price: baseUsdPrice, image_url: displayImage });
+            addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage });
           }}
           className="bg-orange-500 hover:bg-orange-400 text-black p-2.5 rounded-full shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:scale-110 transition-transform flex items-center justify-center"
           title="Añadir al carrito"
@@ -134,7 +126,6 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
-  // Buscador Lateral
   const filteredShop = Object.entries(groupedShop).reduce((acc, [section, items]) => {
     const filteredItems = items.filter(entry => {
       const searchLower = searchTerm.toLowerCase();
@@ -190,8 +181,18 @@ export default function TiendaFortnite() {
         </div>
       </header>
 
+      {/* MENÚ MÓVIL ARREGLADO */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
+          <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Mi Billetera</Link>
+          <div className="pt-2"><CurrencySelector /></div>
+        </div>
+      )}
+
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
-        
         {!loading && Object.keys(groupedShop).length > 0 && (
           <aside className="hidden md:block w-72 shrink-0">
             <div className="sticky top-28 space-y-6">
