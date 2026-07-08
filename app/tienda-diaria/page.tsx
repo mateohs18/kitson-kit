@@ -8,18 +8,13 @@ import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
 
-// ==========================================
-// COMPONENTE TARJETA DINÁMICA (IMÁGENES AL HOVER)
-// ==========================================
 const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
   const isBundle = !!entry.bundle;
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
-  // Extraer el nombre principal
   const name = isBundle ? entry.bundle?.name : (safeItems[0]?.name || safeItems[0]?.title || 'Cosmético');
   const id = safeItems[0]?.id || `bundle-${Math.random()}`;
   
-  // Extraer el color según rareza
   const rarityValue = safeItems[0]?.rarity?.value || 'common';
   const getRarityGradient = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
@@ -35,28 +30,38 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   };
   const bgGradient = getRarityGradient(rarityValue);
 
-  // Recopilar TODAS las imágenes disponibles para el efecto Hover
+  // RECOPILACIÓN INTELIGENTE DE IMÁGENES (INCLUYE LEGO Y ESTILOS EXTRA)
   let allImages: string[] = [];
   if (entry.bundle?.image) allImages.push(entry.bundle.image);
   safeItems.forEach((item: any) => {
     if (item.images?.featured) allImages.push(item.images.featured);
     if (item.images?.icon) allImages.push(item.images.icon);
+    // Extracción de imagen LEGO si existe
+    if (item.images?.lego?.large) allImages.push(item.images.lego.large);
+    else if (item.images?.lego) allImages.push(item.images.lego);
+    
+    // Extracción de estilos adicionales (Ej. versiones sin máscara)
+    if (item.styles) {
+      item.styles.forEach((style: any) => {
+        if (style.image) allImages.push(style.image);
+      });
+    }
   });
-  // Eliminar duplicados y vacíos
+  
+  // Limpiar duplicados
   allImages = Array.from(new Set(allImages)).filter(Boolean);
 
   const [currentImgIdx, setCurrentImgIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Lógica de rotación de imágenes al hacer hover
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isHovered && allImages.length > 1) {
       interval = setInterval(() => {
         setCurrentImgIdx((prev) => (prev + 1) % allImages.length);
-      }, 1000); // Cambia imagen cada segundo
+      }, 1200); // Cambia cada 1.2 segundos para que se aprecie
     } else {
-      setCurrentImgIdx(0); // Vuelve a la original al quitar cursor
+      setCurrentImgIdx(0);
     }
     return () => clearInterval(interval);
   }, [isHovered, allImages.length]);
@@ -69,12 +74,12 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
 
   return (
     <div 
-      className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative cursor-pointer aspect-[4/5] shadow-lg"
+      className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative aspect-[4/5] shadow-lg"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] })}
     >
       <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
+      
       <div className="flex-1 w-full relative flex items-center justify-center p-6 z-10">
         <img 
           src={displayImage} 
@@ -83,15 +88,15 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
           decoding="async"
           className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl" 
         />
-        {/* Indicador de múltiples estilos */}
+        
         {allImages.length > 1 && (
-          <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md text-[10px] font-bold px-2 py-1 rounded-full border border-white/10 text-gray-300">
+          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/10 text-white">
             {allImages.length} Estilos
           </div>
         )}
       </div>
       
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20">
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20 pointer-events-none">
         <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
         <div className="flex items-center gap-1 mt-1">
           <span className="text-white font-black text-xl">{activeCurrency.symbol}{localPrice}</span>
@@ -99,19 +104,23 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </div>
       </div>
       
-      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30 backdrop-blur-sm">
-        <span className="bg-orange-500 hover:bg-orange-400 text-[#050505] text-sm font-black px-6 py-3 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-          <ShoppingCart size={18} /> Añadir
-        </span>
+      {/* BOTÓN DE AÑADIR CHIQUITO (FAB) PARA NO TAPAR LA IMAGEN */}
+      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-40">
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            addToCart({ id, name, price: baseUsdPrice, image_url: allImages[0] });
+          }}
+          className="bg-orange-500 hover:bg-orange-400 text-black p-2.5 rounded-full shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:scale-110 transition-transform flex items-center justify-center"
+          title="Añadir al carrito"
+        >
+          <ShoppingCart size={18} />
+        </button>
       </div>
     </div>
   );
 };
 
-
-// ==========================================
-// PÁGINA PRINCIPAL DE LA TIENDA
-// ==========================================
 export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
   const totalItemsCount = useCartStore((state) => state.totalItems());
@@ -122,8 +131,6 @@ export default function TiendaFortnite() {
   const [groupedShop, setGroupedShop] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // ESTADO PARA EL BUSCADOR
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -149,7 +156,6 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
-  // Lógica de filtrado en tiempo real
   const filteredShop = Object.entries(groupedShop).reduce((acc, [section, items]) => {
     const filteredItems = items.filter(entry => {
       const searchLower = searchTerm.toLowerCase();
@@ -207,12 +213,10 @@ export default function TiendaFortnite() {
 
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
         
-        {/* SIDEBAR - CON BUSCADOR AÑADIDO */}
         {!loading && Object.keys(groupedShop).length > 0 && (
           <aside className="hidden md:block w-72 shrink-0">
             <div className="sticky top-28 space-y-6">
               
-              {/* BUSCADOR PREMIUM */}
               <div className="bg-[#0A0A0A] border border-white/5 rounded-2xl p-2 relative shadow-lg">
                 <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input 

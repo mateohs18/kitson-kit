@@ -9,8 +9,8 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { 
   ShoppingCart, Gamepad2, Zap, ShieldCheck, Headphones, LogOut, 
-  PackageSearch, Menu, X, Star, Users, Wallet, Flame, BellRing, 
-  Search, ChevronDown, CheckCircle2, PenLine, CalendarCheck
+  PackageSearch, Menu, X, Star, Wallet, Flame, BellRing, 
+  Search, ChevronDown, CheckCircle2, MessageSquare, Shield
 } from 'lucide-react';
 
 interface Product { id: string; name: string; price: number; image_url?: string; }
@@ -29,23 +29,19 @@ export default function Home() {
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
 
-  // NOTIFICACIONES CON DATOS REALES DE SUPABASE
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Cargar productos
       const { data: productsData } = await supabase.from('products').select('*');
       if (productsData) setProducts(productsData);
 
-      // 2. Cargar órdenes para estadísticas y para el Pop-up de compras reales
       const { data: ordersData, count: ordersCount } = await supabase
         .from('orders')
         .select('user_name, items', { count: 'exact' })
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // 3. Cargar reseñas
       const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
       
       let avg = 5.0; let revCount = 0;
@@ -57,28 +53,38 @@ export default function Home() {
       setStats({ totalOrders: (ordersCount || 0) + 150, averageRating: avg, totalReviews: revCount });
       setLoading(false);
 
-      // 4. Iniciar ciclo de notificaciones reales
+      // NOTIFICACIONES LIMITADAS A LAS ÚLTIMAS 3 COMPRAS REALES
       if (ordersData && ordersData.length > 0) {
         let idx = 0;
+        const maxPopups = Math.min(ordersData.length, 3); 
+        
         const interval = setInterval(() => {
+          if (idx >= maxPopups) {
+            clearInterval(interval);
+            return;
+          }
           const order = ordersData[idx];
           const itemName = order.items && order.items.length > 0 ? order.items[0].name : 'Recarga de Saldo';
           
           setLivePurchase({ name: order.user_name || 'Gamer Anónimo', item: itemName });
-          setTimeout(() => setLivePurchase(null), 5000); // Ocultar a los 5 segundos
+          setTimeout(() => setLivePurchase(null), 5000); 
           
-          idx = (idx + 1) % ordersData.length;
-        }, 12000); // Mostrar nueva compra cada 12 segundos
+          idx++;
+        }, 12000);
         return () => clearInterval(interval);
       }
     }
     fetchData();
   }, []);
 
-  // Cálculos para las barras de progreso de reseñas
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
   reviews.forEach(r => { if(ratingCounts[r.rating as keyof typeof ratingCounts] !== undefined) ratingCounts[r.rating as keyof typeof ratingCounts]++; });
   const filteredReviews = reviews.filter(r => r.comment.toLowerCase().includes(searchReview.toLowerCase()) || r.user_name.toLowerCase().includes(searchReview.toLowerCase()));
+
+  const handleWriteReview = () => {
+    alert("¡Para mantener 100% la autenticidad, todas las reseñas se escriben y verifican a través de nuestro servidor oficial de Discord!");
+    // Aquí puedes poner: window.open("https://discord.gg/TU_LINK", "_blank");
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 overflow-hidden relative">
@@ -120,7 +126,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* NOTIFICACIÓN FLOTANTE DE COMPRA EN VIVO (DATOS REALES) */}
       <div className={`fixed bottom-6 left-6 z-[120] glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-l-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.2)] transition-all duration-700 ${livePurchase ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
         <div className="bg-orange-500/20 p-2 rounded-full"><BellRing size={20} className="text-orange-500 animate-bounce" /></div>
         <div>
@@ -158,7 +163,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* CATÁLOGO DINÁMICO */}
       <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
         <div className="flex items-center gap-3 mb-12">
           <PackageSearch className="text-orange-500" size={28} />
@@ -191,27 +195,29 @@ export default function Home() {
         )}
       </section>
 
-      {/* SECCIÓN DE RESEÑAS PROFESIONAL (ESTILO REFERENCIA) */}
-      <section id="reseñas" className="px-6 py-24 relative z-10 border-t border-white/5 bg-gradient-to-b from-[#050505] to-[#121217]">
+      {/* SECCIÓN DE RESEÑAS 100% ESTILO KITSON KIT */}
+      <section id="reseñas" className="px-6 py-24 relative z-10 border-t border-white/5 bg-gradient-to-b from-[#050505] to-[#0A0A0A]">
         <div className="max-w-7xl mx-auto">
           
-          <div className="mb-12">
-            <p className="text-orange-400 font-bold text-sm mb-2 uppercase tracking-widest">{stats.totalReviews} reseñas verificadas con un promedio de ⭐ {stats.averageRating.toFixed(1)}</p>
-            <h2 className="text-4xl md:text-6xl font-black text-white leading-tight">Lo dicen ellos.<br/>No nosotros.</h2>
+          <div className="mb-12 border-l-4 border-orange-500 pl-6">
+            <h2 className="text-4xl md:text-5xl font-black text-white leading-tight uppercase italic tracking-widest drop-shadow-md">Nuestra Squad <br/><span className="text-orange-500">de Leyendas</span></h2>
+            <p className="text-gray-400 mt-4 max-w-xl font-medium">No confíes solo en nuestras stats. Lee las opiniones reales de los gamers que ya aseguraron su cuenta y subieron al siguiente nivel con nosotros.</p>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-10">
-            {/* Panel de Estadísticas (Izquierda) */}
-            <div className="w-full lg:w-[350px] shrink-0 bg-[#1a1a24] p-8 rounded-3xl border border-white/5 shadow-2xl h-fit">
+            {/* Panel de Estadísticas Gamer */}
+            <div className="w-full lg:w-[350px] shrink-0 bg-[#0f0f0f] p-8 rounded-3xl border border-white/5 shadow-2xl h-fit relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-orange-600"></div>
+              
               <div className="flex items-center gap-4 mb-2">
-                <span className="text-6xl font-black text-white">{stats.averageRating.toFixed(1)}</span>
+                <span className="text-6xl font-black text-white drop-shadow-md">{stats.averageRating.toFixed(1)}</span>
                 <div>
                   <div className="flex gap-1 mb-1">
                     {[1,2,3,4,5].map(i => (
-                      <Star key={i} size={18} className={i <= Math.round(stats.averageRating) ? "text-yellow-400 fill-yellow-400" : "text-gray-600"} />
+                      <Star key={i} size={18} className={i <= Math.round(stats.averageRating) ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
                     ))}
                   </div>
-                  <p className="text-sm text-gray-400">{stats.totalReviews} reseñas reales</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{stats.totalReviews} REVIEWS REALES</p>
                 </div>
               </div>
 
@@ -221,75 +227,73 @@ export default function Home() {
                   const percentage = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
                   return (
                     <div key={stars} className="flex items-center gap-3 text-sm">
-                      <span className="font-bold text-gray-300 w-4">{stars}★</span>
-                      <div className="flex-1 h-2.5 bg-[#2a2a36] rounded-full overflow-hidden">
-                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${percentage}%` }}></div>
+                      <span className="font-bold text-gray-400 w-4">{stars}★</span>
+                      <div className="flex-1 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-500 rounded-full" style={{ width: `${percentage}%` }}></div>
                       </div>
-                      <span className="text-gray-500 w-8 text-right">{count}</span>
+                      <span className="text-gray-600 font-mono text-xs w-6 text-right">{count}</span>
                     </div>
                   );
                 })}
               </div>
 
-              <button className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-colors mb-6">
-                <PenLine size={18} /> Escribir reseña
+              <button onClick={handleWriteReview} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10 hover:border-orange-500">
+                <MessageSquare size={18} /> Dejar mi Reseña
               </button>
 
-              <div className="space-y-3 text-sm font-medium text-gray-300">
-                <p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-[#3b82f6]"/> Compras verificadas</p>
-                <p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-[#3b82f6]"/> Entrega garantizada</p>
-                <p className="flex items-center gap-2"><CalendarCheck size={16} className="text-[#3b82f6]"/> Operando desde 2024</p>
+              <div className="space-y-4 text-sm font-bold text-gray-400">
+                <p className="flex items-center gap-3"><Shield size={18} className="text-orange-500"/> Trust Score: 100%</p>
+                <p className="flex items-center gap-3"><CheckCircle2 size={18} className="text-orange-500"/> Transacciones Blindadas</p>
               </div>
             </div>
 
-            {/* Lista de Reseñas y Buscador (Derecha) */}
+            {/* Lista de Reseñas y Buscador */}
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <div className="relative flex-1">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input 
                     type="text" 
-                    placeholder="Buscar en las reseñas..." 
+                    placeholder="Buscar por usuario o palabra..." 
                     value={searchReview}
                     onChange={(e) => setSearchReview(e.target.value)}
-                    className="w-full bg-[#1a1a24] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-white/20 transition-colors"
+                    className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50 transition-colors"
                   />
                 </div>
                 <div className="relative min-w-[200px]">
-                  <select className="w-full bg-[#1a1a24] border border-white/5 rounded-xl py-4 px-4 text-white appearance-none focus:outline-none focus:border-white/20 font-bold cursor-pointer">
-                    <option>Más nuevas</option>
-                    <option>Mejores valoradas</option>
+                  <select className="w-full bg-[#0f0f0f] border border-white/5 rounded-xl py-4 px-4 text-white appearance-none focus:outline-none focus:border-orange-500/50 font-bold cursor-pointer">
+                    <option>Más Recientes</option>
+                    <option>Top Valoradas</option>
                   </select>
                   <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 </div>
               </div>
-              
-              <p className="text-sm text-gray-500 font-bold mb-4">Mostrando {filteredReviews.length} reseñas</p>
 
               <div className="space-y-4">
                 {filteredReviews.length > 0 ? filteredReviews.map((r, idx) => (
-                  <div key={idx} className="bg-[#1a1a24] border border-white/5 p-6 rounded-2xl hover:border-white/10 transition-colors">
-                    <div className="flex items-start justify-between mb-4">
+                  <div key={idx} className="bg-[#0f0f0f] border border-white/5 p-6 rounded-2xl hover:border-white/10 transition-colors relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/5 rounded-bl-full -z-0"></div>
+                    <div className="flex items-start justify-between mb-4 relative z-10">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div className="w-12 h-12 bg-orange-500 text-black rounded-full flex items-center justify-center font-black text-xl">
+                          <div className="w-12 h-12 bg-white/5 border border-white/10 text-orange-500 rounded-full flex items-center justify-center font-black text-xl">
                             {r.user_name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="absolute -bottom-1 -right-1 bg-[#1a1a24] rounded-full p-0.5">
-                            <CheckCircle2 size={14} className="text-green-500 bg-black rounded-full" />
+                          <div className="absolute -bottom-1 -right-1 bg-[#0f0f0f] rounded-full p-0.5">
+                            <CheckCircle2 size={14} className="text-orange-500 bg-black rounded-full" />
                           </div>
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-bold text-white text-lg">{r.user_name}</span>
-                            <span className="bg-green-500/10 text-green-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-green-500/20 flex items-center gap-1">
-                              <CheckCircle2 size={10} /> Verificada
+                            <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1">
+                              Verificado
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
                             <div className="flex gap-0.5">
                               {[...Array(5)].map((_, i) => (
-                                <Star key={i} size={14} className={i < r.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-600"} />
+                                <Star key={i} size={14} className={i < r.rating ? "text-orange-500 fill-orange-500" : "text-gray-800"} />
                               ))}
                             </div>
                             <span>• Hace unos días</span>
@@ -298,15 +302,11 @@ export default function Home() {
                       </div>
                     </div>
                     
-                    <p className="text-gray-200 leading-relaxed font-medium mb-4">{r.comment}</p>
-                    
-                    <button className="flex items-center gap-2 text-sm font-bold text-gray-400 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors border border-white/5">
-                      👍 ¿Te resultó útil?
-                    </button>
+                    <p className="text-gray-300 leading-relaxed font-medium relative z-10 italic">"{r.comment}"</p>
                   </div>
                 )) : (
-                  <div className="text-center py-12 bg-[#1a1a24] rounded-2xl border border-white/5 text-gray-500 font-bold">
-                    No se encontraron reseñas con esa búsqueda.
+                  <div className="text-center py-12 bg-[#0f0f0f] rounded-2xl border border-white/5 text-gray-500 font-bold">
+                    El radar no encontró reseñas con esa búsqueda.
                   </div>
                 )}
               </div>
@@ -315,9 +315,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER */}
       <footer className="bg-[#050505] py-10 px-6 border-t border-white/5 text-center text-sm text-gray-500">
-        <p>&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados.</p>
+        <p>&copy; {new Date().getFullYear()} Kitson Kit. Todos los derechos reservados. Operamos de forma independiente a Epic Games.</p>
       </footer>
     </div>
   );
