@@ -29,9 +29,7 @@ export default function TiendaFortnite() {
           const groups: Record<string, any[]> = {};
           
           data.data.entries.forEach((entry: any) => {
-            // CORRECCIÓN: Ahora busca en layout.name (el nuevo formato de Epic) o en section.name
             const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
-            
             if (!groups[sectionName]) groups[sectionName] = [];
             groups[sectionName].push(entry);
           });
@@ -62,7 +60,7 @@ export default function TiendaFortnite() {
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-orange-500 scroll-smooth">
       
-      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
             <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
@@ -100,15 +98,24 @@ export default function TiendaFortnite() {
             </button>
           )}
 
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-2">
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2">
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
         </div>
       </header>
 
+      {/* MENÚ MÓVIL ARREGLADO */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-[#0A0A0A] border-b border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] left-0 w-full h-[calc(100vh-73px)] z-[90] overflow-y-auto">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
+          <div className="pt-2"><CurrencySelector /></div>
+        </div>
+      )}
+
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
         
-        {/* BARRA LATERAL (SIDEBAR) */}
         {!loading && Object.keys(groupedShop).length > 0 && (
           <aside className="hidden md:block w-64 shrink-0">
             <div className="sticky top-28 bg-[#0A0A0A] border border-white/5 rounded-3xl p-6 shadow-2xl">
@@ -131,7 +138,6 @@ export default function TiendaFortnite() {
           </aside>
         )}
 
-        {/* CONTENIDO DE LA TIENDA */}
         <div className="flex-1">
           {loading ? (
             <div className="flex flex-col justify-center items-center py-40">
@@ -141,12 +147,7 @@ export default function TiendaFortnite() {
           ) : (
             <div className="space-y-20 pb-24">
               {Object.entries(groupedShop).map(([sectionName, items]) => (
-                <section 
-                  key={sectionName} 
-                  id={sectionName.replace(/\s+/g, '-')} 
-                  className="relative scroll-mt-28"
-                >
-                  
+                <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
                   <div className="flex items-center gap-6 mb-8">
                     <h2 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-widest drop-shadow-md">
                       {sectionName}
@@ -179,7 +180,14 @@ export default function TiendaFortnite() {
                         >
                           <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
                           <div className="flex-1 w-full relative flex items-center justify-center p-6 z-10">
-                            <img src={imageUrl} alt={name} className="w-full h-full object-contain group-hover:scale-110 transition duration-500 drop-shadow-2xl" />
+                            {/* OPTIMIZACIÓN: LAZY LOADING Y ASYNC APLICADO AQUÍ */}
+                            <img 
+                              src={imageUrl} 
+                              alt={name} 
+                              loading="lazy" 
+                              decoding="async"
+                              className="w-full h-full object-contain group-hover:scale-110 transition duration-500 drop-shadow-2xl" 
+                            />
                           </div>
                           
                           <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20">

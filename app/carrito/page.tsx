@@ -25,7 +25,7 @@ export default function CartPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null); // Estado para el botón copiar
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -33,11 +33,10 @@ export default function CartPage() {
 
   const convertedTotal = (totalPrice() * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // FUNCIÓN PARA COPIAR AL PORTAPAPELES
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(text);
-    setTimeout(() => setCopiedId(null), 2000); // Vuelve al icono de copiar después de 2 segundos
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleCheckout = async () => {
@@ -71,9 +70,9 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 relative">
       
-      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
             <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-orange-500 transition object-cover" />
@@ -85,7 +84,6 @@ export default function CartPage() {
           <Link href="/" className="hover:text-white transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:text-white transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:text-white transition">Tienda Fortnite</Link>
-          <Link href="/#soporte" className="hover:text-white transition">Soporte</Link>
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-4">
@@ -103,22 +101,24 @@ export default function CartPage() {
             <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-full font-black">Login</button>
           )}
 
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-2">
+          {/* BOTÓN MÓVIL ARREGLADO */}
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2">
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
         </div>
       </header>
 
+      {/* MENÚ MÓVIL ARREGLADO */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#111] border-b border-white/10 flex flex-col p-6 gap-6 absolute w-full z-40">
-          <Link href="/" className="text-lg font-bold">Inicio</Link>
-          <Link href="#catalogo" className="text-lg font-bold">Catálogo</Link>
-          <Link href="/tienda-diaria" className="text-lg font-bold">Tienda Fortnite</Link>
-          <div className="pt-4 border-t border-white/10"><CurrencySelector /></div>
+        <div className="lg:hidden bg-[#0A0A0A] border-b border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] left-0 w-full h-[calc(100vh-73px)] z-[90] overflow-y-auto">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
+          <div className="pt-2"><CurrencySelector /></div>
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 relative z-10">
         {orderSuccess ? (
           <div className="text-center py-24 bg-green-500/5 border border-green-500/20 rounded-3xl max-w-2xl mx-auto">
             <CheckCircle2 size={80} className="text-green-500 mx-auto mb-6" />
@@ -167,7 +167,6 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* BLOQUE DE CUENTAS CON BOTÓN DE COPIAR */}
                 <div className="mb-8">
                   <label className="block text-sm font-bold text-gray-400 mb-3">Cuentas de depósito ({activeCurrency.name}):</label>
                   <div className="space-y-3">
@@ -189,7 +188,6 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* DROPZONE PARA SUBIR IMÁGENES */}
                 <div className="mb-8">
                   <label className="block text-sm font-bold text-gray-300 mb-2">Sube la captura de pago <span className="text-red-500">*</span></label>
                   
