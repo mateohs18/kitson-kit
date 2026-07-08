@@ -10,7 +10,7 @@ import {
   ShoppingCart, Gamepad2, Zap, ShieldCheck, LogOut, 
   PackageSearch, Menu, X, Star, Users, ChevronDown, CreditCard, Globe
 } from 'lucide-react';
-import CurrencySelector from '../components/CurrencySelector';
+import CurrencySelector from '@/components/CurrencySelector';
 interface Product {
   id: string;
   name: string;
