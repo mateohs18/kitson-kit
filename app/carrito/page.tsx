@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { 
   ShoppingCart, Trash2, Gamepad2, Menu, X,
-  Loader2, FileImage, CheckCircle2 
+  Loader2, CheckCircle2, UploadCloud, LogOut 
 } from 'lucide-react';
 
 export default function CartPage() {
@@ -65,7 +65,6 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500">
       
-      {/* NAVBAR CENTRADA EXACTAMENTE IGUAL AL INICIO */}
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
@@ -90,7 +89,7 @@ export default function CartPage() {
                 <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full border border-orange-500/50" />
                 <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
               </Link>
-              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3">Salir</button>
+              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
             <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] text-white text-sm px-6 py-2.5 rounded-full font-black">Login</button>
@@ -128,7 +127,7 @@ export default function CartPage() {
                 <input 
                   type="text" placeholder="ID de Epic Games o GamerTag"
                   value={gamerId} onChange={(e) => setGamerId(e.target.value)}
-                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
                 />
               </div>
 
@@ -156,31 +155,51 @@ export default function CartPage() {
                     <span className="text-gray-300 font-bold">Total a Transferir</span>
                     <div className="text-right">
                       <span className="text-3xl font-black text-orange-500">{activeCurrency.symbol}{convertedTotal}</span>
-                      <p className="text-[10px] text-gray-500 mt-1 uppercase">{activeCurrency.currency}</p>
+                      <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">{activeCurrency.currency}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-bold text-gray-400 mb-2">Instrucciones ({activeCurrency.name}):</label>
+                  <label className="block text-sm font-bold text-gray-400 mb-2">Transfiere a la siguiente cuenta:</label>
                   <div className="bg-orange-500/10 border border-orange-500/20 p-5 rounded-xl"><pre className="whitespace-pre-wrap font-mono text-sm text-orange-400 font-bold">{activeCurrency.instructions}</pre></div>
                 </div>
 
+                {/* NUEVO DROPZONE PARA SUBIR IMÁGENES */}
                 <div className="mb-8">
-                  <label className="block text-sm font-bold text-gray-300 mb-2 flex items-center gap-2">
-                    <FileImage size={16} className="text-orange-500"/> Sube la captura de pago <span className="text-red-500">*</span>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">Sube la captura de pago <span className="text-red-500">*</span></label>
+                  
+                  <label className="relative flex flex-col items-center justify-center w-full py-6 px-4 bg-[#111] border-2 border-dashed border-white/10 hover:border-orange-500/50 rounded-2xl cursor-pointer transition-colors group">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      className="hidden" 
+                      onChange={(e) => { if(e.target.files) setReceiptFile(e.target.files[0]) }}
+                    />
+                    {receiptFile ? (
+                      <div className="flex flex-col items-center text-center">
+                        <CheckCircle2 size={32} className="text-green-500 mb-2" />
+                        <p className="text-sm font-bold text-white truncate max-w-[200px]">{receiptFile.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">Clic para cambiar</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center text-center">
+                        <div className="bg-orange-500/10 p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                          <UploadCloud size={24} className="text-orange-500" />
+                        </div>
+                        <p className="text-sm font-bold text-gray-300 mb-1">Toca para subir tu comprobante</p>
+                        <p className="text-xs text-gray-500">Soporta JPG y PNG</p>
+                      </div>
+                    )}
                   </label>
-                  <input type="file" accept="image/*" onChange={(e) => { if(e.target.files) setReceiptFile(e.target.files[0]) }}
-                    className="w-full text-sm text-gray-400 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:font-black file:bg-orange-500 file:text-black hover:file:bg-orange-400 cursor-pointer bg-[#111] rounded-full p-1 border border-white/10"
-                  />
                 </div>
 
                 {session ? (
-                  <button onClick={handleCheckout} disabled={isProcessing} className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2">
+                  <button onClick={handleCheckout} disabled={isProcessing} className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all">
                     {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Subiendo imagen...</> : "Confirmar Pago Manual"}
                   </button>
                 ) : (
-                  <button onClick={() => signIn('discord')} className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white py-4 rounded-xl font-black flex items-center justify-center">Inicia sesión para finalizar</button>
+                  <button onClick={() => signIn('discord')} className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white py-4 rounded-xl font-black flex items-center justify-center shadow-lg transition-all">Inicia sesión para finalizar</button>
                 )}
               </div>
             </div>

@@ -114,18 +114,38 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="relative flex flex-col items-center justify-center text-center px-6 py-20 md:py-32 z-10">
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
-          El Siguiente Nivel <br/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
-        </h1>
-        <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl font-medium">
-          Adquiere cosméticos exclusivos, recargas y suscripciones de forma automatizada, segura y sin riesgo de ban.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Link href="#catalogo" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-[#050505] px-8 py-4 rounded-full font-black text-lg transition-all shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:-translate-y-1">
-            Explorar Catálogo
-          </Link>
+      {/* HERO SECTION PREMIUM */}
+      <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
+        
+        {/* FONDO DE CUADRÍCULA Y DESTELLO (Solo en el Hero) */}
+        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+          {/* Cuadrícula técnica sutil */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+          {/* Resplandor Naranja tras las letras */}
+          <div className="absolute w-[600px] h-[300px] bg-orange-600/20 blur-[120px] rounded-full"></div>
+        </div>
+
+        {/* CONTENIDO DEL HERO */}
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-md">
+            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Sistemas 100% Operativos</span>
+          </div>
+
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
+            El Siguiente Nivel <br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
+          </h1>
+          
+          <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl font-medium">
+            Adquiere cosméticos exclusivos, recargas y suscripciones de forma automatizada, segura y sin riesgo de ban.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Link href="#catalogo" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-[#050505] px-8 py-4 rounded-full font-black text-lg transition-all shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:shadow-[0_0_40px_rgba(249,115,22,0.5)] hover:-translate-y-1">
+              Explorar Catálogo
+            </Link>
+          </div>
         </div>
       </main>
 

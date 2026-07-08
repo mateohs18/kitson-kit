@@ -24,3 +24,29 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* =========================================
+   SCROLLBAR PERSONALIZADO (DARK MODE)
+   ========================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0A0A0A;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #f97316; /* Naranja Kitson */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #fb923c; 
+}
+
+/* Scrollbar aún más fino para la barra lateral de Fortnite */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
