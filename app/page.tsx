@@ -55,14 +55,16 @@ export default function Home() {
   }, []);
 
   const faqs = [
-    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse en Supabase, la entrega suele tardar entre 1 y 5 minutos." },
-    { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos pagos manuales directos en tu moneda local: Binance, Yape, Nequi, Transferencia Bancaria y Oxxo." }
+    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse el comprobante, la entrega suele tardar entre 1 y 5 minutos." },
+    { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos pagos manuales directos en tu moneda local: Binance, Yape, Nequi, Transferencia Bancaria y Oxxo." },
+    { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos. Nunca pediremos tu contraseña." }
   ];
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 overflow-hidden">
       
       <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-600/5 rounded-full blur-[100px] pointer-events-none z-0"></div>
 
       <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center justify-between w-full md:w-auto">
@@ -82,9 +84,7 @@ export default function Home() {
           <Link href="#catalogo" className="hover:text-orange-400 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:text-orange-400 transition">Tienda Fortnite</Link>
           
-          {/* NUEVO SELECTOR PREMIUM APLICADO AQUÍ */}
           <CurrencySelector />
-
         </nav>
 
         <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0 w-full md:w-auto`}>
@@ -119,6 +119,34 @@ export default function Home() {
           </Link>
         </div>
       </main>
+
+      <section className="border-y border-white/5 bg-[#080808]/50 backdrop-blur-lg relative z-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/5 max-w-7xl mx-auto">
+          <div className="p-8 text-center flex flex-col items-center">
+            <Users className="text-gray-500 mb-3" size={24} />
+            <span className="text-3xl font-black text-white">{stats.totalOrders > 0 ? `+${stats.totalOrders}` : '---'}</span>
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Órdenes Procesadas</span>
+          </div>
+          <div className="p-8 text-center flex flex-col items-center">
+            <Zap className="text-orange-500 mb-3" size={24} />
+            <span className="text-3xl font-black text-white">1 - 5 Min</span>
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Tiempo de Entrega</span>
+          </div>
+          <div className="p-8 text-center flex flex-col items-center">
+            <ShieldCheck className="text-green-500 mb-3" size={24} />
+            <span className="text-3xl font-black text-white">100%</span>
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Seguro y Legal</span>
+          </div>
+          <div className="p-8 text-center flex flex-col items-center">
+            <Star className="text-yellow-500 mb-3" size={24} />
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white">{stats.averageRating}</span>
+              <span className="text-lg text-gray-500 font-bold">/5</span>
+            </div>
+            <span className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Basado en {stats.totalReviews} reseñas</span>
+          </div>
+        </div>
+      </section>
 
       <section id="catalogo" className="max-w-7xl mx-auto px-6 py-24 relative z-10">
         <div className="flex items-center gap-3 mb-12">
@@ -156,6 +184,58 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      <section id="faq" className="max-w-4xl mx-auto px-6 py-24 relative z-10">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-black mb-4">Preguntas Frecuentes</h2>
+          <p className="text-gray-400">Todo lo que necesitas saber sobre cómo funciona Kitson Kit.</p>
+        </div>
+        
+        <div className="space-y-4">
+          {faqs.map((faq, idx) => (
+            <div key={idx} className="bg-[#0A0A0A] border border-white/5 rounded-2xl overflow-hidden">
+              <button 
+                onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                className="w-full flex items-center justify-between p-6 text-left focus:outline-none"
+              >
+                <span className="font-bold text-lg text-gray-200">{faq.q}</span>
+                <ChevronDown className={`text-orange-500 transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} />
+              </button>
+              <div className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-40 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <p className="text-gray-400 leading-relaxed">{faq.a}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="border-t border-white/5 bg-[#050505] pt-16 pb-8 px-6 relative z-10 mt-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
+          <div className="md:col-span-2">
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <img src="/logo.jpg" alt="Logo Kitson Kit" className="w-8 h-8 rounded-full" />
+              <span className="text-xl font-black tracking-tighter text-white">Kitson <span className="text-orange-500">Kit</span></span>
+            </Link>
+            <p className="text-gray-400 text-sm max-w-sm leading-relaxed mb-6">
+              Tu tienda de confianza para recargas, cosméticos y suscripciones. Operamos de forma 100% legal y segura para proteger tu cuenta en todo momento.
+            </p>
+            <div className="flex gap-4">
+              <div className="bg-white/5 p-2 rounded-md"><CreditCard size={20} className="text-gray-400" /></div>
+              <div className="bg-white/5 p-2 rounded-md"><ShieldCheck size={20} className="text-gray-400" /></div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Enlaces Rápidos</h4>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li><Link href="#catalogo" className="hover:text-orange-500 transition">Catálogo</Link></li>
+              <li><Link href="/tienda-diaria" className="hover:text-orange-500 transition">Tienda Fortnite</Link></li>
+              <li><Link href="/carrito" className="hover:text-orange-500 transition">Tu Carrito</Link></li>
+              <li><Link href="/mis-pedidos" className="hover:text-orange-500 transition">Mis Pedidos</Link></li>
+            </ul>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -6,10 +6,9 @@ import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { supabase } from '../../lib/supabase';
-import { signIn, signOut, useSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { 
-  ShoppingCart, Trash2, Gamepad2, LogOut, 
-  Loader2, FileImage, CheckCircle2 
+  Gamepad2, Loader2, FileImage, CheckCircle2, Trash2
 } from 'lucide-react';
 
 export default function CartPage() {
@@ -88,7 +87,6 @@ export default function CartPage() {
         </Link>
         
         <div className="flex items-center gap-4">
-           {/* NUEVO SELECTOR APLICADO AQUÍ TAMBIÉN */}
           <CurrencySelector />
           <Link href="/mis-pedidos" className="text-sm font-bold text-gray-400 hover:text-white transition">Mis Pedidos</Link>
         </div>
@@ -131,6 +129,9 @@ export default function CartPage() {
                         <h4 className="font-bold text-sm">{item.name} <span className="text-gray-500">x{item.quantity}</span></h4>
                       </div>
                       <p className="font-black">${(item.price * item.quantity).toFixed(2)} USD</p>
+                      <button onClick={() => removeFromCart(item.id)} className="text-red-500/50 hover:text-red-500 p-2">
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -173,13 +174,19 @@ export default function CartPage() {
                   />
                 </div>
 
-                <button 
-                  onClick={handleCheckout}
-                  disabled={isProcessing}
-                  className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2"
-                >
-                  {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Subiendo imagen...</> : "Confirmar Pago Manual"}
-                </button>
+                {session ? (
+                  <button 
+                    onClick={handleCheckout}
+                    disabled={isProcessing}
+                    className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-orange-500/50 text-[#050505] py-4 rounded-xl font-black flex items-center justify-center gap-2"
+                  >
+                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Subiendo imagen...</> : "Confirmar Pago Manual"}
+                  </button>
+                ) : (
+                  <button onClick={() => signIn('discord')} className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white py-4 rounded-xl font-black transition flex items-center justify-center gap-2">
+                    Inicia sesión para finalizar
+                  </button>
+                )}
               </div>
             </div>
           </div>
