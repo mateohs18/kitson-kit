@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { 
   ShoppingCart, Menu, X, LogOut, Package, 
-  Clock, CheckCircle2, AlertTriangle, ExternalLink, Gamepad2
+  Clock, CheckCircle2, AlertTriangle, ExternalLink, Gamepad2, Loader2 
 } from 'lucide-react';
 
 export default function MisPedidos() {
@@ -118,7 +118,6 @@ export default function MisPedidos() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {orders.map((order) => (
               <div key={order.id} className="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:border-white/20 transition-all shadow-lg hover:shadow-orange-500/10">
-                {/* Indicador de estado */}
                 <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-black tracking-wider ${getStatusStyle(order.status)}`}>
                   {getStatusIcon(order.status)} {order.status}
                 </div>
