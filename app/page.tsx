@@ -19,7 +19,8 @@ interface Product {
 
 export default function Home() {
   const addToCart = useCartStore((state) => state.addToCart);
-  const totalItems = useCartStore((state) => state.totalItems());
+  // Aquí obtenemos el número de ítems correctamente
+  const totalItemsCount = useCartStore((state) => state.totalItems());
   const { data: session } = useSession();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,7 +28,7 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // NUEVO: Estados dinámicos para las estadísticas
+  // Estados dinámicos para las estadísticas
   const [stats, setStats] = useState({
     totalOrders: 0,
     averageRating: "5.0",
@@ -58,10 +59,9 @@ export default function Home() {
       }
 
       setStats({
-        // Si hay menos de 5 ventas en la web nueva, le sumamos tus ventas históricas de Discord (ej: +150). 
-        // Si quieres que sea 100% puro, quita el "+ 150".
+        // Si hay menos de 5 ventas, le sumamos tus ventas históricas de Discord
         totalOrders: (ordersCount || 0) + 150, 
-        averageRating: avg.toFixed(1), // Redondea a 1 decimal (ej: 4.8)
+        averageRating: avg.toFixed(1),
         totalReviews: revCount
       });
 
@@ -112,7 +112,8 @@ export default function Home() {
         <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0 w-full md:w-auto`}>
           <Link href="/carrito" className="flex items-center gap-2 hover:bg-white/10 transition bg-white/5 py-2 px-5 rounded-full border border-white/10 w-full md:w-auto justify-center">
             <ShoppingCart size={18} className="text-orange-500" /> 
-            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItems()}</span>
+            {/* AQUÍ ESTABA EL ERROR: Ya está corregido a totalItemsCount */}
+            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItemsCount}</span>
           </Link>
           {session ? (
             <div className="flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10 w-full md:w-auto justify-center">
