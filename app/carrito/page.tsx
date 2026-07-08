@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore } from '../../store/cartStore';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut, ArrowRight } from 'lucide-react';
 
