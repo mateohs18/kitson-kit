@@ -88,7 +88,7 @@ export default function TiendaFortnite() {
         <div className="flex items-center justify-between w-full md:w-auto">
           <Link href="/" className="flex items-center gap-3 group">
   <img 
-    src="/logo.jpg" 
+    src="/kitsonkit.png" 
     alt="Logo Kitson Kit" 
     className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-orange-500 transition duration-300 object-cover" 
   />
