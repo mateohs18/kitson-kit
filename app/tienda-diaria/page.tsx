@@ -29,7 +29,9 @@ export default function TiendaFortnite() {
           const groups: Record<string, any[]> = {};
           
           data.data.entries.forEach((entry: any) => {
-            const sectionName = entry.section?.name || 'Otras Ofertas';
+            // CORRECCIÓN: Ahora busca en layout.name (el nuevo formato de Epic) o en section.name
+            const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
+            
             if (!groups[sectionName]) groups[sectionName] = [];
             groups[sectionName].push(entry);
           });
