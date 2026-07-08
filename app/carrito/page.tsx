@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut, ArrowRight } from 'lucide-react';
+// ¡Aquí está la corrección! Añadimos ShieldCheck a la lista de importaciones
+import { ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function CartPage() {
   const { cart, removeFromCart, clearCart, totalPrice, totalItems } = useCartStore();
@@ -20,7 +21,7 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500 selection:text-[#050505]">
       
-      {/* BARRA DE NAVEGACIÓN GLOBAL (Idéntica al Home) */}
+      {/* BARRA DE NAVEGACIÓN GLOBAL */}
       <header className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center justify-between w-full md:w-auto">
           <Link href="/" className="flex items-center gap-2 group">
