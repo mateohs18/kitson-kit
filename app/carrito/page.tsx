@@ -3,19 +3,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
-import { useCurrencyStore, PAYMENT_OPTIONS } from '../../store/currencyStore';
+import { useCurrencyStore } from '../../store/currencyStore';
+import CurrencySelector from '../../components/CurrencySelector';
 import { supabase } from '../../lib/supabase';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { 
-  ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut, 
-  ShieldCheck, Loader2, Globe, FileImage, CheckCircle2, ChevronDown 
+  ShoppingCart, Trash2, Gamepad2, LogOut, 
+  Loader2, FileImage, CheckCircle2 
 } from 'lucide-react';
-import CurrencySelector from '../components/CurrencySelector';
+
 export default function CartPage() {
   const { cart, removeFromCart, clearCart, totalPrice, totalItems } = useCartStore();
-  
-  // Variables globales de Moneda
-  const { selectedCountry, setCountry, getActiveConfig } = useCurrencyStore();
+  const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
 
   const { data: session } = useSession();
@@ -82,30 +81,16 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-orange-500">
-      
       <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl sticky top-0 z-50">
         <Link href="/" className="flex items-center gap-3">
           <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-full object-cover" />
           <span className="text-2xl font-black text-white hidden sm:block">Kitson <span className="text-orange-500">Kit</span></span>
         </Link>
         
-        {/* SELECTOR DE PAÍS CORREGIDO Y CLICKABLE EN CARRITO */}
-        <div className="relative flex items-center bg-white/5 rounded-full border border-white/10 hover:border-orange-500 transition focus-within:border-orange-500">
-          <div className="pl-3 pointer-events-none absolute">
-            <Globe size={16} className="text-orange-500" />
-          </div>
-          <select 
-            value={selectedCountry}
-            onChange={(e) => setCountry(e.target.value)}
-            className="bg-transparent text-white text-sm font-bold cursor-pointer appearance-none outline-none w-full py-2 pl-9 pr-8"
-          >
-            {PAYMENT_OPTIONS.map(opt => (
-              <option key={opt.id} value={opt.id} className="bg-[#111]">{opt.name} ({opt.currency})</option>
-            ))}
-          </select>
-          <div className="pr-3 pointer-events-none absolute right-0">
-            <ChevronDown size={14} className="text-gray-400" />
-          </div>
+        <div className="flex items-center gap-4">
+           {/* NUEVO SELECTOR APLICADO AQUÍ TAMBIÉN */}
+          <CurrencySelector />
+          <Link href="/mis-pedidos" className="text-sm font-bold text-gray-400 hover:text-white transition">Mis Pedidos</Link>
         </div>
       </header>
 

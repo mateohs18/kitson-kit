@@ -9,7 +9,6 @@ export default function CurrencySelector() {
   const { selectedCountry, setCountry } = useCurrencyStore();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -26,24 +25,24 @@ export default function CurrencySelector() {
     <div className="relative" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 hover:border-orange-500 transition text-sm font-bold"
+        className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/10 hover:border-orange-500 transition text-sm font-bold shadow-lg"
       >
-        <span>{active.flag}</span>
+        <span className="text-lg">{active.flag}</span>
         <span className="hidden sm:block">{active.fullName} ({active.symbol}) - {active.name}</span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-orange-500' : 'text-gray-400'}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
+        <div className="absolute top-full right-0 mt-3 w-64 bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]">
           {PAYMENT_OPTIONS.map((opt) => (
             <button
               key={opt.id}
               onClick={() => { setCountry(opt.id); setIsOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition ${selectedCountry === opt.id ? 'bg-orange-500/10' : ''}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition border-b border-white/5 last:border-0 ${selectedCountry === opt.id ? 'bg-orange-500/10' : ''}`}
             >
-              <span className="text-xl">{opt.flag}</span>
+              <span className="text-2xl">{opt.flag}</span>
               <div className="text-left">
-                <p className="text-sm font-bold">{opt.fullName} ({opt.symbol})</p>
+                <p className="text-sm font-bold text-white">{opt.fullName} ({opt.symbol})</p>
                 <p className="text-xs text-gray-400">{opt.name}</p>
               </div>
             </button>

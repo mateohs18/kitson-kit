@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '../store/cartStore';
-import { useCurrencyStore, PAYMENT_OPTIONS } from '../store/currencyStore';
+import { useCurrencyStore } from '../store/currencyStore';
+import CurrencySelector from '../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { 
   ShoppingCart, Gamepad2, Zap, ShieldCheck, LogOut, 
-  PackageSearch, Menu, X, Star, Users, ChevronDown, CreditCard, Globe
+  PackageSearch, Menu, X, Star, Users, ChevronDown, CreditCard
 } from 'lucide-react';
-import CurrencySelector from '@/components/CurrencySelector';
+
 interface Product {
   id: string;
   name: string;
@@ -22,7 +23,7 @@ export default function Home() {
   const addToCart = useCartStore((state) => state.addToCart);
   const totalItemsCount = useCartStore((state) => state.totalItems());
   
-  const { selectedCountry, setCountry, getActiveConfig } = useCurrencyStore();
+  const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
 
   const { data: session } = useSession();
@@ -81,19 +82,9 @@ export default function Home() {
           <Link href="#catalogo" className="hover:text-orange-400 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:text-orange-400 transition">Tienda Fortnite</Link>
           
-          <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-            <Globe size={16} className="text-orange-500" />
-            <select 
-              value={selectedCountry}
-              onChange={(e) => setCountry(e.target.value)}
-              className="bg-transparent text-white text-sm font-bold focus:outline-none cursor-pointer appearance-none outline-none"
-            >
-              {PAYMENT_OPTIONS.map(opt => (
-                <option key={opt.id} value={opt.id} className="bg-[#111]">{opt.name} ({opt.currency})</option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
-          </div>
+          {/* NUEVO SELECTOR PREMIUM APLICADO AQUÍ */}
+          <CurrencySelector />
+
         </nav>
 
         <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0 w-full md:w-auto`}>
