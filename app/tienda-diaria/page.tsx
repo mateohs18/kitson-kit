@@ -13,28 +13,30 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   
   const isBundle = !!entry.bundle;
+  // Atrapamos el ítem principal (priorizamos skins, si no, el primero que haya)
+  const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0] || {};
+  
   let name = '';
-  let displayImage = '';
   let rarityValue = 'common';
 
   if (isBundle) {
-    name = entry.bundle.name || 'Lote';
-    rarityValue = safeItems[0]?.rarity?.value || 'epic';
-    displayImage = entry.bundle.image || entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || safeItems[0]?.images?.icon;
+    name = entry.bundle?.name || 'Lote';
+    rarityValue = mainItem?.rarity?.value || 'epic';
   } else {
-    const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
     name = mainItem?.name || mainItem?.title || 'Cosmético';
     rarityValue = mainItem?.rarity?.value || 'common';
-    
-    // Aquí está la corrección: añadimos large, albumArt y image para atrapar todo el contenido nuevo
-    displayImage = entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage 
-      || mainItem?.images?.featured 
-      || mainItem?.images?.icon 
-      || mainItem?.images?.large 
-      || mainItem?.albumArt 
-      || mainItem?.image 
-      || '';
   }
+
+  // 👇 EL ATRAPALOTODO DEFINITIVO DE IMÁGENES 👇
+  const displayImage = 
+    entry.bundle?.image || 
+    entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || 
+    mainItem?.images?.featured || 
+    mainItem?.images?.icon || 
+    mainItem?.images?.large || 
+    mainItem?.albumArt || 
+    mainItem?.image || 
+    '';
 
   if (!name || !displayImage) return null;
 
@@ -62,11 +64,11 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
       <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
       
       <div className="flex-1 w-full relative flex items-center justify-center z-10 overflow-hidden">
-        <Image 
+        {/* Cambiamos <Image> por la clásica <img> de HTML. 
+            Esto evita el bloqueo de seguridad de dominios externos de Next.js */}
+        <img 
           src={displayImage} 
           alt={name} 
-          width={500}
-          height={500}
           className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl scale-[1.15]" 
         />
       </div>
