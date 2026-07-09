@@ -1,0 +1,49 @@
+import NextAuth from "next-auth";
+import DiscordProvider from "next-auth/providers/discord";
+import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { supabase } from "../../../../lib/supabase"; 
+
+const handler = NextAuth({
+  providers: [
+    DiscordProvider({
+      clientId: process.env.DISCORD_CLIENT_ID || "",
+      clientSecret: process.env.DISCORD_CLIENT_SECRET || "",
+    }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    }),
+    CredentialsProvider({
+      name: "Correo y Contraseña",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Contraseña", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+        
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+
+        if (error || !data.user) {
+          throw new Error("Credenciales incorrectas");
+        }
+
+        return {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || (data.user.email ? data.user.email.split('@')[0] : 'Usuario'), 
+        };
+      }
+    })
+  ],
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  }
+});
+
+export { handler as GET, handler as POST };
