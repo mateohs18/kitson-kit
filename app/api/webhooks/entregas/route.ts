@@ -10,9 +10,10 @@ export async function POST(req: Request) {
     // Detecta el cambio hacia un estado entregado
     if (newStatus.includes('ENTREGAD') && !oldStatus.includes('ENTREGAD')) {
       const order = payload.record;
-      const shortId = order.id.toString().slice(0, 8);
+      // 👇 CAMBIO: Usamos el ID completo
+      const fullId = order.id;
 
-      const reviewLink = `https://kitson-kit.store/mis-pedidos?reviewOrder=${order.id}`;
+      const reviewLink = `https://kitson-kit.store/mis-pedidos?reviewOrder=${fullId}`;
 
       // Petición HTTP directa a Brevo (Pasa el firewall de Railway al instante)
       const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -23,19 +24,19 @@ export async function POST(req: Request) {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          sender: { name: 'Kitson Kit', email: process.env.EMAIL_USER }, // Tu Gmail configurado en Railway
+          sender: { name: 'Kitson Kit', email: process.env.EMAIL_USER }, // Tu correo configurado en Railway
           to: [{ email: order.user_email }],
-          subject: `✅ Actualización de tu pedido #{{fullId}}: ¡Entrega completada!`,
+          subject: `✅ Actualización de tu pedido #${fullId}: ¡Entrega completada!`, // Arreglado
           htmlContent: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #050505; color: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #333;">
               <h2 style="color: #f97316; text-align: center;">¡Misión Cumplida! 🎮</h2>
               <p>Hola <strong>${order.user_name}</strong>,</p>
-              <p>Nos complace informarte que tu pedido <strong>#${shortId}</strong> ha sido procesado y entregado con éxito. Los artículos ya se encuentran acreditados y listos para usar en tu cuenta.
-              </p>Si tienes alguna duda o requieres asistencia, nuestro equipo de soporte está siempre disponible para ayudarte.</p>
+              <p>Nos complace informarte que tu pedido <strong>#${fullId}</strong> ha sido procesado y entregado con éxito. Los artículos ya se encuentran acreditados y listos para usar en tu cuenta.</p>
+              <p>Si tienes alguna duda o requieres asistencia, nuestro equipo de soporte está siempre disponible para ayudarte.</p>
               <div style="text-align: center; margin: 35px 0;">
                 <a href="${reviewLink}" style="background-color: #f97316; color: #000; padding: 14px 28px; text-decoration: none; font-weight: 900; border-radius: 8px; display: inline-block;">CALIFICAR MI COMPRA</a>
               </div>
-              <p style="font-size: 14px; color: #888; text-align: Tu opinión es clave para mantener nuestros estándares de calidad. Deja una reseña y obtén tu insignia de comprador verificado. ¡Gracias por elegir la seguridad y rapidez de Kitson Kit!</p>
+              <p style="font-size: 14px; color: #888; text-align: center;">Tu opinión es clave para mantener nuestros estándares de calidad. Deja una reseña y obtén tu insignia de comprador verificado. ¡Gracias por elegir la seguridad y rapidez de Kitson Kit!</p>
             </div>
           `
         })

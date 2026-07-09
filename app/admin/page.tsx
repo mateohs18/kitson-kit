@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { supabase } from '../../lib/supabase';
-import { ShieldAlert, CheckCircle2, Clock, Package } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminPanel() {
@@ -12,40 +12,31 @@ export default function AdminPanel() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔴 CAMBIA ESTO POR TU CORREO REAL DE DISCORD
-  const ADMIN_EMAIL = "mateo1810hoyos@gmail.com"; 
+  // Estados para la recarga de saldo
+  const [emailSaldo, setEmailSaldo] = useState("");
+  const [montoSaldo, setMontoSaldo] = useState("");
+  const [loadingSaldo, setLoadingSaldo] = useState(false);
+
+  const ADMIN_EMAIL = "tu_correo@gmail.com"; // Tu correo real
 
   useEffect(() => {
     if (status === 'loading') return;
-    
-    // Si no está logueado o no es el admin, lo pateamos al inicio
     if (!session || session.user?.email !== ADMIN_EMAIL) {
       router.push('/');
       return;
     }
-
     fetchTodasLasOrdenes();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false }); // Las más nuevas primero
-    
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
     if (data) setOrders(data);
     setLoading(false);
   }
 
   async function marcarComoEntregado(id: string) {
-    // Actualizamos en Supabase
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'ENTREGADO' })
-      .eq('id', id);
-
+    const { error } = await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', id);
     if (!error) {
-      // Recargamos la lista visualmente
       fetchTodasLasOrdenes();
       alert("¡Pedido entregado! El cliente recibirá su correo.");
     } else {
@@ -53,12 +44,50 @@ export default function AdminPanel() {
     }
   }
 
+  // NUEVA FUNCIÓN: Agregar Saldo
+  async function agregarSaldo() {
+    if (!emailSaldo || !montoSaldo) return alert("Por favor, llena el correo y el monto.");
+    setLoadingSaldo(true);
+
+    // 1. Buscamos el saldo actual del usuario en la tabla profiles
+    const { data: user, error: fetchError } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('email', emailSaldo.trim())
+      .single();
+
+    if (fetchError || !user) {
+      alert("❌ No se encontró ningún usuario con ese correo en la base de datos.");
+      setLoadingSaldo(false);
+      return;
+    }
+
+    // 2. Sumamos el saldo
+    const nuevoSaldo = Number(user.balance || 0) + Number(montoSaldo);
+
+    // 3. Guardamos el nuevo saldo
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ balance: nuevoSaldo })
+      .eq('email', emailSaldo.trim());
+
+    if (!updateError) {
+      alert(`✅ ¡Recarga exitosa!\nEl nuevo saldo de ${emailSaldo} es de $${nuevoSaldo.toFixed(2)} USD.`);
+      setEmailSaldo("");
+      setMontoSaldo("");
+    } else {
+      alert("Error al guardar el saldo: " + updateError.message);
+    }
+    setLoadingSaldo(false);
+  }
+
   if (loading) return <div className="min-h-screen bg-[#050505] flex justify-center items-center"><Package className="animate-spin text-orange-500" size={48}/></div>;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-10">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-4 mb-10 border-b border-white/10 pb-6">
+    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-10">
+      <div className="max-w-6xl mx-auto space-y-10">
+        
+        <div className="flex items-center gap-4 border-b border-white/10 pb-6">
           <ShieldAlert size={40} className="text-orange-500" />
           <div>
             <h1 className="text-4xl font-black">Centro de Mando</h1>
@@ -66,7 +95,38 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="bg-[#0A0A0A] rounded-2xl border border-white/5 overflow-hidden">
+        {/* NUEVA SECCIÓN: GESTOR DE BILLETERA */}
+        <div className="bg-[#0A0A0A] p-8 rounded-2xl border border-white/5 shadow-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <Wallet className="text-orange-500" size={28} />
+            <h2 className="text-2xl font-black uppercase">Recargar Billetera</h2>
+          </div>
+          <div className="flex flex-col md:flex-row gap-4">
+            <input 
+              type="email" placeholder="Correo del cliente (ej: gamer@gmail.com)" 
+              value={emailSaldo} onChange={(e) => setEmailSaldo(e.target.value)}
+              className="flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none text-white font-medium"
+            />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-black">$</span>
+              <input 
+                type="number" placeholder="0.00" 
+                value={montoSaldo} onChange={(e) => setMontoSaldo(e.target.value)}
+                className="w-full md:w-32 bg-[#111] border border-white/10 rounded-xl pl-8 pr-4 py-3 focus:border-orange-500 focus:outline-none text-white font-bold"
+              />
+            </div>
+            <button 
+              onClick={agregarSaldo} disabled={loadingSaldo}
+              className="bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-black px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 transition-transform hover:scale-105"
+            >
+              {loadingSaldo ? <Package className="animate-spin" size={20} /> : <Plus size={20} />}
+              Añadir Saldo
+            </button>
+          </div>
+        </div>
+
+        {/* SECCIÓN ORIGINAL: PEDIDOS */}
+        <div className="bg-[#0A0A0A] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
           <table className="w-full text-left">
             <thead className="bg-[#111] border-b border-white/10 text-gray-400 text-sm uppercase tracking-wider">
               <tr>
@@ -82,7 +142,7 @@ export default function AdminPanel() {
                 const isDelivered = order.status?.toUpperCase().includes('ENTREGAD');
                 return (
                   <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-mono text-xs text-gray-500">{order.id}</td>
+                    <td className="p-4 font-mono text-xs text-gray-500">{order.id.slice(0,8)}...</td>
                     <td className="p-4 font-bold">{order.user_email}</td>
                     <td className="p-4 text-orange-400 font-black">${order.total_price.toFixed(2)}</td>
                     <td className="p-4">
@@ -93,10 +153,7 @@ export default function AdminPanel() {
                     </td>
                     <td className="p-4 text-right">
                       {!isDelivered ? (
-                        <button 
-                          onClick={() => marcarComoEntregado(order.id)}
-                          className="bg-orange-500 hover:bg-orange-400 text-black px-4 py-2 rounded-lg font-black text-sm transition-transform hover:scale-105"
-                        >
+                        <button onClick={() => marcarComoEntregado(order.id)} className="bg-orange-500 hover:bg-orange-400 text-black px-4 py-2 rounded-lg font-black text-sm transition-transform hover:scale-105">
                           Entregar
                         </button>
                       ) : (
@@ -109,6 +166,7 @@ export default function AdminPanel() {
             </tbody>
           </table>
         </div>
+
       </div>
     </div>
   );
