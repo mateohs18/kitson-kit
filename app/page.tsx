@@ -330,10 +330,10 @@ export default function Home() {
           <div>
             <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Legal & Soporte</h4>
             <ul className="space-y-3 text-sm text-gray-400">
-              <li><Link href="#" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
-              <li><Link href="#" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
-              <li><a href="#" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
-            </ul>
+    <li><Link href="/terminos" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
+    <li><Link href="/terminos" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
+    <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
+  </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto border-t border-white/5 pt-8 text-center">

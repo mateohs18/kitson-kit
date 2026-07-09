@@ -85,7 +85,7 @@ export async function POST(req: Request) {
 
       // ALERTA DISCORD PREMIUM: PAGO MANUAL POR TRANSFERENCIA
       await sendDiscordNotification({
-        content: "<@755160795587018810> <@730084111984754712> 🚨 **¡NUEVO PAGO POR VERIFICAR!**",
+        content: "<@911730868316418099> <@730084111984754712> 🚨 **¡NUEVO PAGO POR VERIFICAR!**",
         embeds: [{
           title: "🟨 Verificación de Transferencia",
           description: "Un cliente subió un comprobante de pago. **Verifica la cuenta bancaria y recarga su saldo o entrégale los items.**",
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
             { name: "💰 Monto a Verificar", value: `**${activeCurrency.symbol}${formattedLocalPrice} ${activeCurrency.currency}**\n($${totalPrice.toFixed(2)} USD)`, inline: true },
             { name: "📦 Detalles del Carrito", value: itemsList || "Recarga de Saldo" }
           ],
-          footer: { text: "Kitson Kit System", icon_url: storeLogo },
+          footer: { text: "Kitson Kit System" },
           timestamp: new Date().toISOString()
         }]
       });
