@@ -92,27 +92,13 @@ export default function CartPage() {
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     if (!gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
 
-    const userEmail = session.user?.email || '';
-    const userName = session.user?.name || 'Gamer';
-
     setIsProcessing(true);
     
     try {
-      if (paymentMethod === 'saldo') {
-        if (balance < totalPrice()) {
-          setIsProcessing(false);
-          return alert("No tienes saldo suficiente. Ve a la Billetera para recargar.");
-        }
-        
-        await supabase.from('profiles').update({ balance: balance - totalPrice() }).eq('email', userEmail);
-        
-        await supabase.from('orders').insert([{
-          user_email: userEmail, user_name: userName,
-          gamer_id: gamerId, items: cart, total_price: totalPrice(), status: 'PAGADO CON SALDO',
-          country: 'Kitson Wallet', local_currency: 'USD', local_price: totalPrice()
-        }]);
+      let finalReceiptUrl = null;
 
-      } else {
+      // Si es transferencia manual, subimos la imagen primero (esto es seguro hacerlo desde el navegador)
+      if (paymentMethod === 'manual') {
         if (!receiptFile) {
           setIsProcessing(false);
           return alert("Por favor, sube la captura de tu transferencia.");
@@ -121,19 +107,33 @@ export default function CartPage() {
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         await supabase.storage.from('comprobantes').upload(fileName, receiptFile);
         const { data: publicUrlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
-        
-        await supabase.from('orders').insert([{
-          user_email: userEmail, user_name: userName,
-          gamer_id: gamerId, items: cart, total_price: totalPrice(), status: 'PENDIENTE',
-          country: activeCurrency.name, local_currency: activeCurrency.currency,
-          local_price: parseFloat(convertedTotal.replace(/,/g, '')), payment_proof: publicUrlData.publicUrl
-        }]);
+        finalReceiptUrl = publicUrlData.publicUrl;
+      }
+
+      // Llamamos a nuestra nueva ruta blindada en el Servidor
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart,
+          gamerId,
+          paymentMethod,
+          totalPrice: totalPrice(),
+          activeCurrency,
+          receiptUrl: finalReceiptUrl
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Hubo un problema procesando el pago.");
       }
 
       setOrderSuccess(true);
       clearCart();
-    } catch (error: any) {
-      alert("Hubo un problema al procesar tu pedido.");
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setIsProcessing(false);
     }
