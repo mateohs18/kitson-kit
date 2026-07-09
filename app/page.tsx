@@ -242,9 +242,9 @@ export default function Home() {
                   );
                 })}
               </div>
-              <button onClick={() => alert("Escribe tu reseña verificada en nuestro Discord Oficial")} className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10 hover:border-orange-500">
+              <Link href="/mis-pedidos" className="w-full bg-white/5 hover:bg-orange-500 text-white hover:text-black py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all mb-8 border border-white/10 hover:border-orange-500">
                 <MessageSquare size={18} /> Dejar mi Reseña
-              </button>
+              </Link>
             </div>
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -273,7 +273,7 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-gray-300 leading-relaxed font-medium relative z-10 italic">"{r.comment}"</p>
+                    <p className="text-gray-300 leading-relaxed font-medium relative z-10 italic">&quot;{r.comment}&quot;</p>
                   </div>
                 )) : (
                   <div className="text-center py-12 bg-[#0f0f0f] rounded-2xl border border-white/5 text-gray-500 font-bold">El radar no encontró reseñas con esa búsqueda.</div>
@@ -330,10 +330,10 @@ export default function Home() {
           <div>
             <h4 className="font-bold text-white mb-4 uppercase tracking-widest text-xs">Legal & Soporte</h4>
             <ul className="space-y-3 text-sm text-gray-400">
-    <li><Link href="/terminos" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
-    <li><Link href="/terminos" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
-    <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
-  </ul>
+              <li><Link href="/terminos" className="hover:text-orange-500 transition">Términos del Servicio</Link></li>
+              <li><Link href="/terminos" className="hover:text-orange-500 transition">Política de Reembolsos</Link></li>
+              <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
+            </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto border-t border-white/5 pt-8 text-center">
