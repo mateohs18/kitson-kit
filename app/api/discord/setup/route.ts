@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic'; // 👈 Esto obliga a Next.js a intentar de nuevo y no usar caché
+
 export async function GET() {
   const APP_ID = process.env.DISCORD_APP_ID;
   const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
