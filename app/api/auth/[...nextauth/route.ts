@@ -4,7 +4,8 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { supabase } from "../../../../lib/supabase"; 
 
-const handler = NextAuth({
+// 1. Definimos las opciones por separado
+export const authOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID || "",
@@ -42,8 +43,12 @@ const handler = NextAuth({
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   }
-});
+};
 
+// 2. Creamos el manejador (handler)
+const handler = NextAuth(authOptions);
+
+// 3. Exportación MODERNA obligatoria para App Router
 export { handler as GET, handler as POST };
