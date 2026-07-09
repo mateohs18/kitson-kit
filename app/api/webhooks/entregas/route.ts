@@ -13,8 +13,11 @@ export async function POST(req: Request) {
       const order = payload.record;
       const shortId = order.id.toString().slice(0, 8); // Acorta el ID para el correo
 
+      // Configuración blindada para servidores en la nube
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // true para el puerto 465 (SSL cifrado)
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD,
