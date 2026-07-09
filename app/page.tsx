@@ -116,14 +116,12 @@ export default function Home() {
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            // CAMBIO: Botón genérico Iniciar Sesión (Abre opciones de Google, Discord y Email)
             <button onClick={() => signIn()} className="hidden sm:block bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full font-black text-sm transition">Iniciar Sesión</button>
           )}
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2"><Menu size={28} /></button>
         </div>
       </header>
 
-      {/* MENÚ MÓVIL ARREGLADO CON BOTONES DE SESIÓN */}
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
           <div className="flex flex-col gap-6 flex-1">
@@ -153,10 +151,11 @@ export default function Home() {
       </div>
 
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-8 text-gray-400 text-xs font-bold tracking-wide">
-          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-          Servidores Activos
-        </div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-8 text-gray-400 text-xs font-bold tracking-wide">
+            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            Servidores Activos
+          </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
             El Siguiente Nivel <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
