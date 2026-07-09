@@ -13,15 +13,19 @@ export async function POST(req: Request) {
       const order = payload.record;
       const shortId = order.id.toString().slice(0, 8); // Acorta el ID para el correo
 
-      // Configuración blindada para servidores en la nube
+      // Configuración anti-firewall para Railway
       const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true, // true para el puerto 465 (SSL cifrado)
+        port: 587, // El puerto 587 suele estar abierto en los servidores web
+        secure: false, // Obligatorio en false para el puerto 587 (Usa STARTTLS)
+        requireTLS: true,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD,
         },
+        tls: {
+          rejectUnauthorized: false // Evita que Railway bloquee el certificado de Google
+        }
       });
 
       const reviewLink = `https://kitson-kit.up.railway.app/mis-pedidos?reviewOrder=${order.id}`;
