@@ -78,12 +78,12 @@ export default function MisPedidos() {
               // Lógica inteligente: Si contiene "ENTREGAD" (sin importar mayúsculas/minúsculas ni la letra final)
               const isDelivered = order.status?.toUpperCase().includes('ENTREGAD');
               // Acorta el ID para que no rompa el diseño
-              const shortId = order.id.toString().slice(0, 8);
+              const fullId = order.id;
 
               return (
                 <div key={order.id} className="bg-[#0A0A0A] p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                   <div>
-                    <p className="text-gray-500 text-sm mb-1 font-mono">Orden #{shortId}</p>
+                    <p className="text-gray-500 text-sm mb-1 font-mono">Orden #{fullId}</p>
                     <p className="font-bold text-lg mb-2">Total: ${order.total_price.toFixed(2)} USD</p>
                     <div className="flex items-center gap-2">
                       {isDelivered ? <CheckCircle2 size={18} className="text-green-500"/> : <Clock size={18} className="text-orange-500"/>}

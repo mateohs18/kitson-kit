@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           sender: { name: 'Kitson Kit', email: process.env.EMAIL_USER }, // Tu Gmail configurado en Railway
           to: [{ email: order.user_email }],
-          subject: `✅ Actualización de tu pedido #{{shortId}}: ¡Entrega completada!`,
+          subject: `✅ Actualización de tu pedido #{{fullId}}: ¡Entrega completada!`,
           htmlContent: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #050505; color: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #333;">
               <h2 style="color: #f97316; text-align: center;">¡Misión Cumplida! 🎮</h2>
