@@ -8,18 +8,20 @@ export async function POST(req: Request) {
   try {
     const signature = req.headers.get('x-signature-ed25519') || '';
     const timestamp = req.headers.get('x-signature-timestamp') || '';
-    const bodyText = await req.text();
+    const rawBody = await req.text();
     
-    // 🔥 EL TRUCO: Forzamos la llave directamente para evitar bugs de Railway
+    // Pon aquí tu llave pública nuevamente (asegúrate de que no haya espacios)
     const PUBLIC_KEY = "302550f20e4babb566e43cd3232eb15c1b86ac6a2752b790f2c0015bc8c8b2bd";
 
-    if (!verifyKey(bodyText, signature, timestamp, PUBLIC_KEY)) {
+    const isValid = verifyKey(rawBody, signature, timestamp, PUBLIC_KEY);
+
+    if (!isValid) {
       return new NextResponse('Firma invalida', { status: 401 });
     }
 
-    const interaction = JSON.parse(bodyText);
+    const interaction = JSON.parse(rawBody);
 
-    // 1. PING
+    // 1. PING (Usando NextResponse para asegurar los headers correctos)
     if (interaction.type === 1) {
       return NextResponse.json({ type: 1 });
     }
@@ -61,6 +63,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    return new NextResponse('Error', { status: 500 });
+    return new NextResponse('Error interno', { status: 500 });
   }
 }
