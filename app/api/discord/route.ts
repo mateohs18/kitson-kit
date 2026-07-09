@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { verifyKey } from 'discord-interactions';
 import { supabase } from '../../../lib/supabase';
 
@@ -9,65 +8,59 @@ export async function POST(req: Request) {
     const signature = req.headers.get('x-signature-ed25519') || '';
     const timestamp = req.headers.get('x-signature-timestamp') || '';
     const bodyText = await req.text();
-    
-    // El .trim() destruye cualquier espacio en blanco invisible que se haya copiado por error
     const PUBLIC_KEY = (process.env.DISCORD_PUBLIC_KEY || '').trim();
 
-    // 1. Verificación de Seguridad
     if (!verifyKey(bodyText, signature, timestamp, PUBLIC_KEY)) {
-      console.error("Firma inválida - Discord rechazó la conexión.");
-      return new NextResponse('Firma inválida', { status: 401 });
+      return new Response('Firma invalida', { status: 401 });
     }
 
     const interaction = JSON.parse(bodyText);
 
-    // 2. PING (Lo que exige Discord para guardar la URL)
+    // 1. EL TRUCO: Respuesta cruda (Raw String) para que Discord no se confunda
     if (interaction.type === 1) {
-      console.log("¡Ping recibido y verificado con éxito!");
-      return NextResponse.json({ type: 1 });
+      return new Response('{"type":1}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // 3. COMANDO DE RECARGA
+    // 2. COMANDOS (/recargar)
     if (interaction.type === 2 && interaction.data.name === 'recargar') {
       const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
       const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
 
-      const { data: user, error: fetchErr } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+      const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
 
-      if (fetchErr || !user) {
-        return NextResponse.json({
-          type: 4,
-          data: { content: `❌ No se encontró el correo: **${correo}**` }
-        });
+      if (!user) {
+        return new Response('{"type":4,"data":{"content":"❌ Correo no encontrado"}}', { status: 200, headers: { 'Content-Type': 'application/json' }});
       }
 
       const nuevoSaldo = Number(user.balance || 0) + Number(monto);
       await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
 
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         type: 4,
-        data: { content: `✅ **¡RECARGA EXITOSA!** 💰\nSe añadieron **$${Number(monto).toFixed(2)} USD** a **${correo}**.\nNuevo saldo: **$${nuevoSaldo.toFixed(2)} USD**.` }
-      });
+        data: { content: `✅ **¡RECARGA EXITOSA!**\nSe añadieron **$${Number(monto).toFixed(2)} USD** a **${correo}**.\nNuevo saldo: **$${nuevoSaldo.toFixed(2)} USD**.` }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 4. BOTONES DE ENTREGAR
+    // 3. BOTONES DE ENTREGAR
     if (interaction.type === 3) {
       const customId = interaction.data.custom_id;
       if (customId.startsWith('entregar_')) {
         const orderId = customId.split('_')[1];
         await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
 
-        return NextResponse.json({
+        return new Response(JSON.stringify({
           type: 7, 
           data: { content: `✅ Pedido **#${orderId.slice(0,8)}** ENTREGADO.`, components: [] }
-        });
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
     }
 
-    return NextResponse.json({ success: true });
-    
+    return new Response('{"success":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+
   } catch (error) {
-    console.error("Error crítico en el servidor:", error);
-    return new NextResponse('Error interno', { status: 500 });
+    return new Response('Error', { status: 500 });
   }
 }
