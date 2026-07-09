@@ -7,8 +7,8 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_KEY! 
 );
 
-// Función auxiliar para enviar notificaciones estéticas a Discord
-async function sendDiscordNotification(embed: any) {
+// Función auxiliar mejorada para enviar la alerta a Discord
+async function sendDiscordNotification(payload: any) {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) return;
 
@@ -16,7 +16,7 @@ async function sendDiscordNotification(embed: any) {
     await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ embeds: [embed] })
+      body: JSON.stringify(payload)
     });
   } catch (error) {
     console.error("Error enviando alerta a Discord:", error);
@@ -33,8 +33,9 @@ export async function POST(req: Request) {
   const userEmail = session.user.email;
   const userName = session.user.name || 'Gamer';
 
-  // Darle formato a la lista de artículos para el mensaje de Discord
+  // Darle formato a la lista de artículos
   const itemsList = cart.map((i: any) => `• **${i.name}** (x${i.quantity}) - $${(i.price * i.quantity).toFixed(2)} USD`).join('\n');
+  const storeLogo = "https://kitson-kit.up.railway.app/logo.jpg";
 
   try {
     if (paymentMethod === 'saldo') {
@@ -52,18 +53,23 @@ export async function POST(req: Request) {
         country: 'Kitson Wallet', local_currency: 'USD', local_price: totalPrice
       }]);
 
-      // ALERTA DISCORD: COMPRA AUTOMÁTICA CON SALDO
+      // ALERTA DISCORD PREMIUM: COMPRA CON SALDO
       await sendDiscordNotification({
-        title: "🟩 NUEVA COMPRA AUTOMÁTICA (SALDO)",
-        color: 3066993, // Verde Gamer
-        fields: [
-          { name: "👤 Cliente", value: `${userName} (${userEmail})`, inline: true },
-          { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
-          { name: "💰 Total Descontado", value: `**$${totalPrice.toFixed(2)} USD**`, inline: false },
-          { name: "📦 Cosméticos Adquiridos", value: itemsList || "Recarga de Saldo" }
-        ],
-        footer: { text: "Kitson Kit System — Procesado al Instante" },
-        timestamp: new Date().toISOString()
+        content: "<@755160795587018810> <@730084111984754712> 📦 **¡NUEVA ORDEN PAGADA CON SALDO! (HAY QUE ENTREGAR)**",
+        embeds: [{
+          title: "✅ Orden Automática Completada",
+          description: "El cliente usó su saldo de Kitson para comprar cosméticos. **Entra a Fortnite y envía los siguientes regalos:**",
+          color: 3066993, // Verde
+          thumbnail: { url: storeLogo },
+          fields: [
+            { name: "👤 Cliente", value: `**${userName}**\n${userEmail}`, inline: true },
+            { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
+            { name: "💳 Total Descontado", value: `**$${totalPrice.toFixed(2)} USD**`, inline: true },
+            { name: "🎁 Cosméticos a Entregar", value: itemsList || "Recarga de Saldo" }
+          ],
+          footer: { text: "Kitson Kit System", icon_url: storeLogo },
+          timestamp: new Date().toISOString()
+        }]
       });
 
     } else {
@@ -77,20 +83,24 @@ export async function POST(req: Request) {
         local_price: parseFloat(formattedLocalPrice.replace(/,/g, '')), payment_proof: receiptUrl
       }]);
 
-      // ALERTA DISCORD: PAGO MANUAL POR TRANSFERENCIA (REQUIERE TU APROBACIÓN)
+      // ALERTA DISCORD PREMIUM: PAGO MANUAL POR TRANSFERENCIA
       await sendDiscordNotification({
-        title: "🟨 NUEVO COMPROBANTE POR VERIFICAR",
-        color: 15105570, // Naranja / Amarillo Alerta
-        fields: [
-          { name: "👤 Cliente", value: `${userName} (${userEmail})`, inline: true },
-          { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
-          { name: "🌍 País / Moneda", value: `${activeCurrency.name} (${activeCurrency.currency})`, inline: true },
-          { name: "💵 Monto Reportado", value: `**${activeCurrency.symbol}${formattedLocalPrice} ${activeCurrency.currency}** ($${totalPrice.toFixed(2)} USD)`, inline: false },
-          { name: "📦 Carrito/Concepto", value: itemsList || "Recarga de Saldo / Billetera" },
-          { name: "📸 Captura del Recibo", value: receiptUrl ? `[Ver Comprobante de Pago de forma Segura](${receiptUrl})` : "No se adjuntó imagen" }
-        ],
-        footer: { text: "Kitson Kit System — Esperando Verificación Manual" },
-        timestamp: new Date().toISOString()
+        content: "<@755160795587018810> <@730084111984754712> 🚨 **¡NUEVO PAGO POR VERIFICAR!**",
+        embeds: [{
+          title: "🟨 Verificación de Transferencia",
+          description: "Un cliente subió un comprobante de pago. **Verifica la cuenta bancaria y recarga su saldo o entrégale los items.**",
+          color: 16753920, // Naranja
+          thumbnail: { url: storeLogo },
+          image: receiptUrl ? { url: receiptUrl } : undefined, // ¡La foto del comprobante aparecerá gigante aquí!
+          fields: [
+            { name: "👤 Cliente", value: `**${userName}**\n${userEmail}`, inline: true },
+            { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
+            { name: "💰 Monto a Verificar", value: `**${activeCurrency.symbol}${formattedLocalPrice} ${activeCurrency.currency}**\n($${totalPrice.toFixed(2)} USD)`, inline: true },
+            { name: "📦 Detalles del Carrito", value: itemsList || "Recarga de Saldo" }
+          ],
+          footer: { text: "Kitson Kit System", icon_url: storeLogo },
+          timestamp: new Date().toISOString()
+        }]
       });
     }
 
