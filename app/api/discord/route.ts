@@ -1,68 +1,46 @@
-import { NextResponse } from 'next/server';
 import { verifyKey } from 'discord-interactions';
-import { supabase } from '../../../lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  console.log("--- 🟢 NUEVA PETICIÓN DE DISCORD ---");
+  
   try {
     const signature = req.headers.get('x-signature-ed25519') || '';
     const timestamp = req.headers.get('x-signature-timestamp') || '';
-    const rawBody = await req.text();
+    const bodyText = await req.text();
     
-    // Pon aquí tu llave pública nuevamente (asegúrate de que no haya espacios)
-    const PUBLIC_KEY = "302550f20e4babb566e43cd3232eb15c1b86ac6a2752b790f2c0015bc8c8b2bd";
-
-    const isValid = verifyKey(rawBody, signature, timestamp, PUBLIC_KEY);
+    console.log("Cuerpo recibido:", bodyText);
+    
+    // Aquí puedes dejar la variable de entorno o pegar la llave dura como hicimos antes
+    const PUBLIC_KEY = (process.env.DISCORD_PUBLIC_KEY || '').trim();
+    
+    const isValid = verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
+    console.log("¿Firma verificada como válida?:", isValid);
 
     if (!isValid) {
-      return new NextResponse('Firma invalida', { status: 401 });
+      console.log("❌ Discord intentó conectar, pero la Llave Pública no coincide.");
+      return new Response('Firma invalida', { status: 401 });
     }
 
-    const interaction = JSON.parse(rawBody);
+    const interaction = JSON.parse(bodyText);
+    console.log("Tipo de interacción recibida:", interaction.type);
 
-    // 1. PING (Usando NextResponse para asegurar los headers correctos)
     if (interaction.type === 1) {
-      return NextResponse.json({ type: 1 });
-    }
-
-    // 2. COMANDOS (/recargar)
-    if (interaction.type === 2 && interaction.data.name === 'recargar') {
-      const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
-      const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
-
-      const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
-
-      if (!user) {
-        return NextResponse.json({ type: 4, data: { content: `❌ Correo no encontrado: ${correo}` } });
-      }
-
-      const nuevoSaldo = Number(user.balance || 0) + Number(monto);
-      await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
-
-      return NextResponse.json({
-        type: 4,
-        data: { content: `✅ **¡RECARGA EXITOSA!**\nSe añadieron **$${Number(monto).toFixed(2)} USD** a **${correo}**.\nNuevo saldo: **$${nuevoSaldo.toFixed(2)} USD**.` }
+      console.log("✅ ¡Es un PING de Discord! Respondiendo con type: 1...");
+      return new Response(JSON.stringify({ type: 1 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // 3. BOTONES DE ENTREGAR
-    if (interaction.type === 3) {
-      const customId = interaction.data.custom_id;
-      if (customId.startsWith('entregar_')) {
-        const orderId = customId.split('_')[1];
-        await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
-
-        return NextResponse.json({
-          type: 7, 
-          data: { content: `✅ Pedido **#${orderId.slice(0,8)}** ENTREGADO.`, components: [] }
-        });
-      }
-    }
-
-    return NextResponse.json({ success: true });
-
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
   } catch (error) {
-    return new NextResponse('Error interno', { status: 500 });
+    console.error("❌ Error interno del servidor:", error);
+    return new Response('Error', { status: 500 });
   }
 }
