@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     title: "Kitson Kit | Billetera y Recargas Gamer",
     description: "Adquiere tus cosméticos de Fortnite de forma automatizada y segura.",
     // 3. Lo mismo para Twitter / X
-    images: ["https://kitson-kit.up.railway.app/logo.jpg"], 
+    images: ["https://kitson-kit.store/logo.jpg"], 
   },
 };
 
