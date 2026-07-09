@@ -6,15 +6,29 @@ export async function POST(req: Request) {
   const signature = req.headers.get('x-signature-ed25519');
   const timestamp = req.headers.get('x-signature-timestamp');
   const bodyText = await req.text();
-
   const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || '';
 
-  if (!signature || !timestamp) return new NextResponse('Faltan cabeceras', { status: 401 });
+  // 🔥 LOGS PARA DEPURAR EN RAILWAY
+  console.log("--- INTENTO DE VERIFICACIÓN ---");
+  console.log("Public Key cargada en Railway:", PUBLIC_KEY ? "Correcto (tiene contenido)" : "VACÍA");
+  console.log("Firma recibida:", signature);
+  
+  if (!signature || !timestamp) {
+    console.log("Error: Falta firma o timestamp");
+    return new NextResponse('Faltan cabeceras', { status: 401 });
+  }
 
   const isValidRequest = verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
-  if (!isValidRequest) return new NextResponse('Firma inválida', { status: 401 });
+  
+  if (!isValidRequest) {
+    console.log("Error: La firma NO coincide con la Public Key");
+    return new NextResponse('Firma inválida', { status: 401 });
+  }
 
+  console.log("¡Éxito! Firma verificada.");
+  
   const interaction = JSON.parse(bodyText);
+  // ... resto de tu código (ping, botones, etc)
 
   // 1. PING DE VERIFICACIÓN
   if (interaction.type === 1) return NextResponse.json({ type: 1 });
