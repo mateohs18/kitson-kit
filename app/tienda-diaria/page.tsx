@@ -25,7 +25,15 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
     const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0];
     name = mainItem?.name || mainItem?.title || 'Cosmético';
     rarityValue = mainItem?.rarity?.value || 'common';
-    displayImage = entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || mainItem?.images?.featured || mainItem?.images?.icon || '';
+    
+    // Aquí está la corrección: añadimos large, albumArt y image para atrapar todo el contenido nuevo
+    displayImage = entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage 
+      || mainItem?.images?.featured 
+      || mainItem?.images?.icon 
+      || mainItem?.images?.large 
+      || mainItem?.albumArt 
+      || mainItem?.image 
+      || '';
   }
 
   if (!name || !displayImage) return null;
