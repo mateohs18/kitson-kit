@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     const bodyText = await req.text();
     // Tu llave exacta
-    const PUBLIC_KEY = "302550f20e4babb566e43cd3232eb15c1b86ac6a2752b790f2c0015bc8c8b2bd";
+    const PUBLIC_KEY = "72b7028f1a0e5e72731199ea8cd1523ee7dea08f64fc0ccd4c3b5df151ff389a";
 
     const isValid = verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
 
