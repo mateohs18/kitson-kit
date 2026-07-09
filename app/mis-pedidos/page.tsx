@@ -11,7 +11,6 @@ export default function MisPedidos() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados para el sistema de Reseñas
   const [reviewOrder, setReviewOrder] = useState<any | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -75,24 +74,31 @@ export default function MisPedidos() {
           </div>
         ) : (
           <div className="grid gap-6">
-            {orders.map(order => (
-              <div key={order.id} className="bg-[#0A0A0A] p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div>
-                  <p className="text-gray-500 text-sm mb-1 font-mono">Orden #{order.id}</p>
-                  <p className="font-bold text-lg mb-2">Total: ${order.total_price.toFixed(2)} USD</p>
-                  <div className="flex items-center gap-2">
-                    {order.status === 'ENTREGADA' ? <CheckCircle2 size={18} className="text-green-500"/> : <Clock size={18} className="text-orange-500"/>}
-                    <span className={`text-sm font-black tracking-widest uppercase ${order.status === 'ENTREGADA' ? 'text-green-500' : 'text-orange-500'}`}>{order.status}</span>
+            {orders.map(order => {
+              // Lógica inteligente: Si contiene "ENTREGAD" (sin importar mayúsculas/minúsculas ni la letra final)
+              const isDelivered = order.status?.toUpperCase().includes('ENTREGAD');
+              // Acorta el ID para que no rompa el diseño
+              const shortId = order.id.toString().slice(0, 8);
+
+              return (
+                <div key={order.id} className="bg-[#0A0A0A] p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                  <div>
+                    <p className="text-gray-500 text-sm mb-1 font-mono">Orden #{shortId}</p>
+                    <p className="font-bold text-lg mb-2">Total: ${order.total_price.toFixed(2)} USD</p>
+                    <div className="flex items-center gap-2">
+                      {isDelivered ? <CheckCircle2 size={18} className="text-green-500"/> : <Clock size={18} className="text-orange-500"/>}
+                      <span className={`text-sm font-black tracking-widest uppercase ${isDelivered ? 'text-green-500' : 'text-orange-500'}`}>{order.status}</span>
+                    </div>
                   </div>
+                  
+                  {isDelivered && (
+                    <button onClick={() => setReviewOrder(order)} className="bg-white/5 hover:bg-orange-500 text-white hover:text-black transition-colors px-6 py-3 rounded-xl font-bold flex items-center gap-2 border border-white/10 hover:border-orange-500">
+                      <Star size={18} /> Dejar Reseña
+                    </button>
+                  )}
                 </div>
-                
-                {order.status === 'ENTREGADA' && (
-                  <button onClick={() => setReviewOrder(order)} className="bg-white/5 hover:bg-orange-500 text-white hover:text-black transition-colors px-6 py-3 rounded-xl font-bold flex items-center gap-2 border border-white/10 hover:border-orange-500">
-                    <Star size={18} /> Dejar Reseña
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
