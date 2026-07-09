@@ -17,7 +17,7 @@ export default function AdminPanel() {
   const [montoSaldo, setMontoSaldo] = useState("");
   const [loadingSaldo, setLoadingSaldo] = useState(false);
 
-  const ADMIN_EMAIL = "tu_correo@gmail.com"; // Tu correo real
+  const ADMIN_EMAIL = "mateo1810hoyos@gmail.com"; // Tu correo real
 
   useEffect(() => {
     if (status === 'loading') return;
