@@ -153,11 +153,10 @@ export default function Home() {
       </div>
 
       <main className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-36 z-10 overflow-hidden">
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel mb-8 border border-white/10 text-orange-500">
-            <Flame size={14} className="animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest">Tienda Nº1 en Seguridad</span>
-          </div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-8 text-gray-400 text-xs font-bold tracking-wide">
+          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+          Servidores Activos
+        </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-[1.1] tracking-tight drop-shadow-2xl">
             El Siguiente Nivel <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Para Tu Cuenta</span>
