@@ -17,11 +17,12 @@ export default function AdminPanel() {
   const [montoSaldo, setMontoSaldo] = useState("");
   const [loadingSaldo, setLoadingSaldo] = useState(false);
 
-  const ADMIN_EMAIL = "mateo1810hoyos@gmail.com"; // Tu correo real
-
+  // La verificación real de admin ya se hace en middleware.ts (servidor).
+  // Este chequeo es solo para no mostrar el panel un instante mientras
+  // carga la sesión, o si por algo se llega a esta ruta sin pasar por el middleware.
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session || session.user?.email !== ADMIN_EMAIL) {
+    if (!session) {
       router.push('/');
       return;
     }
@@ -35,12 +36,17 @@ export default function AdminPanel() {
   }
 
   async function marcarComoEntregado(id: string) {
-    const { error } = await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', id);
-    if (!error) {
+    const res = await fetch('/api/admin/marcar-entregado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: id }),
+    });
+    const data = await res.json();
+    if (res.ok) {
       fetchTodasLasOrdenes();
       alert("¡Pedido entregado! El cliente recibirá su correo.");
     } else {
-      alert("Error al actualizar: " + error.message);
+      alert("Error al actualizar: " + data.error);
     }
   }
 
@@ -49,34 +55,19 @@ export default function AdminPanel() {
     if (!emailSaldo || !montoSaldo) return alert("Por favor, llena el correo y el monto.");
     setLoadingSaldo(true);
 
-    // 1. Buscamos el saldo actual del usuario en la tabla profiles
-    const { data: user, error: fetchError } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('email', emailSaldo.trim())
-      .single();
+    const res = await fetch('/api/admin/agregar-saldo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailSaldo, montoSaldo }),
+    });
+    const data = await res.json();
 
-    if (fetchError || !user) {
-      alert("❌ No se encontró ningún usuario con ese correo en la base de datos.");
-      setLoadingSaldo(false);
-      return;
-    }
-
-    // 2. Sumamos el saldo
-    const nuevoSaldo = Number(user.balance || 0) + Number(montoSaldo);
-
-    // 3. Guardamos el nuevo saldo
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ balance: nuevoSaldo })
-      .eq('email', emailSaldo.trim());
-
-    if (!updateError) {
-      alert(`✅ ¡Recarga exitosa!\nEl nuevo saldo de ${emailSaldo} es de $${nuevoSaldo.toFixed(2)} USD.`);
+    if (res.ok) {
+      alert(`✅ ¡Recarga exitosa!\nEl nuevo saldo de ${emailSaldo} es de $${data.nuevoSaldo.toFixed(2)} USD.`);
       setEmailSaldo("");
       setMontoSaldo("");
     } else {
-      alert("Error al guardar el saldo: " + updateError.message);
+      alert("❌ " + data.error);
     }
     setLoadingSaldo(false);
   }
