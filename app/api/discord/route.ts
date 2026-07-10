@@ -1,84 +1,97 @@
-import { NextResponse } from 'next/server';
+import { verifyKey } from 'discord-interactions';
 import { supabase } from '../../../lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { email, productoNombre, precio } = await req.json();
+    const signature = req.headers.get('x-signature-ed25519');
+    const timestamp = req.headers.get('x-signature-timestamp');
+    const bodyText = await req.text();
+    
+    if (!signature || !timestamp) return new Response('Unauthorized', { status: 401 });
 
-    if (!email || !productoNombre || !precio) {
-      return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
+    // Uso la variable de entorno, pero dejo tu llave escrita como plan de respaldo por si falla Railway
+    const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || "72b7028f1a0e5e72731199ea8cd1523ee7dea08f64fc0ccd4c3b5df151ff389a";
+    
+    let isValid = false;
+    try { isValid = await verifyKey(bodyText, signature, timestamp, PUBLIC_KEY); } 
+    catch (e) { return new Response('Unauthorized', { status: 401 }); }
+
+    if (!isValid) return new Response('Unauthorized', { status: 401 });
+
+    const interaction = JSON.parse(bodyText);
+    
+    // 1. EL PING
+    if (interaction.type === 1) return Response.json({ type: 1 });
+
+    // 2. COMANDOS (Toda tu lógica maestra intacta)
+    if (interaction.type === 2) {
+      const comando = interaction.data.name;
+
+      if (comando === 'recargar') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
+        const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+        if (!user) return Response.json({ type: 4, data: { content: `❌ Correo no encontrado.` } });
+        const nuevoSaldo = Number(user.balance || 0) + Number(monto);
+        await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
+        return Response.json({ type: 4, data: { content: `✅ **¡RECARGA EXITOSA!**\nNuevo saldo para **${correo}**: **$${nuevoSaldo.toFixed(2)} USD**.` } });
+      }
+
+      if (comando === 'descontar') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
+        const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+        if (!user) return Response.json({ type: 4, data: { content: `❌ Correo no encontrado.` } });
+        const nuevoSaldo = Number(user.balance || 0) - Number(monto);
+        await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
+        return Response.json({ type: 4, data: { content: `➖ **¡DESCUENTO APLICADO!**\nNuevo saldo para **${correo}**: **$${nuevoSaldo.toFixed(2)} USD**.` } });
+      }
+
+      if (comando === 'registrar_usuario') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const { error } = await supabase.from('profiles').insert([{ email: correo.trim(), balance: 0 }]);
+        if (error) return Response.json({ type: 4, data: { content: `❌ Hubo un error o el usuario ya existe.` } });
+        return Response.json({ type: 4, data: { content: `✅ Cliente **${correo}** registrado con éxito. Saldo inicial: $0.` } });
+      }
+
+      if (comando === 'consultar_saldo') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+        if (!user) return Response.json({ type: 4, data: { content: `❌ No se encontró una cuenta para **${correo}**.` }, flags: 64 });
+        return Response.json({ type: 4, data: { content: `💳 Saldo disponible para **${correo}**: **$${Number(user.balance || 0).toFixed(2)} USD**.`, flags: 64 } });
+      }
+
+      if (comando === 'estado_pedido') {
+        const ordenId = interaction.data.options.find((o: any) => o.name === 'orden_id').value;
+        const { data: orden } = await supabase.from('orders').select('status').eq('id', ordenId).single();
+        if (!orden) return Response.json({ type: 4, data: { content: `❌ No existe ninguna orden con el ID **${ordenId}**.` } });
+        return Response.json({ type: 4, data: { content: `📦 El estado de tu pedido **#${ordenId.slice(0,8)}** es: **${orden.status}**.` } });
+      }
     }
 
-    // 1. VERIFICAR EL SALDO DEL CLIENTE EN SUPABASE
-    const { data: user, error: userError } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('email', email.trim())
-      .single();
-
-    if (userError || !user) {
-      return NextResponse.json({ error: 'El correo electrónico no está registrado en el sistema.' }, { status: 404 });
+    // 3. BOTONES DE ENTREGAR
+    if (interaction.type === 3) {
+      const customId = interaction.data.custom_id;
+      if (customId.startsWith('entregar_')) {
+        const orderId = customId.split('_')[1];
+        await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
+        
+        // type 7 edita el mensaje, borra la tarjeta y deja la confirmación
+        return Response.json({ 
+          type: 7, 
+          data: { 
+            content: `✅ **ORDEN #${orderId.slice(0,8)} ENTREGADA EXITOSAMENTE**`, 
+            components: [], 
+            embeds: [] 
+          } 
+        });
+      }
     }
 
-    if (Number(user.balance) < Number(precio)) {
-      return NextResponse.json({ error: 'Saldo insuficiente para realizar esta compra.' }, { status: 400 });
-    }
-
-    // 2. RESTAR EL SALDO DE LA CUENTA
-    const nuevoSaldo = Number(user.balance) - Number(precio);
-    await supabase
-      .from('profiles')
-      .update({ balance: nuevoSaldo })
-      .eq('email', email.trim());
-
-    // 3. CREAR LA ORDEN EN LA TABLA DE PEDIDOS
-    const { data: orden, error: ordenError } = await supabase
-      .from('orders')
-      .insert([
-        { email: email.trim(), product: productoNombre, total: precio, status: 'PENDIENTE' }
-      ])
-      .select()
-      .single();
-
-    if (ordenError || !orden) {
-      return NextResponse.json({ error: 'Error crítico al registrar la orden.' }, { status: 500 });
-    }
-
-    // 4. ENVIAR LA ALERTA AUTOMÁTICA A DISCORD CON EL BOTÓN INTERACTIVO
-    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-    const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-
-    if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
-      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bot ${BOT_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          content: `🚨 **¡NUEVA ORDEN PROCESADA EN LA WEB!** 🚨\n\n👤 **Cliente:** \`${email}\`\n📦 **Artículo:** ${productoNombre}\n💰 **Monto Cobrado:** $${Number(precio).toFixed(2)} USD\n🆔 **Orden ID:** \`${orden.id}\``,
-          components: [
-            {
-              type: 1, // Barra de acciones
-              components: [
-                {
-                  type: 2, // Componente Botón
-                  style: 3, // Color Verde (Success)
-                  label: '📦 Marcar como Entregado',
-                  // 🔥 La magia: Al pulsar este botón, se dispara el código de entregas que ya creamos en tu bot
-                  custom_id: `entregar_${orden.id}` 
-                }
-              ]
-            }
-          ]
-        })
-      });
-    }
-
-    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
-
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("Error en checkout:", error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return new Response('Internal Server Error', { status: 500 });
   }
 }
