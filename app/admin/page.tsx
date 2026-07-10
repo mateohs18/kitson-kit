@@ -2,19 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminPanel() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
+  const [recargas, setRecargas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Estados para la recarga de saldo
   const [emailSaldo, setEmailSaldo] = useState("");
   const [montoSaldo, setMontoSaldo] = useState("");
   const [loadingSaldo, setLoadingSaldo] = useState(false);
+  const [aprobandoId, setAprobandoId] = useState<string | null>(null);
 
   // La verificación real de admin ya se hace en middleware.ts (servidor).
   // Este chequeo es solo para no mostrar el panel un instante mientras
@@ -26,6 +28,7 @@ export default function AdminPanel() {
       return;
     }
     fetchTodasLasOrdenes();
+    fetchRecargas();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
@@ -35,6 +38,31 @@ export default function AdminPanel() {
       setOrders(data.orders);
     }
     setLoading(false);
+  }
+
+  async function fetchRecargas() {
+    const res = await fetch('/api/recargas-admin');
+    if (res.ok) {
+      const data = await res.json();
+      setRecargas(data.recargas);
+    }
+  }
+
+  async function aprobarRecarga(id: string) {
+    setAprobandoId(id);
+    const res = await fetch('/api/aprobar-recarga', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recargaId: id }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      fetchRecargas();
+      alert(`✅ Recarga aprobada. Nuevo saldo: $${data.nuevoSaldo.toFixed(2)} USD.`);
+    } else {
+      alert("Error al aprobar: " + data.error);
+    }
+    setAprobandoId(null);
   }
 
   async function marcarComoEntregado(id: string) {
@@ -73,6 +101,8 @@ export default function AdminPanel() {
     }
     setLoadingSaldo(false);
   }
+
+  const recargasPendientes = recargas.filter(r => r.status === 'PENDIENTE');
 
   if (loading) return <div className="min-h-screen bg-[#14110C] flex justify-center items-center"><Package className="animate-spin text-[#E3A23D]" size={48}/></div>;
 
@@ -116,6 +146,45 @@ export default function AdminPanel() {
               Añadir saldo
             </button>
           </div>
+        </div>
+
+        {/* RECARGAS PENDIENTES (automatizadas desde /billetera) */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <Inbox className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Recargas pendientes</h2>
+            {recargasPendientes.length > 0 && (
+              <span className="bg-[#E3A23D] text-[#0A0806] text-xs font-black px-2.5 py-1 rounded-full">{recargasPendientes.length}</span>
+            )}
+          </div>
+          {recargasPendientes.length === 0 ? (
+            <p className="text-[#9A9384] text-sm">No hay solicitudes esperando aprobación por ahora.</p>
+          ) : (
+            <div className="space-y-3">
+              {recargasPendientes.map((r) => (
+                <div key={r.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4">
+                  <div>
+                    <p className="font-bold text-[#F5F1E6]">{r.user_email}</p>
+                    <p className="text-sm text-[#9A9384]">Pide cargar <span className="font-mono text-[#E3A23D] font-semibold">${Number(r.amount).toFixed(2)}</span> USD</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {r.receipt_url && (
+                      <a href={r.receipt_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-bold text-[#4A93D6] hover:underline">
+                        Ver comprobante <ExternalLink size={14} />
+                      </a>
+                    )}
+                    <button
+                      onClick={() => aprobarRecarga(r.id)}
+                      disabled={aprobandoId === r.id}
+                      className="bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-4 py-2 rounded-lg font-display font-bold text-sm border-2 border-[#0A0806] transition-transform hover:scale-105"
+                    >
+                      {aprobandoId === r.id ? 'Aprobando...' : 'Aprobar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* PEDIDOS */}

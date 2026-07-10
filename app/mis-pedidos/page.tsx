@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import { ChevronLeft, Package, CheckCircle2, Clock, Star, Send } from 'lucide-re
 
 export default function MisPedidos() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +24,16 @@ export default function MisPedidos() {
       fetchOrders();
     }
   }, [session]);
+
+  // Si venimos del link "Calificar mi compra" del email de entrega,
+  // abrimos directo el modal de reseña para esa orden puntual.
+  useEffect(() => {
+    const reviewOrderId = searchParams.get('reviewOrder');
+    if (reviewOrderId && orders.length > 0) {
+      const order = orders.find((o) => o.id === reviewOrderId);
+      if (order) setReviewOrder(order);
+    }
+  }, [searchParams, orders]);
 
   async function fetchOrders() {
     const res = await fetch('/api/mis-pedidos');

@@ -1,7 +1,16 @@
 import { verifyKey } from 'discord-interactions';
-import { supabase } from '../../../lib/supabase';
+import { supabaseAdmin } from '../../../lib/supabase-admin';
+import { aprobarRecarga } from '../../../lib/recargas';
 
 export const dynamic = 'force-dynamic';
+
+// IDs de Discord autorizados a usar comandos administrativos, separados por coma
+// (poné el tuyo en la variable de entorno DISCORD_ADMIN_IDS en Railway).
+function esAdminAutorizado(interaction: any): boolean {
+  const idsPermitidos = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+  return !!userId && idsPermitidos.includes(userId);
+}
 
 export async function POST(req: Request) {
   try {
@@ -21,6 +30,7 @@ export async function POST(req: Request) {
     if (!isValid) return new Response('Unauthorized', { status: 401 });
 
     const interaction = JSON.parse(bodyText);
+    const supabase = supabaseAdmin;
     
     // 1. EL PING
     if (interaction.type === 1) return Response.json({ type: 1 });
@@ -28,6 +38,12 @@ export async function POST(req: Request) {
     // 2. COMANDOS (Toda tu lógica maestra intacta)
     if (interaction.type === 2) {
       const comando = interaction.data.name;
+
+      // Todos los comandos de abajo modifican saldo o datos de clientes:
+      // solo los IDs de Discord en DISCORD_ADMIN_IDS pueden usarlos.
+      if (!esAdminAutorizado(interaction)) {
+        return Response.json({ type: 4, data: { content: '⛔ No tenés permiso para usar este comando.', flags: 64 } });
+      }
 
       if (comando === 'recargar') {
         const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
@@ -71,9 +87,28 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. BOTONES DE ENTREGAR
+    // 3. BOTONES DE ENTREGAR / APROBAR RECARGA
     if (interaction.type === 3) {
+      if (!esAdminAutorizado(interaction)) {
+        return Response.json({ type: 4, data: { content: '⛔ No tenés permiso para hacer esto.', flags: 64 } });
+      }
       const customId = interaction.data.custom_id;
+
+      if (customId.startsWith('aprobar_recarga_')) {
+        const recargaId = customId.replace('aprobar_recarga_', '');
+        const resultado = await aprobarRecarga(recargaId);
+        if (!resultado.ok) {
+          return Response.json({ type: 4, data: { content: `❌ ${resultado.error}`, flags: 64 } });
+        }
+        return Response.json({
+          type: 7,
+          data: {
+            content: `✅ **RECARGA APROBADA**\nNuevo saldo de **${resultado.email}**: **$${resultado.nuevoSaldo?.toFixed(2)} USD**.`,
+            components: [],
+            embeds: [],
+          },
+        });
+      }
       if (customId.startsWith('entregar_')) {
         const orderId = customId.split('_')[1];
         await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);

@@ -3,26 +3,67 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Wallet, UploadCloud, Loader2, ArrowUpRight, ChevronLeft } from 'lucide-react';
+import { Wallet, UploadCloud, Loader2, ArrowUpRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
 
 export default function WalletPage() {
   const { data: session } = useSession();
   const [balance, setBalance] = useState<number>(0);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    async function fetchBalance() {
-      if (session?.user?.email) {
-        const res = await fetch('/api/mi-saldo');
-        if (res.ok) {
-          const data = await res.json();
-          setBalance(data.balance);
-        }
-      }
-    }
     fetchBalance();
   }, [session]);
+
+  async function fetchBalance() {
+    if (session?.user?.email) {
+      const res = await fetch('/api/mi-saldo');
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data.balance);
+      }
+    }
+  }
+
+  async function handleSubmit() {
+    if (!session) return alert('Iniciá sesión para solicitar una recarga.');
+    if (!receiptFile) return alert('Subí la captura de tu transferencia.');
+    const monto = Number(amount);
+    if (!Number.isFinite(monto) || monto <= 0) return alert('Ingresá el monto que transferiste.');
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', receiptFile);
+      const uploadRes = await fetch('/api/subir-comprobante', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        setLoading(false);
+        return alert(uploadData.error || 'No se pudo subir el comprobante.');
+      }
+
+      const res = await fetch('/api/solicitar-recarga', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: monto, receiptUrl: uploadData.url }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLoading(false);
+        return alert(data.error || 'No se pudo enviar la solicitud.');
+      }
+
+      setSuccess(true);
+      setReceiptFile(null);
+      setAmount('');
+    } catch {
+      alert('Ocurrió un error al enviar la solicitud.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body">
@@ -53,25 +94,42 @@ export default function WalletPage() {
             <ArrowUpRight className="text-[#E3A23D]" /> Solicitar recarga
           </h3>
 
-          <label className="relative flex flex-col items-center justify-center w-full py-10 px-4 bg-[#14110C] border-2 border-dashed border-[#3A3527] hover:border-[#E3A23D] rounded-2xl cursor-pointer transition-all group">
-            <input type="file" className="hidden" onChange={(e) => e.target.files && setReceiptFile(e.target.files[0])} />
-            {receiptFile ? (
-              <span className="text-[#7BC77E] font-bold">{receiptFile.name}</span>
-            ) : (
-              <div className="text-center">
-                <UploadCloud size={32} className="text-[#E3A23D] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-bold text-[#D9D4C7]">Arrastra o hacé clic para subir comprobante</p>
-              </div>
-            )}
-          </label>
+          {success ? (
+            <div className="text-center py-8">
+              <CheckCircle2 size={48} className="mx-auto text-[#7BC77E] mb-4" />
+              <p className="font-bold text-lg text-[#7BC77E] mb-2">¡Solicitud enviada!</p>
+              <p className="text-[#9A9384] text-sm mb-6">Cuando confirmemos tu comprobante, el saldo aparece acreditado acá mismo.</p>
+              <button onClick={() => setSuccess(false)} className="text-[#E3A23D] font-bold text-sm hover:underline">Enviar otra solicitud</button>
+            </div>
+          ) : (
+            <>
+              <label className="block text-sm font-bold text-[#D9D4C7] mb-2">¿Cuánto transferiste? (USD)</label>
+              <input
+                type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)}
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-4 py-3 mb-6 text-[#F5F1E6] focus:outline-none focus:border-[#E3A23D] font-mono font-semibold"
+              />
 
-          <button
-            onClick={() => alert("Función de notificación al admin en camino...")}
-            disabled={loading || !receiptFile}
-            className="w-full mt-6 bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] py-4 rounded-xl font-display font-bold border-[3px] border-[#0A0806] transition-all"
-          >
-            {loading ? <Loader2 className="animate-spin mx-auto"/> : "Enviar comprobante"}
-          </button>
+              <label className="relative flex flex-col items-center justify-center w-full py-10 px-4 bg-[#14110C] border-2 border-dashed border-[#3A3527] hover:border-[#E3A23D] rounded-2xl cursor-pointer transition-all group">
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files && setReceiptFile(e.target.files[0])} />
+                {receiptFile ? (
+                  <span className="text-[#7BC77E] font-bold">{receiptFile.name}</span>
+                ) : (
+                  <div className="text-center">
+                    <UploadCloud size={32} className="text-[#E3A23D] mx-auto mb-3 group-hover:scale-110 transition-transform" />
+                    <p className="text-sm font-bold text-[#D9D4C7]">Arrastrá o hacé clic para subir comprobante</p>
+                  </div>
+                )}
+              </label>
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading || !receiptFile || !amount}
+                className="w-full mt-6 bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] py-4 rounded-xl font-display font-bold border-[3px] border-[#0A0806] transition-all"
+              >
+                {loading ? <Loader2 className="animate-spin mx-auto"/> : "Enviar comprobante"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
