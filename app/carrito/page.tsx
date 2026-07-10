@@ -113,16 +113,18 @@ export default function CartPage() {
       // 🔥 AQUÍ ESTÁ LA MAGIA CORREGIDA: Traducimos el carrito al formato del backend
       const resumenProductos = cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
 
+      // Llamamos a nuestra ruta blindada enviando los datos reales
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: session.user?.email,        // El email que pedía tu cajero
-          productoNombre: resumenProductos,  // El texto con los productos
-          precio: totalPrice(),              // El total de la compra
-          gamerId: gamerId,                  // Extras
-          paymentMethod: paymentMethod,      // Extras
-          receiptUrl: finalReceiptUrl        // Extras
+          email: session.user?.email,
+          userName: session.user?.name || 'Usuario',
+          cart: cart,                 // Enviamos el arreglo completo para tu columna JSONB
+          gamerId: gamerId,           // Tu columna gamer_id
+          totalPrice: totalPrice(),   // Tu columna total_price
+          paymentMethod: paymentMethod,
+          receiptUrl: finalReceiptUrl
         })
       });
 
