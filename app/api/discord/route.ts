@@ -21,7 +21,8 @@ export async function POST(req: Request) {
     
     let isValid = false;
     try {
-      isValid = verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
+      // 🔥 AQUÍ ESTÁ LA SOLUCIÓN: Añadimos "await"
+      isValid = await verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
     } catch (e) {
       console.log("❌ Bloqueado: Error interno al leer la firma secreta.");
       return new Response('Unauthorized', { status: 401 });
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
 
     const interaction = JSON.parse(bodyText);
     
-    // 1. EL PING (Usando la API nativa de la web, sin Next.js de por medio)
+    // 1. EL PING
     if (interaction.type === 1) {
       console.log("✅ PING VALIDADO (Respondiendo type: 1)");
       return Response.json({ type: 1 });
