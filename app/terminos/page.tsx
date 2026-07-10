@@ -1,5 +1,11 @@
 import Link from 'next/link';
 import { Shield, Clock, AlertTriangle, ChevronLeft } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Términos del Servicio',
+  description: 'Términos del servicio y política de reembolsos de Kitson Kit.',
+};
 
 export default function TerminosPage() {
   return (

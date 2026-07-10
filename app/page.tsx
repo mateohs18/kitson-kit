@@ -111,7 +111,7 @@ export default function Home() {
           {session ? (
             <div className="hidden sm:flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
               <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <img src={session.user?.image || "/logo.jpg"} alt="Avatar" className="w-8 h-8 rounded-full" />
+                <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
                 <span className="text-sm font-bold text-gray-200">{session.user?.name}</span>
               </Link>
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>

@@ -4,9 +4,12 @@ import AuthProvider from "../components/AuthProvider";
 
 export const metadata: Metadata = {
   // 1. Añadimos el dominio base para que Next.js entienda las rutas
-  metadataBase: new URL("https://kitson-kit.up.railway.app"),
+  metadataBase: new URL("https://kitson-kit.store"),
   
-  title: "Kitson Kit | El Siguiente Nivel Para Tu Cuenta",
+  title: {
+    default: "Kitson Kit | El Siguiente Nivel Para Tu Cuenta",
+    template: "%s | Kitson Kit",
+  },
   description: "Adquiere cosméticos exclusivos, recargas de pavos y suscripciones de forma automatizada, segura y 100% legal.",
   keywords: ["fortnite", "pavos", "recargas", "skins", "kitson kit", "billetera gamer"],
   authors: [{ name: "Kitson Kit" }],
@@ -14,12 +17,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Kitson Kit — Sube de Nivel Al Instante",
     description: "Recargas automáticas y skins exclusivas en menos de 5 minutos. Operaciones blindadas y sin riesgo de ban.",
-    url: "https://kitson-kit.up.railway.app",
+    url: "https://kitson-kit.store",
     siteName: "Kitson Kit",
     images: [
       {
-        // 2. Colocamos la URL absoluta para Discord y WhatsApp
-        url: "https://kitson-kit.up.railway.app/logo.jpg", 
+        url: "https://kitson-kit.store/logo.jpg", 
         width: 1200,
         height: 630,
         alt: "Kitson Kit e-Commerce",
@@ -33,7 +35,6 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Kitson Kit | Billetera y Recargas Gamer",
     description: "Adquiere tus cosméticos de Fortnite de forma automatizada y segura.",
-    // 3. Lo mismo para Twitter / X
     images: ["https://kitson-kit.store/logo.jpg"], 
   },
 };
