@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useSession } from 'next-auth/react';
-import { Wallet, UploadCloud, Loader2 } from 'lucide-react';
+import { Wallet, UploadCloud, Loader2, ArrowUpRight } from 'lucide-react';
 
 export default function WalletPage() {
   const { data: session } = useSession();
@@ -21,34 +21,46 @@ export default function WalletPage() {
     fetchBalance();
   }, [session]);
 
-  const handleUploadReceipt = async () => {
-    if (!receiptFile || !session?.user?.email) return alert("Sube una captura primero.");
-    setLoading(true);
-    
-    // Subir a Storage y guardar en una tabla de 'recargas' (puedes crearla en Supabase)
-    const fileExt = receiptFile.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    await supabase.storage.from('comprobantes').upload(fileName, receiptFile);
-    
-    // Aquí podrías insertar un registro en una tabla 'recharges' para que te llegue a Discord
-    alert("Comprobante enviado. El admin lo verificará pronto.");
-    setLoading(false);
-  };
-
   return (
-    <div className="max-w-4xl mx-auto p-10 text-white">
-      <h1 className="text-4xl font-black mb-8 flex items-center gap-3"><Wallet className="text-orange-500"/> Mi Billetera</h1>
+    <div className="max-w-3xl mx-auto p-6 md:p-10 text-white min-h-screen">
+      {/* Cabecera */}
+      <h1 className="text-3xl font-black mb-8 flex items-center gap-3 uppercase tracking-widest italic">
+        <Wallet className="text-orange-500" /> Mi Billetera
+      </h1>
       
-      <div className="bg-[#0A0A0A] p-8 rounded-3xl border border-white/5 mb-8">
-        <p className="text-gray-400">Saldo Disponible</p>
-        <h2 className="text-5xl font-black text-green-400">${balance.toFixed(2)} USD</h2>
+      {/* Tarjeta de Saldo (Estilo Pro) */}
+      <div className="bg-[#0A0A0A] p-8 rounded-3xl border border-white/5 mb-8 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Wallet size={120} />
+        </div>
+        <p className="text-gray-400 font-bold uppercase text-sm mb-1">Saldo Disponible</p>
+        <h2 className="text-5xl font-black text-white italic drop-shadow-lg">${balance.toFixed(2)} <span className="text-gray-600 text-3xl">USD</span></h2>
       </div>
 
-      <div className="bg-[#0A0A0A] p-8 rounded-3xl border border-white/5">
-        <h3 className="text-xl font-bold mb-4">Solicitar Recarga Manual</h3>
-        <input type="file" onChange={(e) => e.target.files && setReceiptFile(e.target.files[0])} className="mb-4 block" />
-        <button onClick={handleUploadReceipt} disabled={loading} className="bg-orange-500 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2">
-          {loading ? <Loader2 className="animate-spin"/> : "Enviar Comprobante"}
+      {/* Formulario de Recarga (Estilo Tienda) */}
+      <div className="bg-[#0A0A0A] p-8 rounded-3xl border border-white/5 shadow-lg">
+        <h3 className="text-xl font-black mb-6 uppercase flex items-center gap-2">
+          <ArrowUpRight className="text-orange-500" /> Solicitar Recarga
+        </h3>
+        
+        <label className="relative flex flex-col items-center justify-center w-full py-10 px-4 bg-[#111] border-2 border-dashed border-white/10 hover:border-orange-500/50 rounded-2xl cursor-pointer transition-all group">
+          <input type="file" className="hidden" onChange={(e) => e.target.files && setReceiptFile(e.target.files[0])} />
+          {receiptFile ? (
+            <span className="text-green-400 font-bold italic">{receiptFile.name}</span>
+          ) : (
+            <div className="text-center">
+              <UploadCloud size={32} className="text-orange-500 mx-auto mb-3 group-hover:scale-110 transition-transform" />
+              <p className="text-sm font-bold text-gray-300">Arrastra o haz clic para subir comprobante</p>
+            </div>
+          )}
+        </label>
+
+        <button 
+          onClick={() => alert("Función de notificación al admin en camino...")} 
+          disabled={loading || !receiptFile}
+          className="w-full mt-6 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-black py-4 rounded-xl font-black uppercase italic tracking-widest transition-all"
+        >
+          {loading ? <Loader2 className="animate-spin mx-auto"/> : "Enviar Comprobante"}
         </button>
       </div>
     </div>
