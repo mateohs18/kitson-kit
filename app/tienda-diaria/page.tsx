@@ -20,7 +20,7 @@ const rarityMeta: Record<string, { label: string; className: string }> = {
 };
 const defaultRarity = { label: 'Común', className: 'bg-[#5A554A] text-[#F5F1E6]' };
 
-const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
+const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean }) => {
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
 
   const isBundle = !!entry.bundle;
@@ -55,17 +55,17 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
 
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const itemCount = safeItems.length;
 
   return (
     <div
-      className="kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col"
+      className={`kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
       onClick={() => addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage })}
     >
-      <div className={`flex items-center justify-between px-3 py-1.5 border-b-[3px] border-[#0A0806] ${rarity.className}`}>
-        <span className="font-display font-bold text-[10px] uppercase tracking-wide">{rarity.label}</span>
-      </div>
-
-      <div className="flex-1 w-full relative flex items-center justify-center overflow-hidden aspect-square bg-[#14110C]">
+      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
+        <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
+          <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
+        </div>
         <img
           src={displayImage}
           alt={name}
@@ -83,10 +83,13 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
         </button>
       </div>
 
-      <div className="p-4">
-        <h3 className="font-bold text-sm text-[#F5F1E6] leading-tight truncate mb-2">{name}</h3>
+      <div className={`p-4 flex flex-col justify-center ${featured ? 'md:w-2/5' : ''}`}>
+        <h3 className={`font-bold text-[#F5F1E6] leading-tight mb-2 ${featured ? 'font-display text-2xl' : 'text-sm truncate'}`}>{name}</h3>
+        {featured && !isBundle && (
+          <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-3 ${rarity.className}`}>{rarity.label}</span>
+        )}
         <div className="flex items-baseline gap-1">
-          <span className="text-[#E3A23D] font-mono font-semibold text-lg">{activeCurrency.symbol}{localPrice}</span>
+          <span className={`text-[#E3A23D] font-mono font-semibold ${featured ? 'text-3xl' : 'text-lg'}`}>{activeCurrency.symbol}{localPrice}</span>
           <span className="text-[#9A9384] text-[10px] font-bold uppercase">{activeCurrency.currency}</span>
         </div>
       </div>
@@ -243,25 +246,43 @@ export default function TiendaFortnite() {
             </div>
           ) : (
             <div className="space-y-20 pb-24">
-              {Object.entries(filteredShop).map(([sectionName, items]) => (
-                <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
-                  <div className="flex items-center gap-6 mb-8">
-                    <h2 className="font-display text-3xl md:text-4xl font-bold text-[#F5F1E6]">{sectionName}</h2>
-                    <div className="flex-1 h-1 bg-[#1D1913] border-t-2 border-[#0A0806]"></div>
-                  </div>
+              {Object.entries(filteredShop).map(([sectionName, items]) => {
+                const bundleEntries = items.filter((entry) => !!entry.bundle);
+                const singleEntries = items.filter((entry) => !entry.bundle);
+                return (
+                  <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
+                    <div className="flex items-center gap-6 mb-8">
+                      <h2 className="font-display text-3xl md:text-4xl font-bold text-[#F5F1E6]">{sectionName}</h2>
+                      <div className="flex-1 h-1 bg-[#1D1913] border-t-2 border-[#0A0806]"></div>
+                    </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                    {items.map((entry, idx) => (
-                      <FortniteItemCard
-                        key={`${entry.bundle?.name || idx}-${idx}`}
-                        entry={entry}
-                        activeCurrency={activeCurrency}
-                        addToCart={addToCart}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
+                    {bundleEntries.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        {bundleEntries.map((entry, idx) => (
+                          <FortniteItemCard
+                            key={`bundle-${entry.bundle?.name || idx}-${idx}`}
+                            entry={entry}
+                            activeCurrency={activeCurrency}
+                            addToCart={addToCart}
+                            featured
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      {singleEntries.map((entry, idx) => (
+                        <FortniteItemCard
+                          key={`single-${idx}`}
+                          entry={entry}
+                          activeCurrency={activeCurrency}
+                          addToCart={addToCart}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
