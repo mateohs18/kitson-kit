@@ -100,11 +100,15 @@ export default function CartPage() {
           setIsProcessing(false);
           return alert("Por favor, sube la captura de tu transferencia.");
         }
-        const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        await supabase.storage.from('comprobantes').upload(fileName, receiptFile);
-        const { data: publicUrlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
-        finalReceiptUrl = publicUrlData.publicUrl;
+        const formData = new FormData();
+        formData.append('file', receiptFile);
+        const uploadRes = await fetch('/api/subir-comprobante', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) {
+          setIsProcessing(false);
+          return alert(uploadData.error || "No se pudo subir el comprobante.");
+        }
+        finalReceiptUrl = uploadData.url;
       }
 
       // 🚀 PETICIÓN AL BACKEND (Asegúrate de que este bloque esté así tal cual)
