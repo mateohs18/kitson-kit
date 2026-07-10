@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     
     if (!signature || !timestamp) return new Response('Unauthorized', { status: 401 });
 
-    const PUBLIC_KEY = "72b7028f1a0e5e72731199ea8cd1523ee7dea08f64fc0ccd4c3b5df151ff389a";
+    const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || "";
     
     let isValid = false;
     try { isValid = await verifyKey(bodyText, signature, timestamp, PUBLIC_KEY); } 
