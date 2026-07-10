@@ -89,6 +89,7 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!session) return alert("Debes iniciar sesión para procesar tu pedido.");
+    if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     if (!gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
 
@@ -110,19 +111,16 @@ export default function CartPage() {
         finalReceiptUrl = publicUrlData.publicUrl;
       }
 
-      // 🔥 AQUÍ ESTÁ LA MAGIA CORREGIDA: Traducimos el carrito al formato del backend
-      const resumenProductos = cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
-
-      // Llamamos a nuestra ruta blindada enviando los datos reales
+      // 🚀 PETICIÓN AL BACKEND (Asegúrate de que este bloque esté así tal cual)
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: session.user?.email,
-          userName: session.user?.name || 'Usuario',
-          cart: cart,                 // Enviamos el arreglo completo para tu columna JSONB
-          gamerId: gamerId,           // Tu columna gamer_id
-          totalPrice: totalPrice(),   // Tu columna total_price
+          email: session.user.email,
+          userName: session.user.name || 'Usuario',
+          cart: cart,                 
+          gamerId: gamerId,           
+          totalPrice: totalPrice(),   
           paymentMethod: paymentMethod,
           receiptUrl: finalReceiptUrl
         })

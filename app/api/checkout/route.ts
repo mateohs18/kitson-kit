@@ -3,25 +3,35 @@ import { supabase } from '../../../lib/supabase';
 
 export async function POST(req: Request) {
   try {
-    const { email, userName, cart, gamerId, totalPrice } = await req.json();
+    const cuerpo = await req.json();
+    const { email, userName, cart, gamerId, totalPrice, paymentMethod, receiptUrl } = cuerpo;
 
-    if (!email || !cart || cart.length === 0 || totalPrice === undefined) {
-      return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
+    // 🔥 AHORA LOS ERRORES SON ESPECÍFICOS
+    if (!email) return NextResponse.json({ error: 'Falta el correo electrónico (email)' }, { status: 400 });
+    if (!cart || cart.length === 0) return NextResponse.json({ error: 'El carrito está vacío' }, { status: 400 });
+    if (totalPrice === undefined) return NextResponse.json({ error: 'Falta el precio total' }, { status: 400 });
+    if (!gamerId) return NextResponse.json({ error: 'Falta el ID de Epic Games' }, { status: 400 });
+
+    let nuevoSaldo = 0;
+
+    // 1. SI PAGA CON SALDO: Verificamos y descontamos
+    if (paymentMethod === 'saldo') {
+      const { data: user, error: userError } = await supabase.from('profiles').select('balance').eq('email', email.trim()).single();
+      if (userError || !user) return NextResponse.json({ error: 'El correo no está registrado.' }, { status: 404 });
+      if (Number(user.balance) < Number(totalPrice)) return NextResponse.json({ error: 'Saldo insuficiente en tu billetera.' }, { status: 400 });
+
+      nuevoSaldo = Number(user.balance) - Number(totalPrice);
+      await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', email.trim());
     }
 
-    // 1. Verificamos el saldo
-    const { data: user, error: userError } = await supabase.from('profiles').select('balance').eq('email', email.trim()).single();
-    if (userError || !user) return NextResponse.json({ error: 'El correo no está registrado.' }, { status: 404 });
-    if (Number(user.balance) < Number(totalPrice)) return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 });
-
-    // 2. CREAR LA ORDEN CON TUS NOMBRES DE COLUMNAS EXACTOS
+    // 2. CREAR LA ORDEN EN LA BASE DE DATOS
     const { data: orden, error: ordenError } = await supabase
       .from('orders')
       .insert([{ 
         user_email: email.trim(), 
-        user_name: userName,
+        user_name: userName || 'Usuario',
         gamer_id: gamerId,
-        items: cart,              // Se guarda perfecto porque tu columna es jsonb
+        items: cart,              
         total_price: totalPrice, 
         status: 'PENDIENTE' 
       }])
@@ -33,17 +43,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
-    // 3. Descontamos el saldo
-    const nuevoSaldo = Number(user.balance) - Number(totalPrice);
-    await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', email.trim());
-
-    // 4. Enviamos la alerta mejorada a Discord
+    // 3. ENVIAR ALERTA A DISCORD
     const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
     const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
     if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
-      // Creamos una lista bonita de los items para Discord
       const resumenProductos = cart.map((item: any) => `• ${item.name} (x${item.quantity})`).join('\n');
+      const metodoTexto = paymentMethod === 'saldo' ? '💰 Pagado con Saldo Kitson' : '🏦 Transferencia Bancaria';
+      const urlComprobante = receiptUrl ? `\n\n📄 **[Ver Comprobante de Pago](${receiptUrl})**` : '';
 
       await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
         method: 'POST',
@@ -51,13 +58,13 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           embeds: [
             {
-              title: "🚨 Nueva Orden (Kitson Kit System)",
-              description: "Se ha procesado una nueva compra con saldo.",
-              color: 16766720,
+              title: paymentMethod === 'saldo' ? "✅ Nueva Orden (Pagada)" : "⏳ Nueva Orden (Verificar Transferencia)",
+              description: `Se ha procesado una nueva compra.\n**Método:** ${metodoTexto}${urlComprobante}`,
+              color: paymentMethod === 'saldo' ? 5763719 : 16766720, // Verde para saldo, Amarillo para transferencia
               fields: [
                 { name: "👤 Cliente", value: `\`${email}\``, inline: true },
-                { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
-                { name: "💰 Monto Cobrado", value: `$${Number(totalPrice).toFixed(2)} USD`, inline: false },
+                { name: "🎮 Epic ID", value: `\`${gamerId}\``, inline: true },
+                { name: "💵 Monto", value: `$${Number(totalPrice).toFixed(2)} USD`, inline: false },
                 { name: "📦 Artículos", value: resumenProductos, inline: false },
                 { name: "🆔 Orden ID", value: `\`${orden.id}\``, inline: false }
               ]
