@@ -65,10 +65,15 @@ export async function POST(req: Request) {
       const metodoTexto = paymentMethod === 'saldo' ? '💰 Pagado con Saldo Kitson' : '🏦 Transferencia Bancaria';
       const urlComprobante = receiptUrl ? `\n\n📄 **[Ver Comprobante de Pago](${receiptUrl})**` : '';
 
+      // Menciona a todos los admins configurados (podés poner más de uno separados por coma).
+      const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
+      const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
+
       await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          content: menciones || undefined,
           embeds: [
             {
               title: paymentMethod === 'saldo' ? "✅ Nueva Orden (Pagada)" : "⏳ Nueva Orden (Verificar Transferencia)",

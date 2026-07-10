@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+<<<<<<< HEAD
 import { authOptions } from '../../auth/[...nextauth]/route';
 import { supabase } from '../../../../lib/supabase';
+=======
+import { authOptions } from '../auth/[...nextauth]/route';
+import { supabaseAdmin } from '../../../lib/supabase-admin';
+>>>>>>> 83f6e72c7032097e4d228c38dff8b6bd2b806cbd
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Falta el ID del pedido.' }, { status: 400 });
     }
 
-    const { error } = await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
+    const { error } = await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

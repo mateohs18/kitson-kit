@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
+    // Solo Supabase debería poder llamar a este webhook. Verificamos un secreto
+    // compartido que vos configurás tanto acá (WEBHOOK_SECRET) como en la
+    // cabecera personalizada del webhook en el panel de Supabase.
+    const secretoRecibido = req.headers.get('x-webhook-secret');
+    if (!process.env.WEBHOOK_SECRET || secretoRecibido !== process.env.WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const payload = await req.json();
     
     const newStatus = payload.record?.status?.toUpperCase() || '';
@@ -28,15 +36,15 @@ export async function POST(req: Request) {
           to: [{ email: order.user_email }],
           subject: `✅ Actualización de tu pedido #${fullId}: ¡Entrega completada!`, // Arreglado
           htmlContent: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #050505; color: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #333;">
-              <h2 style="color: #f97316; text-align: center;">¡Misión Cumplida! 🎮</h2>
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #14110C; color: #F5F1E6; padding: 30px; border-radius: 12px; border: 3px solid #0A0806;">
+              <h2 style="color: #E3A23D; text-align: center;">¡Misión Cumplida! 🎮</h2>
               <p>Hola <strong>${order.user_name}</strong>,</p>
-              <p>Nos complace informarte que tu pedido <strong>#${fullId}</strong> ha sido procesado y entregado con éxito. Los artículos ya se encuentran acreditados y listos para usar en tu cuenta.</p>
-              <p>Si tienes alguna duda o requieres asistencia, nuestro equipo de soporte está siempre disponible para ayudarte.</p>
+              <p>Te contamos que tu pedido <strong>#${fullId}</strong> fue procesado y entregado con éxito. Los artículos ya están acreditados y listos para usar en tu cuenta.</p>
+              <p>Si tenés alguna duda o necesitás ayuda, nuestro equipo de soporte está siempre disponible.</p>
               <div style="text-align: center; margin: 35px 0;">
-                <a href="${reviewLink}" style="background-color: #f97316; color: #000; padding: 14px 28px; text-decoration: none; font-weight: 900; border-radius: 8px; display: inline-block;">CALIFICAR MI COMPRA</a>
+                <a href="${reviewLink}" style="background-color: #E3A23D; color: #0A0806; padding: 14px 28px; text-decoration: none; font-weight: 900; border-radius: 8px; display: inline-block; border: 2px solid #0A0806;">CALIFICAR MI COMPRA</a>
               </div>
-              <p style="font-size: 14px; color: #888; text-align: center;">Tu opinión es clave para mantener nuestros estándares de calidad. Deja una reseña y obtén tu insignia de comprador verificado. ¡Gracias por elegir la seguridad y rapidez de Kitson Kit!</p>
+              <p style="font-size: 14px; color: #9A9384; text-align: center;">Tu opinión es clave para mantener nuestros estándares de calidad. Dejá una reseña y obtené tu insignia de comprador verificado. ¡Gracias por elegir Kitson Kit!</p>
             </div>
           `
         })

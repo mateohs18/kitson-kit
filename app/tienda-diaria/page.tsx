@@ -1,24 +1,40 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
+import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search, ArrowUp } from 'lucide-react';
 
-const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, activeCurrency: any, addToCart: any }) => {
+const rarityMeta: Record<string, { label: string; className: string }> = {
+  legendary: { label: 'Legendario', className: 'bg-[#E3A23D] text-[#0A0806]' },
+  epic: { label: 'Épico', className: 'bg-[#4A93D6] text-[#0C2438]' },
+  rare: { label: 'Raro', className: 'bg-[#6B7D91] text-[#F5F1E6]' },
+  uncommon: { label: 'Poco común', className: 'bg-[#6FA85A] text-[#0A0806]' },
+  marvel: { label: 'Marvel', className: 'bg-[#C24A3D] text-[#F5F1E6]' },
+  starwars: { label: 'Star Wars', className: 'bg-[#3B5B8C] text-[#F5F1E6]' },
+  icon: { label: 'Icónico', className: 'bg-[#4BA89A] text-[#0A0806]' },
+};
+const defaultRarity = { label: 'Común', className: 'bg-[#5A554A] text-[#F5F1E6]' };
+
+const typeLabels: Record<string, string> = {
+  outfit: 'Skins', emote: 'Emotes', pickaxe: 'Picos', glider: 'Planeadores',
+  wrap: 'Envolturas', backpack: 'Mochilas', music: 'Música', car: 'Vehículos',
+  instrument: 'Instrumentos', lego: 'LEGO', bundle: 'Lotes',
+};
+
+// Extrae toda la info relevante de una entrada de la tienda una sola vez,
+// para no repetir la misma lógica en el filtro y en la tarjeta.
+function getEntryMeta(entry: any) {
   const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
-  
   const isBundle = !!entry.bundle;
-  // Atrapamos el ítem principal (priorizamos skins, si no, el primero que haya)
   const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0] || {};
-  
+
   let name = '';
   let rarityValue = 'common';
-
   if (isBundle) {
     name = entry.bundle?.name || 'Lote';
     rarityValue = mainItem?.rarity?.value || 'epic';
@@ -27,75 +43,77 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart }: { entry: any, ac
     rarityValue = mainItem?.rarity?.value || 'common';
   }
 
-  // 👇 EL ATRAPALOTODO DEFINITIVO DE IMÁGENES 👇
-  const displayImage = 
-    entry.bundle?.image || 
-    entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage || 
-    mainItem?.images?.featured || 
-    mainItem?.images?.icon || 
-    mainItem?.images?.large || 
-    mainItem?.albumArt || 
-    mainItem?.image || 
+  const displayImage =
+    entry.bundle?.image ||
+    entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage ||
+    mainItem?.images?.featured ||
+    mainItem?.images?.icon ||
+    mainItem?.images?.large ||
+    mainItem?.albumArt ||
+    mainItem?.image ||
     '';
 
+  const typeValue = isBundle ? 'bundle' : (mainItem?.type?.value || 'other');
+
+  return { name, rarityValue, displayImage, typeValue, isBundle, itemCount: safeItems.length, mainItem };
+}
+
+const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean }) => {
+  const { name, rarityValue, displayImage, isBundle, itemCount } = getEntryMeta(entry);
   if (!name || !displayImage) return null;
 
-  const bgGradient = (() => {
-    switch (rarityValue.toLowerCase()) {
-      case 'legendary': return 'from-orange-600/60 to-transparent';
-      case 'epic': return 'from-purple-600/60 to-transparent';
-      case 'rare': return 'from-blue-500/60 to-transparent';
-      case 'uncommon': return 'from-green-500/60 to-transparent';
-      case 'marvel': return 'from-red-600/60 to-transparent';
-      case 'starwars': return 'from-blue-800/60 to-transparent';
-      case 'icon': return 'from-teal-400/60 to-transparent';
-      default: return 'from-gray-600/60 to-transparent'; 
-    }
-  })();
-
+  const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div 
-      className="bg-[#0f0f0f] rounded-xl border border-white/10 hover:border-white/30 transition duration-300 group flex flex-col overflow-hidden relative aspect-[4/5] shadow-lg cursor-pointer"
+    <div
+      className={`kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
       onClick={() => addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage })}
     >
-      <div className={`absolute inset-0 bg-gradient-to-t ${bgGradient} opacity-50`}></div>
-      
-      <div className="flex-1 w-full relative flex items-center justify-center z-10 overflow-hidden">
-        {/* Cambiamos <Image> por la clásica <img> de HTML. 
-            Esto evita el bloqueo de seguridad de dominios externos de Next.js */}
-        <img 
-          src={displayImage} 
-          alt={name} 
-          className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl scale-[1.15]" 
-        />
-      </div>
-      
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col justify-end z-20 pointer-events-none">
-        <h3 className="font-black text-white text-lg leading-tight uppercase italic truncate drop-shadow-md">{name}</h3>
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-white font-black text-xl">{activeCurrency.symbol}{localPrice}</span>
-          <span className="text-gray-400 text-xs font-bold mt-1 uppercase">{activeCurrency.currency}</span>
+      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
+        ></div>
+        {featured && <div className="absolute inset-0 kk-dots opacity-[0.06] pointer-events-none"></div>}
+        <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
+          <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
         </div>
-      </div>
-      
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
+        <Image
+          src={displayImage}
+          alt={name}
+          fill
+          sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"}
+          className="object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] z-[1]"
+        />
         <button
           onClick={(e) => {
             e.stopPropagation();
             addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage });
           }}
-          className="bg-orange-500 hover:bg-orange-400 text-black p-2.5 rounded-full shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:scale-110 transition-transform flex items-center justify-center"
+          className="absolute top-2 right-2 z-[2] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
           title="Añadir al carrito"
         >
           <ShoppingCart size={16} />
         </button>
       </div>
+
+      <div className={`p-4 flex flex-col justify-center ${featured ? 'md:w-2/5' : ''}`}>
+        <h3 className={`font-bold text-[#F5F1E6] leading-tight mb-2 ${featured ? 'font-display text-2xl' : 'text-sm truncate'}`}>{name}</h3>
+        {featured && !isBundle && (
+          <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-3 ${rarity.className}`}>{rarity.label}</span>
+        )}
+        <div className="flex items-baseline gap-1">
+          <span className={`text-[#E3A23D] font-mono font-semibold ${featured ? 'text-3xl' : 'text-lg'}`}>{activeCurrency.symbol}{localPrice}</span>
+          <span className="text-[#9A9384] text-[10px] font-bold uppercase">{activeCurrency.currency}</span>
+        </div>
+      </div>
     </div>
   );
 };
+
+const PAGE_SIZE = 12;
 
 export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
@@ -108,6 +126,9 @@ export default function TiendaFortnite() {
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeType, setActiveType] = useState('all');
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   useEffect(() => {
     async function fetchShop() {
@@ -132,93 +153,145 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
-  const filteredShop = Object.entries(groupedShop).reduce((acc, [section, items]) => {
-    const filteredItems = items.filter(entry => {
-      const searchLower = searchTerm.toLowerCase();
-      const isBundle = !!entry.bundle;
-      const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
-      const name = isBundle ? entry.bundle?.name : (safeItems[0]?.name || safeItems[0]?.title || '');
-      return name?.toLowerCase().includes(searchLower);
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 900);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Tipos disponibles hoy en la tienda, calculados una sola vez por carga
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    Object.values(groupedShop).forEach((items) => {
+      items.forEach((entry) => types.add(getEntryMeta(entry).typeValue));
     });
-    
-    if (filteredItems.length > 0) acc[section] = filteredItems;
-    return acc;
-  }, {} as Record<string, any[]>);
+    return Array.from(types).filter((t) => typeLabels[t]);
+  }, [groupedShop]);
+
+  const filteredShop = useMemo(() => {
+    return Object.entries(groupedShop).reduce((acc, [section, items]) => {
+      const filteredItems = items.filter((entry) => {
+        const meta = getEntryMeta(entry);
+        const matchesSearch = meta.name?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = activeType === 'all' || meta.typeValue === activeType;
+        return matchesSearch && matchesType;
+      });
+      if (filteredItems.length > 0) acc[section] = filteredItems;
+      return acc;
+    }, {} as Record<string, any[]>);
+  }, [groupedShop, searchTerm, activeType]);
+
+  const showMore = useCallback((section: string, total: number) => {
+    setVisibleCounts((prev) => ({ ...prev, [section]: Math.min((prev[section] || PAGE_SIZE) + PAGE_SIZE, total) }));
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-orange-500 scroll-smooth">
-      <header className="flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#050505]/95 backdrop-blur-xl sticky top-0 z-[100]">
+    <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body flex flex-col selection:bg-[#E3A23D] selection:text-[#0A0806] scroll-smooth">
+      <header className="flex items-center justify-between p-4 md:px-8 border-b-4 border-[#0A0806] bg-[#E3A23D] sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
-            <Image src="/logo.jpg" alt="Logo Kitson Kit" width={40} height={40} className="rounded-full border border-white/10 group-hover:border-orange-500 transition duration-300 object-cover" />
-            <span className="text-2xl font-black text-white hidden xl:block">Kitson <span className="text-orange-500">Kit</span></span>
+            <div className="w-10 h-10 rounded-full border-[3px] border-[#0A0806] overflow-hidden bg-[#F5F1E6]">
+              <Image src="/logo.jpg" alt="Logo Kitson Kit" width={40} height={40} className="w-full h-full object-cover" />
+            </div>
+            <span className="font-display font-bold text-xl text-[#0A0806] hidden xl:block">KITSON KIT</span>
           </Link>
         </div>
-        
-        <nav className="hidden lg:flex flex-1 justify-center gap-8 font-medium text-sm text-gray-400">
-          <Link href="/" className="hover:text-white transition">Inicio</Link>
-          <Link href="/#catalogo" className="hover:text-white transition">Catálogo</Link>
-          <Link href="/tienda-diaria" className="text-white transition">Tienda Fortnite</Link>
-          <Link href="/billetera" className="hover:text-white transition">Mi Billetera</Link>
+
+        <nav className="hidden lg:flex flex-1 justify-center gap-8 font-semibold text-sm text-[#0A0806]">
+          <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
+          <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
+          <Link href="/tienda-diaria" className="opacity-100 underline underline-offset-4 transition">Tienda Fortnite</Link>
+          <Link href="/billetera" className="hover:opacity-70 transition">Mi Billetera</Link>
         </nav>
 
-        <div className="flex-1 flex items-center justify-end gap-4">
+        <div className="flex-1 flex items-center justify-end gap-3">
           <div className="hidden sm:block"><CurrencySelector /></div>
-          
-          <Link href="/carrito" className="flex items-center gap-2 hover:bg-white/10 transition bg-white/5 py-2 px-4 rounded-full border border-white/10">
-            <ShoppingCart size={18} className="text-gray-400" /> 
-            <span className="bg-orange-500 text-[#050505] text-xs font-black px-2 py-0.5 rounded-full">{totalItemsCount}</span>
+
+          <Link href="/carrito" className="flex items-center gap-2 bg-[#0A0806] text-[#E3A23D] py-2 px-4 rounded-lg font-bold hover:opacity-90 transition">
+            <ShoppingCart size={18} />
+            <span className="text-xs font-black">{totalItemsCount}</span>
           </Link>
 
           {session ? (
-            <div className="hidden sm:flex items-center gap-3 bg-white/5 py-1.5 px-1.5 pr-4 rounded-full border border-white/10">
+            <div className="hidden sm:flex items-center gap-3 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg">
               <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <img src={session.user?.image || ""} alt="Avatar" className="w-8 h-8 rounded-full" />
+                <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
               </Link>
               <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
             </div>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] px-6 py-2 rounded-full font-black text-sm">Login</button>
+            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-lg font-black text-sm border-2 border-[#0A0806]">Login</button>
           )}
 
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-400 ml-1 p-2">
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-[#0A0806] ml-1 p-2">
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
         </div>
       </header>
 
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#0A0A0A] border-t border-white/10 flex flex-col p-6 gap-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
-          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Inicio</Link>
-          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Catálogo</Link>
-          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Tienda Fortnite</Link>
-          <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-white border-b border-white/5 pb-4">Mi Billetera</Link>
+        <div className="lg:hidden bg-[#1D1913] border-t-4 border-[#0A0806] flex flex-col p-6 gap-6 fixed top-[73px] bottom-0 left-0 w-full z-[90] overflow-y-auto">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
+          <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Billetera</Link>
           <div className="pt-2"><CurrencySelector /></div>
         </div>
       )}
 
+      <div className="max-w-[1600px] mx-auto px-6 md:px-10 pt-10 w-full">
+        <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">
+          <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
+          TIENDA ACTIVA HOY
+        </span>
+        <h1 className="font-display font-extrabold text-3xl md:text-5xl mb-2">Tienda <span className="text-[#E3A23D]">Fortnite</span></h1>
+        <p className="text-[#9A9384] max-w-xl mb-6">Todo lo disponible hoy en la tienda del juego, listo para entregarse directo a tu cuenta.</p>
+
+        {availableTypes.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+            <button
+              onClick={() => setActiveType('all')}
+              className={`shrink-0 px-4 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wide border-2 border-[#0A0806] transition-colors ${activeType === 'all' ? 'bg-[#E3A23D] text-[#0A0806]' : 'bg-[#1D1913] text-[#9A9384] hover:text-[#F5F1E6]'}`}
+            >
+              Todos
+            </button>
+            {availableTypes.map((type) => (
+              <button
+                key={type}
+                onClick={() => setActiveType(type)}
+                className={`shrink-0 px-4 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wide border-2 border-[#0A0806] transition-colors ${activeType === type ? 'bg-[#E3A23D] text-[#0A0806]' : 'bg-[#1D1913] text-[#9A9384] hover:text-[#F5F1E6]'}`}
+              >
+                {typeLabels[type]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
-        
+
         {!loading && Object.keys(groupedShop).length > 0 && (
           <aside className="hidden md:block w-72 shrink-0">
             <div className="sticky top-28 space-y-6">
-              
-              <div className="bg-[#0A0A0A] border border-white/5 rounded-2xl p-2 relative shadow-lg">
-                <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input 
+
+              <div className="kk-panel rounded-2xl p-2 relative">
+                <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#9A9384]" />
+                <input
                   type="text" placeholder="Buscar cosmético..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#111] border border-white/5 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-orange-500/50 font-medium transition-colors"
+                  className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl py-3 pl-12 pr-4 text-[#F5F1E6] focus:outline-none focus:border-[#E3A23D] font-medium transition-colors"
                 />
               </div>
 
-              <div className="bg-[#0A0A0A] border border-white/5 rounded-3xl p-6 shadow-2xl">
-                <h3 className="text-white font-black text-lg mb-6 flex items-center gap-2 uppercase tracking-wider">
-                  <List size={20} className="text-orange-500"/> Secciones
+              <div className="kk-panel rounded-2xl p-6">
+                <span className="block text-[#9A9384] font-display font-bold text-[11px] uppercase tracking-widest mb-1">Filtros</span>
+                <h3 className="text-[#F5F1E6] font-display font-bold text-lg mb-6 flex items-center gap-2">
+                  <List size={20} className="text-[#E3A23D]"/> Secciones
                 </h3>
-                <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                   {Object.keys(filteredShop).map((section) => (
                     <li key={section}>
-                      <a href={`#${section.replace(/\s+/g, '-')}`} className="text-gray-400 hover:text-white hover:text-orange-500 hover:pl-2 transition-all font-bold text-sm block">
+                      <a href={`#${section.replace(/\s+/g, '-')}`} className="group flex items-center gap-2 text-[#9A9384] hover:text-[#0A0806] hover:bg-[#E3A23D] transition-all font-bold text-sm px-3 py-2 rounded-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3A3527] group-hover:bg-[#0A0806] shrink-0"></span>
                         {section}
                       </a>
                     </li>
@@ -232,41 +305,82 @@ export default function TiendaFortnite() {
         <div className="flex-1">
           {loading ? (
             <div className="flex flex-col justify-center items-center py-40">
-              <Gamepad2 size={64} className="animate-spin text-orange-500 mb-4" />
-              <h2 className="text-2xl font-black uppercase italic tracking-widest text-gray-400 animate-pulse">Cargando Tienda...</h2>
+              <Gamepad2 size={64} className="animate-spin text-[#E3A23D] mb-4" />
+              <h2 className="font-display text-2xl font-bold text-[#9A9384] animate-pulse">Cargando tienda...</h2>
             </div>
           ) : Object.keys(filteredShop).length === 0 ? (
-            <div className="flex flex-col justify-center items-center py-40 bg-[#0A0A0A] rounded-3xl border border-white/5">
-              <Search size={64} className="text-gray-600 mb-4" />
-              <h2 className="text-2xl font-bold text-gray-300">No se encontraron cosméticos</h2>
-              <p className="text-gray-500 mt-2">Intenta buscar con otro nombre.</p>
-              <button onClick={() => setSearchTerm('')} className="mt-6 text-orange-500 font-bold hover:underline">Limpiar búsqueda</button>
+            <div className="flex flex-col justify-center items-center py-40 kk-panel rounded-3xl">
+              <Search size={64} className="text-[#3A3527] mb-4" />
+              <h2 className="text-2xl font-bold text-[#D9D4C7]">No se encontraron cosméticos</h2>
+              <p className="text-[#9A9384] mt-2">Intenta buscar con otro nombre o cambiar el filtro.</p>
+              <button onClick={() => { setSearchTerm(''); setActiveType('all'); }} className="mt-6 text-[#E3A23D] font-bold hover:underline">Limpiar filtros</button>
             </div>
           ) : (
             <div className="space-y-20 pb-24">
-              {Object.entries(filteredShop).map(([sectionName, items]) => (
-                <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
-                  <div className="flex items-center gap-6 mb-8">
-                    <h2 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-widest drop-shadow-md">{sectionName}</h2>
-                    <div className="flex-1 h-1 bg-gradient-to-r from-white/20 to-transparent rounded-full"></div>
-                  </div>
+              {Object.entries(filteredShop).map(([sectionName, items]) => {
+                const bundleEntries = items.filter((entry) => !!entry.bundle);
+                const singleEntries = items.filter((entry) => !entry.bundle);
+                const visible = visibleCounts[sectionName] || PAGE_SIZE;
+                const visibleSingles = singleEntries.slice(0, visible);
+                const hasMore = singleEntries.length > visible;
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                    {items.map((entry, idx) => (
-                      <FortniteItemCard 
-                        key={`${entry.bundle?.name || idx}-${idx}`} 
-                        entry={entry} 
-                        activeCurrency={activeCurrency} 
-                        addToCart={addToCart} 
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
+                return (
+                  <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
+                    <div className="flex items-center gap-6 mb-8">
+                      <h2 className="font-display text-3xl md:text-4xl font-bold text-[#F5F1E6]">{sectionName}</h2>
+                      <div className="flex-1 h-1 bg-[#1D1913] border-t-2 border-[#0A0806]"></div>
+                    </div>
+
+                    {bundleEntries.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        {bundleEntries.map((entry, idx) => (
+                          <FortniteItemCard
+                            key={`bundle-${entry.bundle?.name || idx}-${idx}`}
+                            entry={entry}
+                            activeCurrency={activeCurrency}
+                            addToCart={addToCart}
+                            featured
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      {visibleSingles.map((entry, idx) => (
+                        <FortniteItemCard
+                          key={`single-${idx}`}
+                          entry={entry}
+                          activeCurrency={activeCurrency}
+                          addToCart={addToCart}
+                        />
+                      ))}
+                    </div>
+
+                    {hasMore && (
+                      <div className="flex justify-center mt-8">
+                        <button
+                          onClick={() => showMore(sectionName, singleEntries.length)}
+                          className="bg-[#1D1913] hover:bg-[#E3A23D] hover:text-[#0A0806] text-[#F5F1E6] px-8 py-3 rounded-xl font-display font-bold border-2 border-[#0A0806] transition-colors"
+                        >
+                          Mostrar más ({singleEntries.length - visible} restantes)
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
       </main>
+
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className={`fixed bottom-6 right-6 z-[110] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-3.5 rounded-full border-[3px] border-[#0A0806] shadow-lg transition-all duration-300 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+        title="Volver arriba"
+      >
+        <ArrowUp size={22} />
+      </button>
     </div>
   );
 }
