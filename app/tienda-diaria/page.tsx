@@ -63,13 +63,18 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
       onClick={() => addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage })}
     >
       <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
+        ></div>
+        {featured && <div className="absolute inset-0 kk-dots opacity-[0.06] pointer-events-none"></div>}
         <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
           <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
         </div>
         <img
           src={displayImage}
           alt={name}
-          className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1]"
+          className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] relative z-[1]"
         />
         <button
           onClick={(e) => {
@@ -199,6 +204,15 @@ export default function TiendaFortnite() {
         </div>
       )}
 
+      <div className="max-w-[1600px] mx-auto px-6 md:px-10 pt-10">
+        <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">
+          <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
+          TIENDA ACTIVA HOY
+        </span>
+        <h1 className="font-display font-extrabold text-3xl md:text-5xl mb-2">Tienda <span className="text-[#E3A23D]">Fortnite</span></h1>
+        <p className="text-[#9A9384] max-w-xl">Todo lo disponible hoy en la tienda del juego, listo para entregarse directo a tu cuenta.</p>
+      </div>
+
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
 
         {!loading && Object.keys(groupedShop).length > 0 && (
@@ -214,13 +228,15 @@ export default function TiendaFortnite() {
               </div>
 
               <div className="kk-panel rounded-2xl p-6">
+                <span className="block text-[#9A9384] font-display font-bold text-[11px] uppercase tracking-widest mb-1">Filtros</span>
                 <h3 className="text-[#F5F1E6] font-display font-bold text-lg mb-6 flex items-center gap-2">
                   <List size={20} className="text-[#E3A23D]"/> Secciones
                 </h3>
-                <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                   {Object.keys(filteredShop).map((section) => (
                     <li key={section}>
-                      <a href={`#${section.replace(/\s+/g, '-')}`} className="text-[#9A9384] hover:text-[#E3A23D] hover:pl-2 transition-all font-bold text-sm block">
+                      <a href={`#${section.replace(/\s+/g, '-')}`} className="group flex items-center gap-2 text-[#9A9384] hover:text-[#0A0806] hover:bg-[#E3A23D] transition-all font-bold text-sm px-3 py-2 rounded-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3A3527] group-hover:bg-[#0A0806] shrink-0"></span>
                         {section}
                       </a>
                     </li>
