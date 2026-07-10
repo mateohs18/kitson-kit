@@ -23,13 +23,11 @@ export default function MisPedidos() {
   }, [session]);
 
   async function fetchOrders() {
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_email', session?.user?.email)
-      .order('created_at', { ascending: false });
-    
-    if (data) setOrders(data);
+    const res = await fetch('/api/mis-pedidos');
+    if (res.ok) {
+      const data = await res.json();
+      setOrders(data.orders);
+    }
     setLoading(false);
   }
 

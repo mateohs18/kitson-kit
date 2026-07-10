@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { supabase } from '../../../lib/supabase';
+import { supabaseAdmin } from '../../../lib/supabase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Monto inválido.' }, { status: 400 });
     }
 
-    const { data: user, error: fetchError } = await supabase
+    const { data: user, error: fetchError } = await supabaseAdmin
       .from('profiles')
       .select('balance')
       .eq('email', emailSaldo.trim())
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
     const nuevoSaldo = Number(user.balance || 0) + monto;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('profiles')
       .update({ balance: nuevoSaldo })
       .eq('email', emailSaldo.trim());

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { supabase } from '../../../lib/supabase';
+import { supabaseAdmin } from '../../../lib/supabase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -29,16 +29,16 @@ export async function POST(req: Request) {
       // verificada en el servidor, para que nadie pueda descontar saldo ajeno.
       const emailAutenticado = session.user.email.trim();
 
-      const { data: user, error: userError } = await supabase.from('profiles').select('balance').eq('email', emailAutenticado).single();
+      const { data: user, error: userError } = await supabaseAdmin.from('profiles').select('balance').eq('email', emailAutenticado).single();
       if (userError || !user) return NextResponse.json({ error: 'El correo no está registrado.' }, { status: 404 });
       if (Number(user.balance) < Number(totalPrice)) return NextResponse.json({ error: 'Saldo insuficiente en tu billetera.' }, { status: 400 });
 
       nuevoSaldo = Number(user.balance) - Number(totalPrice);
-      await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', emailAutenticado);
+      await supabaseAdmin.from('profiles').update({ balance: nuevoSaldo }).eq('email', emailAutenticado);
     }
 
     // 2. CREAR LA ORDEN EN LA BASE DE DATOS
-    const { data: orden, error: ordenError } = await supabase
+    const { data: orden, error: ordenError } = await supabaseAdmin
       .from('orders')
       .insert([{ 
         user_email: email.trim(), 

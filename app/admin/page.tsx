@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { supabase } from '../../lib/supabase';
 import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -30,8 +29,11 @@ export default function AdminPanel() {
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
-    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (data) setOrders(data);
+    const res = await fetch('/api/pedidos-admin');
+    if (res.ok) {
+      const data = await res.json();
+      setOrders(data.orders);
+    }
     setLoading(false);
   }
 

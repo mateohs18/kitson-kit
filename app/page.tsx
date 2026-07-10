@@ -45,9 +45,10 @@ export default function Home() {
       const { data: productsData } = await supabase.from('products').select('*');
       if (productsData) setProducts(productsData);
 
-      const { data: ordersData, count: ordersCount } = await supabase.from('orders').select('id, user_name, items', { count: 'exact', head: false }).order('created_at', { ascending: false }).limit(1);
-      if (ordersData && ordersData.length > 0) {
-        lastOrderIdRef.current = ordersData[0].id;
+      const ultimaRes = await fetch('/api/ultima-compra');
+      const ultimaData = await ultimaRes.json();
+      if (ultimaData.order) {
+        lastOrderIdRef.current = ultimaData.order.id;
       }
 
       const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
@@ -57,18 +58,18 @@ export default function Home() {
         revCount = reviewsData.length;
         avg = reviewsData.reduce((acc, curr) => acc + curr.rating, 0) / revCount;
       }
-      setStats({ totalOrders: (ordersCount || 0) + 150, averageRating: avg, totalReviews: revCount });
+      setStats({ totalOrders: 150, averageRating: avg, totalReviews: revCount });
       setLoading(false);
     }
     fetchData();
 
     const interval = setInterval(async () => {
-      const { data } = await supabase.from('orders').select('id, user_name, items').order('created_at', { ascending: false }).limit(1);
-      if (data && data.length > 0) {
-        const latestOrder = data[0];
+      const res = await fetch('/api/ultima-compra');
+      const data = await res.json();
+      const latestOrder = data.order;
+      if (latestOrder) {
         if (lastOrderIdRef.current !== null && latestOrder.id !== lastOrderIdRef.current) {
-          const itemName = latestOrder.items && latestOrder.items.length > 0 ? latestOrder.items[0].name : 'Recarga de Saldo';
-          setLivePurchase({ name: latestOrder.user_name || 'Gamer Anónimo', item: itemName });
+          setLivePurchase({ name: latestOrder.name, item: latestOrder.item });
           setTimeout(() => setLivePurchase(null), 6000);
         }
         lastOrderIdRef.current = latestOrder.id;

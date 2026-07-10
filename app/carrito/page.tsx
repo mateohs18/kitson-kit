@@ -40,15 +40,11 @@ export default function CartPage() {
 
   useEffect(() => {
     async function checkBalance() {
-      const userEmail = session?.user?.email;
-      const userName = session?.user?.name || 'Usuario';
-
-      if (userEmail) {
-        const { data } = await supabase.from('profiles').select('balance').eq('email', userEmail).single();
-        if (data) {
+      if (session?.user?.email) {
+        const res = await fetch('/api/mi-saldo');
+        if (res.ok) {
+          const data = await res.json();
           setBalance(data.balance);
-        } else {
-          await supabase.from('profiles').insert([{ email: userEmail, name: userName, balance: 0 }]);
         }
       }
     }

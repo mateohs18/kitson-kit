@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useSession } from 'next-auth/react';
 import { Wallet, UploadCloud, Loader2, ArrowUpRight } from 'lucide-react';
 
@@ -14,8 +13,11 @@ export default function WalletPage() {
   useEffect(() => {
     async function fetchBalance() {
       if (session?.user?.email) {
-        const { data } = await supabase.from('profiles').select('balance').eq('email', session.user.email).single();
-        if (data) setBalance(data.balance);
+        const res = await fetch('/api/mi-saldo');
+        if (res.ok) {
+          const data = await res.json();
+          setBalance(data.balance);
+        }
       }
     }
     fetchBalance();
