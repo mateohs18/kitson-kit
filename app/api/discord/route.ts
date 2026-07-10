@@ -4,56 +4,61 @@ import { supabase } from '../../../lib/supabase';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  console.log("=== 🔍 NUEVA PETICIÓN DETECTADA ===");
+  
   try {
     const signature = req.headers.get('x-signature-ed25519');
     const timestamp = req.headers.get('x-signature-timestamp');
+    const bodyText = await req.text();
     
     if (!signature || !timestamp) {
-      return new Response('Faltan firmas', { status: 401 });
+      console.log("❌ Bloqueado: Faltan firmas en los headers.");
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    const bodyText = await req.text();
-    // Tu llave exacta de "Kitson Admin"
+    // Tu llave pública exacta de "Kitson Admin"
     const PUBLIC_KEY = "72b7028f1a0e5e72731199ea8cd1523ee7dea08f64fc0ccd4c3b5df151ff389a";
+    
+    let isValid = false;
+    try {
+      isValid = verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
+    } catch (e) {
+      console.log("❌ Bloqueado: Error interno al leer la firma secreta.");
+      return new Response('Unauthorized', { status: 401 });
+    }
 
-    if (!verifyKey(bodyText, signature, timestamp, PUBLIC_KEY)) {
-      return new Response('Firma invalida', { status: 401 });
+    if (!isValid) {
+      console.log("🛡️ ATAQUE FALSO BLOQUEADO (Respondiendo 401 estricto)");
+      return new Response('Unauthorized', { status: 401 });
     }
 
     const interaction = JSON.parse(bodyText);
-
-    // 1. EL PING (Declarando el tamaño exacto del paquete para que Discord no lo rechace)
+    
+    // 1. EL PING (Usando la API nativa de la web, sin Next.js de por medio)
     if (interaction.type === 1) {
-      const pingResponse = JSON.stringify({ type: 1 });
-      return new Response(pingResponse, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': new TextEncoder().encode(pingResponse).length.toString(),
-        }
-      });
+      console.log("✅ PING VALIDADO (Respondiendo type: 1)");
+      return Response.json({ type: 1 });
     }
 
+    console.log("✅ COMANDO RECIBIDO:", interaction.data?.name);
+    
     // 2. COMANDOS (/recargar)
     if (interaction.type === 2 && interaction.data.name === 'recargar') {
       const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
       const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
-
       const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
 
       if (!user) {
-        const errorBody = JSON.stringify({ type: 4, data: { content: `❌ Correo no encontrado: ${correo}` } });
-        return new Response(errorBody, { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Length': new TextEncoder().encode(errorBody).length.toString() }});
+        return Response.json({ type: 4, data: { content: `❌ Correo no encontrado: ${correo}` } });
       }
 
       const nuevoSaldo = Number(user.balance || 0) + Number(monto);
       await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
 
-      const successBody = JSON.stringify({
+      return Response.json({
         type: 4,
         data: { content: `✅ **¡RECARGA EXITOSA!** 💰\nSe añadieron **$${Number(monto).toFixed(2)} USD** a **${correo}**.\nNuevo saldo: **$${nuevoSaldo.toFixed(2)} USD**.` }
       });
-      return new Response(successBody, { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Length': new TextEncoder().encode(successBody).length.toString() } });
     }
 
     // 3. BOTONES DE ENTREGAR
@@ -62,15 +67,13 @@ export async function POST(req: Request) {
       if (customId.startsWith('entregar_')) {
         const orderId = customId.split('_')[1];
         await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
-
-        const btnBody = JSON.stringify({ type: 7, data: { content: `✅ Pedido **#${orderId.slice(0,8)}** ENTREGADO.`, components: [] } });
-        return new Response(btnBody, { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Length': new TextEncoder().encode(btnBody).length.toString() } });
+        return Response.json({ type: 7, data: { content: `✅ Pedido ENTREGADO.`, components: [] } });
       }
     }
 
-    return new Response('{"success":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
-
+    return Response.json({ success: true });
   } catch (error) {
-    return new Response('Error interno', { status: 500 });
+    console.error("❌ ERROR FATAL:", error);
+    return new Response('Internal Server Error', { status: 500 });
   }
 }
