@@ -1,111 +1,114 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY! 
-);
-
-// Función auxiliar mejorada para enviar la alerta a Discord
-async function sendDiscordNotification(payload: any) {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhookUrl) return;
-
-  try {
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  } catch (error) {
-    console.error("Error enviando alerta a Discord:", error);
-  }
-}
+import { supabase } from '../../../lib/supabase';
 
 export async function POST(req: Request) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const { cart, gamerId, paymentMethod, totalPrice, activeCurrency, receiptUrl } = await req.json();
-  const userEmail = session.user.email;
-  const userName = session.user.name || 'Gamer';
-
-  // Darle formato a la lista de artículos
-  const itemsList = cart.map((i: any) => `• **${i.name}** (x${i.quantity}) - $${(i.price * i.quantity).toFixed(2)} USD`).join('\n');
-  const storeLogo = "https://kitson-kit.up.railway.app/logo.jpg";
-
   try {
-    if (paymentMethod === 'saldo') {
-      const { data: profile } = await supabaseAdmin.from('profiles').select('balance').eq('email', userEmail).single();
-      
-      if (!profile || profile.balance < totalPrice) {
-        return NextResponse.json({ error: "Saldo insuficiente o cuenta no encontrada" }, { status: 400 });
-      }
+    const { email, productoNombre, precio } = await req.json();
 
-      await supabaseAdmin.from('profiles').update({ balance: profile.balance - totalPrice }).eq('email', userEmail);
-      
-      await supabaseAdmin.from('orders').insert([{
-        user_email: userEmail, user_name: userName,
-        gamer_id: gamerId, items: cart, total_price: totalPrice, status: 'PAGADO CON SALDO',
-        country: 'Kitson Wallet', local_currency: 'USD', local_price: totalPrice
-      }]);
+    if (!email || !productoNombre || !precio) {
+      return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
+    }
 
-      // ALERTA DISCORD PREMIUM: COMPRA CON SALDO
-      await sendDiscordNotification({
-        content: "<@755160795587018810> <@730084111984754712> 📦 **¡NUEVA ORDEN PAGADA CON SALDO! (HAY QUE ENTREGAR)**",
-        embeds: [{
-          title: "✅ Orden Automática Completada",
-          description: "El cliente usó su saldo de Kitson para comprar cosméticos. **Entra a Fortnite y envía los siguientes regalos:**",
-          color: 3066993, // Verde
-          thumbnail: { url: storeLogo },
-          fields: [
-            { name: "👤 Cliente", value: `**${userName}**\n${userEmail}`, inline: true },
-            { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
-            { name: "💳 Total Descontado", value: `**$${totalPrice.toFixed(2)} USD**`, inline: true },
-            { name: "🎁 Cosméticos a Entregar", value: itemsList || "Recarga de Saldo" }
+    // 1. VERIFICAR EL SALDO DEL CLIENTE EN SUPABASE
+    const { data: user, error: userError } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('email', email.trim())
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'El correo electrónico no está registrado en el sistema.' }, { status: 404 });
+    }
+
+    if (Number(user.balance) < Number(precio)) {
+      return NextResponse.json({ error: 'Saldo insuficiente para realizar esta compra.' }, { status: 400 });
+    }
+
+    // 2. RESTAR EL SALDO DE LA CUENTA
+    const nuevoSaldo = Number(user.balance) - Number(precio);
+    await supabase
+      .from('profiles')
+      .update({ balance: nuevoSaldo })
+      .eq('email', email.trim());
+
+    // 3. CREAR LA ORDEN EN LA TABLA DE PEDIDOS
+    const { data: orden, error: ordenError } = await supabase
+      .from('orders')
+      .insert([
+        { email: email.trim(), product: productoNombre, total: precio, status: 'PENDIENTE' }
+      ])
+      .select()
+      .single();
+
+    if (ordenError || !orden) {
+      return NextResponse.json({ error: 'Error crítico al registrar la orden.' }, { status: 500 });
+    }
+
+    // 4. ENVIAR LA ALERTA A DISCORD (EMBED + BOTÓN)
+    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+    const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+
+    if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
+      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bot ${BOT_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          // El diseño de la tarjeta (Embed)
+          embeds: [
+            {
+              title: "🚨 Nueva Orden Procesada (Web)",
+              description: "Un cliente ha realizado una compra usando su saldo de la tienda.",
+              color: 16766720, // Color Amarillo
+              fields: [
+                {
+                  name: "👤 Cliente",
+                  value: `\`${email}\``,
+                  inline: true
+                },
+                {
+                  name: "📦 Artículo",
+                  value: productoNombre,
+                  inline: true
+                },
+                {
+                  name: "💰 Monto Cobrado",
+                  value: `$${Number(precio).toFixed(2)} USD`,
+                  inline: false
+                },
+                {
+                  name: "🆔 Orden ID",
+                  value: `\`${orden.id}\``,
+                  inline: false
+                }
+              ]
+            }
           ],
-          footer: { text: "Kitson Kit System", icon_url: storeLogo },
-          timestamp: new Date().toISOString()
-        }]
-      });
-
-    } else {
-      const localPriceCalculated = activeCurrency.rate * totalPrice;
-      const formattedLocalPrice = localPriceCalculated.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-      await supabaseAdmin.from('orders').insert([{
-        user_email: userEmail, user_name: userName,
-        gamer_id: gamerId, items: cart, total_price: totalPrice, status: 'PENDIENTE',
-        country: activeCurrency.name, local_currency: activeCurrency.currency,
-        local_price: parseFloat(formattedLocalPrice.replace(/,/g, '')), payment_proof: receiptUrl
-      }]);
-
-      // ALERTA DISCORD PREMIUM: PAGO MANUAL POR TRANSFERENCIA
-      await sendDiscordNotification({
-        content: "<@911730868316418099> <@730084111984754712> 🚨 **¡NUEVO PAGO POR VERIFICAR!**",
-        embeds: [{
-          title: "🟨 Verificación de Transferencia",
-          description: "Un cliente subió un comprobante de pago. **Verifica la cuenta bancaria y recarga su saldo o entrégale los items.**",
-          color: 16753920, // Naranja
-          thumbnail: { url: storeLogo },
-          image: receiptUrl ? { url: receiptUrl } : undefined, // ¡La foto del comprobante aparecerá gigante aquí!
-          fields: [
-            { name: "👤 Cliente", value: `**${userName}**\n${userEmail}`, inline: true },
-            { name: "🎮 Epic ID / Tag", value: `\`${gamerId}\``, inline: true },
-            { name: "💰 Monto a Verificar", value: `**${activeCurrency.symbol}${formattedLocalPrice} ${activeCurrency.currency}**\n($${totalPrice.toFixed(2)} USD)`, inline: true },
-            { name: "📦 Detalles del Carrito", value: itemsList || "Recarga de Saldo" }
-          ],
-          footer: { text: "Kitson Kit System" },
-          timestamp: new Date().toISOString()
-        }]
+          // El botón interactivo por fuera del Embed
+          components: [
+            {
+              type: 1, // Barra de acciones
+              components: [
+                {
+                  type: 2, // Componente Botón
+                  style: 3, // Color Verde (Success)
+                  label: '📦 Marcar como Entregado',
+                  // Esto conecta el botón con el comando que ya hicimos antes
+                  custom_id: `entregar_${orden.id}` 
+                }
+              ]
+            }
+          ]
+        })
       });
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
+
+  } catch (error) {
+    console.error("Error en checkout:", error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
