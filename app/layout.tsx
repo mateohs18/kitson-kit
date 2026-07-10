@@ -1,6 +1,25 @@
 import type { Metadata } from "next";
+import { Baloo_2, Work_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "../components/AuthProvider";
+
+const baloo = Baloo_2({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-display",
+});
+
+const workSans = Work_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-mono-kk",
+});
 
 export const metadata: Metadata = {
   // 1. Añadimos el dominio base para que Next.js entienda las rutas
@@ -46,7 +65,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="scroll-smooth">
-      <body className="antialiased bg-[#050505]">
+      <body className={`${baloo.variable} ${workSans.variable} ${plexMono.variable} antialiased bg-[#14110C] font-body`}>
         <AuthProvider>
           {children}
         </AuthProvider>
