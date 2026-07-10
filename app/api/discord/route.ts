@@ -4,62 +4,83 @@ import { supabase } from '../../../lib/supabase';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  console.log("=== 🔍 NUEVA PETICIÓN DETECTADA ===");
-  
   try {
     const signature = req.headers.get('x-signature-ed25519');
     const timestamp = req.headers.get('x-signature-timestamp');
     const bodyText = await req.text();
     
-    if (!signature || !timestamp) {
-      console.log("❌ Bloqueado: Faltan firmas en los headers.");
-      return new Response('Unauthorized', { status: 401 });
-    }
+    if (!signature || !timestamp) return new Response('Unauthorized', { status: 401 });
 
-    // Tu llave pública exacta de "Kitson Admin"
     const PUBLIC_KEY = "72b7028f1a0e5e72731199ea8cd1523ee7dea08f64fc0ccd4c3b5df151ff389a";
     
     let isValid = false;
-    try {
-      // 🔥 AQUÍ ESTÁ LA SOLUCIÓN: Añadimos "await"
-      isValid = await verifyKey(bodyText, signature, timestamp, PUBLIC_KEY);
-    } catch (e) {
-      console.log("❌ Bloqueado: Error interno al leer la firma secreta.");
-      return new Response('Unauthorized', { status: 401 });
-    }
+    try { isValid = await verifyKey(bodyText, signature, timestamp, PUBLIC_KEY); } 
+    catch (e) { return new Response('Unauthorized', { status: 401 }); }
 
-    if (!isValid) {
-      console.log("🛡️ ATAQUE FALSO BLOQUEADO (Respondiendo 401 estricto)");
-      return new Response('Unauthorized', { status: 401 });
-    }
+    if (!isValid) return new Response('Unauthorized', { status: 401 });
 
     const interaction = JSON.parse(bodyText);
     
     // 1. EL PING
-    if (interaction.type === 1) {
-      console.log("✅ PING VALIDADO (Respondiendo type: 1)");
-      return Response.json({ type: 1 });
-    }
+    if (interaction.type === 1) return Response.json({ type: 1 });
 
-    console.log("✅ COMANDO RECIBIDO:", interaction.data?.name);
-    
-    // 2. COMANDOS (/recargar)
-    if (interaction.type === 2 && interaction.data.name === 'recargar') {
-      const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
-      const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
-      const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+    // 2. COMANDOS
+    if (interaction.type === 2) {
+      const comando = interaction.data.name;
 
-      if (!user) {
-        return Response.json({ type: 4, data: { content: `❌ Correo no encontrado: ${correo}` } });
+      // 🔒 RECARGAR
+      if (comando === 'recargar') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
+        const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+
+        if (!user) return Response.json({ type: 4, data: { content: `❌ Correo no encontrado.` } });
+        
+        const nuevoSaldo = Number(user.balance || 0) + Number(monto);
+        await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
+        return Response.json({ type: 4, data: { content: `✅ **¡RECARGA EXITOSA!**\nNuevo saldo para **${correo}**: **$${nuevoSaldo.toFixed(2)} USD**.` } });
       }
 
-      const nuevoSaldo = Number(user.balance || 0) + Number(monto);
-      await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
+      // 🔒 DESCONTAR
+      if (comando === 'descontar') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const monto = interaction.data.options.find((o: any) => o.name === 'monto').value;
+        const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
 
-      return Response.json({
-        type: 4,
-        data: { content: `✅ **¡RECARGA EXITOSA!** 💰\nSe añadieron **$${Number(monto).toFixed(2)} USD** a **${correo}**.\nNuevo saldo: **$${nuevoSaldo.toFixed(2)} USD**.` }
-      });
+        if (!user) return Response.json({ type: 4, data: { content: `❌ Correo no encontrado.` } });
+        
+        const nuevoSaldo = Number(user.balance || 0) - Number(monto);
+        await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', correo.trim());
+        return Response.json({ type: 4, data: { content: `➖ **¡DESCUENTO APLICADO!**\nNuevo saldo para **${correo}**: **$${nuevoSaldo.toFixed(2)} USD**.` } });
+      }
+
+      // 🔒 REGISTRAR USUARIO
+      if (comando === 'registrar_usuario') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const { error } = await supabase.from('profiles').insert([{ email: correo.trim(), balance: 0 }]);
+        
+        if (error) return Response.json({ type: 4, data: { content: `❌ Hubo un error o el usuario ya existe.` } });
+        return Response.json({ type: 4, data: { content: `✅ Cliente **${correo}** registrado con éxito. Saldo inicial: $0.` } });
+      }
+
+      // 🌍 CONSULTAR SALDO
+      if (comando === 'consultar_saldo') {
+        const correo = interaction.data.options.find((o: any) => o.name === 'correo').value;
+        const { data: user } = await supabase.from('profiles').select('balance').eq('email', correo.trim()).single();
+
+        if (!user) return Response.json({ type: 4, data: { content: `❌ No se encontró una cuenta para **${correo}**.` }, flags: 64 });
+        
+        return Response.json({ type: 4, data: { content: `💳 Saldo disponible para **${correo}**: **$${Number(user.balance || 0).toFixed(2)} USD**.`, flags: 64 } });
+      }
+
+      // 🌍 ESTADO PEDIDO
+      if (comando === 'estado_pedido') {
+        const ordenId = interaction.data.options.find((o: any) => o.name === 'orden_id').value;
+        const { data: orden } = await supabase.from('orders').select('status').eq('id', ordenId).single();
+
+        if (!orden) return Response.json({ type: 4, data: { content: `❌ No existe ninguna orden con el ID **${ordenId}**.` } });
+        return Response.json({ type: 4, data: { content: `📦 El estado de tu pedido **#${ordenId.slice(0,8)}** es: **${orden.status}**.` } });
+      }
     }
 
     // 3. BOTONES DE ENTREGAR
@@ -74,7 +95,6 @@ export async function POST(req: Request) {
 
     return Response.json({ success: true });
   } catch (error) {
-    console.error("❌ ERROR FATAL:", error);
     return new Response('Internal Server Error', { status: 500 });
   }
 }
