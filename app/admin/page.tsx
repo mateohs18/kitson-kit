@@ -120,7 +120,8 @@ export default function AdminPanel() {
 
         {/* PEDIDOS */}
         <div className="kk-panel rounded-2xl overflow-hidden">
-          <table className="w-full text-left">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[640px]">
             <thead className="bg-[#14110C] border-b-2 border-[#0A0806] text-[#9A9384] text-sm uppercase tracking-wider">
               <tr>
                 <th className="p-4">ID pedido</th>
@@ -158,6 +159,7 @@ export default function AdminPanel() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
 
       </div>

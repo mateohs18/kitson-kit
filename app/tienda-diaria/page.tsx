@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search } from 'lucide-react';
+import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search, ArrowUp } from 'lucide-react';
 
 const rarityMeta: Record<string, { label: string; className: string }> = {
   legendary: { label: 'Legendario', className: 'bg-[#E3A23D] text-[#0A0806]' },
@@ -20,16 +20,21 @@ const rarityMeta: Record<string, { label: string; className: string }> = {
 };
 const defaultRarity = { label: 'Común', className: 'bg-[#5A554A] text-[#F5F1E6]' };
 
-const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean }) => {
-  const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
+const typeLabels: Record<string, string> = {
+  outfit: 'Skins', emote: 'Emotes', pickaxe: 'Picos', glider: 'Planeadores',
+  wrap: 'Envolturas', backpack: 'Mochilas', music: 'Música', car: 'Vehículos',
+  instrument: 'Instrumentos', lego: 'LEGO', bundle: 'Lotes',
+};
 
+// Extrae toda la info relevante de una entrada de la tienda una sola vez,
+// para no repetir la misma lógica en el filtro y en la tarjeta.
+function getEntryMeta(entry: any) {
+  const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
   const isBundle = !!entry.bundle;
-  // Atrapamos el ítem principal (priorizamos skins, si no, el primero que haya)
   const mainItem = safeItems.find((i: any) => i.type?.value === 'outfit') || safeItems[0] || {};
 
   let name = '';
   let rarityValue = 'common';
-
   if (isBundle) {
     name = entry.bundle?.name || 'Lote';
     rarityValue = mainItem?.rarity?.value || 'epic';
@@ -38,7 +43,6 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
     rarityValue = mainItem?.rarity?.value || 'common';
   }
 
-  // 👇 EL ATRAPALOTODO DEFINITIVO DE IMÁGENES 👇
   const displayImage =
     entry.bundle?.image ||
     entry.newDisplayAsset?.materialInstances?.[0]?.images?.OfferImage ||
@@ -49,13 +53,18 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
     mainItem?.image ||
     '';
 
+  const typeValue = isBundle ? 'bundle' : (mainItem?.type?.value || 'other');
+
+  return { name, rarityValue, displayImage, typeValue, isBundle, itemCount: safeItems.length, mainItem };
+}
+
+const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean }) => {
+  const { name, rarityValue, displayImage, isBundle, itemCount } = getEntryMeta(entry);
   if (!name || !displayImage) return null;
 
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
-
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const itemCount = safeItems.length;
 
   return (
     <div
@@ -71,17 +80,19 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
         <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
           <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
         </div>
-        <img
+        <Image
           src={displayImage}
           alt={name}
-          className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] relative z-[1]"
+          fill
+          sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"}
+          className="object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] z-[1]"
         />
         <button
           onClick={(e) => {
             e.stopPropagation();
             addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage });
           }}
-          className="absolute top-2 right-2 bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
+          className="absolute top-2 right-2 z-[2] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
           title="Añadir al carrito"
         >
           <ShoppingCart size={16} />
@@ -102,6 +113,8 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
   );
 };
 
+const PAGE_SIZE = 12;
+
 export default function TiendaFortnite() {
   const addToCart = useCartStore((state) => state.addToCart);
   const totalItemsCount = useCartStore((state) => state.totalItems());
@@ -113,6 +126,9 @@ export default function TiendaFortnite() {
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeType, setActiveType] = useState('all');
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   useEffect(() => {
     async function fetchShop() {
@@ -137,18 +153,37 @@ export default function TiendaFortnite() {
     fetchShop();
   }, []);
 
-  const filteredShop = Object.entries(groupedShop).reduce((acc, [section, items]) => {
-    const filteredItems = items.filter(entry => {
-      const searchLower = searchTerm.toLowerCase();
-      const isBundle = !!entry.bundle;
-      const safeItems = [...(entry.brItems || []), ...(entry.tracks || []), ...(entry.instruments || []), ...(entry.cars || []), ...(entry.legoKits || []), ...(entry.items || [])];
-      const name = isBundle ? entry.bundle?.name : (safeItems[0]?.name || safeItems[0]?.title || '');
-      return name?.toLowerCase().includes(searchLower);
-    });
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 900);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-    if (filteredItems.length > 0) acc[section] = filteredItems;
-    return acc;
-  }, {} as Record<string, any[]>);
+  // Tipos disponibles hoy en la tienda, calculados una sola vez por carga
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    Object.values(groupedShop).forEach((items) => {
+      items.forEach((entry) => types.add(getEntryMeta(entry).typeValue));
+    });
+    return Array.from(types).filter((t) => typeLabels[t]);
+  }, [groupedShop]);
+
+  const filteredShop = useMemo(() => {
+    return Object.entries(groupedShop).reduce((acc, [section, items]) => {
+      const filteredItems = items.filter((entry) => {
+        const meta = getEntryMeta(entry);
+        const matchesSearch = meta.name?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = activeType === 'all' || meta.typeValue === activeType;
+        return matchesSearch && matchesType;
+      });
+      if (filteredItems.length > 0) acc[section] = filteredItems;
+      return acc;
+    }, {} as Record<string, any[]>);
+  }, [groupedShop, searchTerm, activeType]);
+
+  const showMore = useCallback((section: string, total: number) => {
+    setVisibleCounts((prev) => ({ ...prev, [section]: Math.min((prev[section] || PAGE_SIZE) + PAGE_SIZE, total) }));
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body flex flex-col selection:bg-[#E3A23D] selection:text-[#0A0806] scroll-smooth">
@@ -204,13 +239,33 @@ export default function TiendaFortnite() {
         </div>
       )}
 
-      <div className="max-w-[1600px] mx-auto px-6 md:px-10 pt-10">
+      <div className="max-w-[1600px] mx-auto px-6 md:px-10 pt-10 w-full">
         <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">
           <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
           TIENDA ACTIVA HOY
         </span>
         <h1 className="font-display font-extrabold text-3xl md:text-5xl mb-2">Tienda <span className="text-[#E3A23D]">Fortnite</span></h1>
-        <p className="text-[#9A9384] max-w-xl">Todo lo disponible hoy en la tienda del juego, listo para entregarse directo a tu cuenta.</p>
+        <p className="text-[#9A9384] max-w-xl mb-6">Todo lo disponible hoy en la tienda del juego, listo para entregarse directo a tu cuenta.</p>
+
+        {availableTypes.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+            <button
+              onClick={() => setActiveType('all')}
+              className={`shrink-0 px-4 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wide border-2 border-[#0A0806] transition-colors ${activeType === 'all' ? 'bg-[#E3A23D] text-[#0A0806]' : 'bg-[#1D1913] text-[#9A9384] hover:text-[#F5F1E6]'}`}
+            >
+              Todos
+            </button>
+            {availableTypes.map((type) => (
+              <button
+                key={type}
+                onClick={() => setActiveType(type)}
+                className={`shrink-0 px-4 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wide border-2 border-[#0A0806] transition-colors ${activeType === type ? 'bg-[#E3A23D] text-[#0A0806]' : 'bg-[#1D1913] text-[#9A9384] hover:text-[#F5F1E6]'}`}
+              >
+                {typeLabels[type]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row gap-10">
@@ -257,14 +312,18 @@ export default function TiendaFortnite() {
             <div className="flex flex-col justify-center items-center py-40 kk-panel rounded-3xl">
               <Search size={64} className="text-[#3A3527] mb-4" />
               <h2 className="text-2xl font-bold text-[#D9D4C7]">No se encontraron cosméticos</h2>
-              <p className="text-[#9A9384] mt-2">Intenta buscar con otro nombre.</p>
-              <button onClick={() => setSearchTerm('')} className="mt-6 text-[#E3A23D] font-bold hover:underline">Limpiar búsqueda</button>
+              <p className="text-[#9A9384] mt-2">Intenta buscar con otro nombre o cambiar el filtro.</p>
+              <button onClick={() => { setSearchTerm(''); setActiveType('all'); }} className="mt-6 text-[#E3A23D] font-bold hover:underline">Limpiar filtros</button>
             </div>
           ) : (
             <div className="space-y-20 pb-24">
               {Object.entries(filteredShop).map(([sectionName, items]) => {
                 const bundleEntries = items.filter((entry) => !!entry.bundle);
                 const singleEntries = items.filter((entry) => !entry.bundle);
+                const visible = visibleCounts[sectionName] || PAGE_SIZE;
+                const visibleSingles = singleEntries.slice(0, visible);
+                const hasMore = singleEntries.length > visible;
+
                 return (
                   <section key={sectionName} id={sectionName.replace(/\s+/g, '-')} className="relative scroll-mt-28">
                     <div className="flex items-center gap-6 mb-8">
@@ -287,7 +346,7 @@ export default function TiendaFortnite() {
                     )}
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                      {singleEntries.map((entry, idx) => (
+                      {visibleSingles.map((entry, idx) => (
                         <FortniteItemCard
                           key={`single-${idx}`}
                           entry={entry}
@@ -296,6 +355,17 @@ export default function TiendaFortnite() {
                         />
                       ))}
                     </div>
+
+                    {hasMore && (
+                      <div className="flex justify-center mt-8">
+                        <button
+                          onClick={() => showMore(sectionName, singleEntries.length)}
+                          className="bg-[#1D1913] hover:bg-[#E3A23D] hover:text-[#0A0806] text-[#F5F1E6] px-8 py-3 rounded-xl font-display font-bold border-2 border-[#0A0806] transition-colors"
+                        >
+                          Mostrar más ({singleEntries.length - visible} restantes)
+                        </button>
+                      </div>
+                    )}
                   </section>
                 );
               })}
@@ -303,6 +373,14 @@ export default function TiendaFortnite() {
           )}
         </div>
       </main>
+
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className={`fixed bottom-6 right-6 z-[110] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-3.5 rounded-full border-[3px] border-[#0A0806] shadow-lg transition-all duration-300 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+        title="Volver arriba"
+      >
+        <ArrowUp size={22} />
+      </button>
     </div>
   );
 }

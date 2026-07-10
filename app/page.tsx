@@ -42,16 +42,19 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: productsData } = await supabase.from('products').select('*');
+      const [{ data: productsData }, ultimaRes, { data: reviewsData }] = await Promise.all([
+        supabase.from('products').select('*'),
+        fetch('/api/ultima-compra'),
+        supabase.from('reviews').select('*').order('created_at', { ascending: false }),
+      ]);
+
       if (productsData) setProducts(productsData);
 
-      const ultimaRes = await fetch('/api/ultima-compra');
       const ultimaData = await ultimaRes.json();
       if (ultimaData.order) {
         lastOrderIdRef.current = ultimaData.order.id;
       }
 
-      const { data: reviewsData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
       let avg = 5.0; let revCount = 0;
       if (reviewsData && reviewsData.length > 0) {
         setReviews(reviewsData);
@@ -178,7 +181,7 @@ export default function Home() {
           <div className="absolute inset-0 kk-dots opacity-10"></div>
           <span className="absolute top-4 right-4 bg-[#F5F1E6] border-2 border-[#0A0806] rounded-lg px-3 py-1 font-display font-bold text-xs text-[#0A0806] z-10">¡Hola!</span>
           <div className="bg-[#F5F1E6] border-[3px] border-[#0A0806] rounded-2xl p-6 relative z-[1] flex items-center justify-center aspect-square max-w-sm mx-auto">
-            <Image src="/logo.jpg" alt="Mascota Kitson Kit" width={280} height={280} className="w-4/5 h-4/5 object-contain rounded-full" />
+            <Image src="/logo.jpg" alt="Mascota Kitson Kit" width={280} height={280} priority className="w-4/5 h-4/5 object-contain rounded-full" />
           </div>
         </div>
       </section>
