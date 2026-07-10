@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
 import { supabase } from '../../../lib/supabase';
 
 export async function POST(req: Request) {
@@ -14,14 +16,25 @@ export async function POST(req: Request) {
 
     let nuevoSaldo = 0;
 
-    // 1. SI PAGA CON SALDO: Verificamos y descontamos
+    // 1. SI PAGA CON SALDO: hay que estar autenticado y solo se puede
+    // descontar el saldo de la cuenta que inició sesión (nunca la de otro).
     if (paymentMethod === 'saldo') {
-      const { data: user, error: userError } = await supabase.from('profiles').select('balance').eq('email', email.trim()).single();
+      const session = await getServerSession(authOptions);
+
+      if (!session?.user?.email) {
+        return NextResponse.json({ error: 'Debes iniciar sesión para pagar con saldo.' }, { status: 401 });
+      }
+
+      // Ignoramos el email que mande el cliente y usamos el de la sesión
+      // verificada en el servidor, para que nadie pueda descontar saldo ajeno.
+      const emailAutenticado = session.user.email.trim();
+
+      const { data: user, error: userError } = await supabase.from('profiles').select('balance').eq('email', emailAutenticado).single();
       if (userError || !user) return NextResponse.json({ error: 'El correo no está registrado.' }, { status: 404 });
       if (Number(user.balance) < Number(totalPrice)) return NextResponse.json({ error: 'Saldo insuficiente en tu billetera.' }, { status: 400 });
 
       nuevoSaldo = Number(user.balance) - Number(totalPrice);
-      await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', email.trim());
+      await supabase.from('profiles').update({ balance: nuevoSaldo }).eq('email', emailAutenticado);
     }
 
     // 2. CREAR LA ORDEN EN LA BASE DE DATOS
