@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { 
   ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut,
-  Loader2, CheckCircle2, UploadCloud, Copy, Check, Wallet, Mail, Lock 
+  Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Mail, Lock 
 } from 'lucide-react';
 
 export default function CartPage() {
@@ -97,7 +97,7 @@ export default function CartPage() {
     try {
       let finalReceiptUrl = null;
 
-      // Si es transferencia manual, subimos la imagen primero (esto es seguro hacerlo desde el navegador)
+      // Si es transferencia manual, subimos la imagen primero
       if (paymentMethod === 'manual') {
         if (!receiptFile) {
           setIsProcessing(false);
@@ -110,17 +110,19 @@ export default function CartPage() {
         finalReceiptUrl = publicUrlData.publicUrl;
       }
 
-      // Llamamos a nuestra nueva ruta blindada en el Servidor
+      // 🔥 AQUÍ ESTÁ LA MAGIA CORREGIDA: Traducimos el carrito al formato del backend
+      const resumenProductos = cart.map(item => `${item.name} (x${item.quantity})`).join(', ');
+
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cart,
-          gamerId,
-          paymentMethod,
-          totalPrice: totalPrice(),
-          activeCurrency,
-          receiptUrl: finalReceiptUrl
+          email: session.user?.email,        // El email que pedía tu cajero
+          productoNombre: resumenProductos,  // El texto con los productos
+          precio: totalPrice(),              // El total de la compra
+          gamerId: gamerId,                  // Extras
+          paymentMethod: paymentMethod,      // Extras
+          receiptUrl: finalReceiptUrl        // Extras
         })
       });
 
@@ -188,8 +190,8 @@ export default function CartPage() {
         {orderSuccess ? (
           <div className="text-center py-24 bg-green-500/5 border border-green-500/20 rounded-3xl max-w-2xl mx-auto">
             <CheckCircle2 size={80} className="text-green-500 mx-auto mb-6" />
-            <h2 className="text-3xl font-black mb-4">¡Pedido en Revisión!</h2>
-            <p className="text-gray-400 mb-8 max-w-md mx-auto">Hemos recibido tu comprobante. Nuestro equipo validará los datos para enviarte los cosméticos a la brevedad.</p>
+            <h2 className="text-3xl font-black mb-4">¡Pedido Procesado!</h2>
+            <p className="text-gray-400 mb-8 max-w-md mx-auto">Tu compra se ha registrado con éxito. Nuestro equipo te enviará los artículos a la brevedad.</p>
             <Link href="/mis-pedidos" className="bg-orange-500 text-[#050505] px-8 py-3 rounded-full font-black shadow-lg">Ver mis pedidos</Link>
           </div>
         ) : (
