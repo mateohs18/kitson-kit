@@ -36,7 +36,7 @@ export default function AdminPanel() {
   }
 
   async function marcarComoEntregado(id: string) {
-    const res = await fetch('/api/marcar-entregado', {
+    const res = await fetch('/api/admin/marcar-entregado', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId: id }),
@@ -55,7 +55,7 @@ export default function AdminPanel() {
     if (!emailSaldo || !montoSaldo) return alert("Por favor, llena el correo y el monto.");
     setLoadingSaldo(true);
 
-    const res = await fetch('/api/agregar-saldo', {
+    const res = await fetch('/api/admin/agregar-saldo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ emailSaldo, montoSaldo }),

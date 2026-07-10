@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
-import { supabase } from '../../../lib/supabase';
+import { authOptions } from '../../auth/[...nextauth]/route';
+import { supabase } from '../../../../lib/supabase';
 
 export async function POST(req: Request) {
   try {
