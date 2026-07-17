@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-<<<<<<< HEAD
-import { authOptions } from '../../auth/[...nextauth]/route';
-import { supabase } from '../../../../lib/supabase';
-=======
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
->>>>>>> 83f6e72c7032097e4d228c38dff8b6bd2b806cbd
 
 export async function POST(req: Request) {
   try {

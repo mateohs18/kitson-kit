@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
-import { signIn, signOut, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2, LogOut, List, Search, ArrowUp } from 'lucide-react';
+import { signIn, useSession } from 'next-auth/react';
+import { ShoppingCart, Menu, X, Gamepad2, List, Search, ArrowUp } from 'lucide-react';
 
 const rarityMeta: Record<string, { label: string; className: string }> = {
   legendary: { label: 'Legendario', className: 'bg-[#E3A23D] text-[#0A0806]' },
@@ -65,11 +65,15 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // ID determinístico: si la API no trae offerId, usamos nombre+precio para que
+  // el mismo objeto siempre genere el mismo ID (y así se agrupe con quantity: 2
+  // en vez de duplicarse como dos líneas distintas en el carrito).
+  const itemId = entry.offerId || encodeURIComponent(`${name}-${baseUsdPrice}`);
 
   return (
     <div
       className={`kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
-      onClick={() => addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage })}
+      onClick={() => addToCart({ id: itemId, name, price: baseUsdPrice, image_url: displayImage })}
     >
       <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
         <div
@@ -90,7 +94,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
         <button
           onClick={(e) => {
             e.stopPropagation();
-            addToCart({ id: entry.offerId || Math.random().toString(), name, price: baseUsdPrice, image_url: displayImage });
+            addToCart({ id: itemId, name, price: baseUsdPrice, image_url: displayImage });
           }}
           className="absolute top-2 right-2 z-[2] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
           title="Añadir al carrito"
@@ -129,6 +133,25 @@ export default function TiendaFortnite() {
   const [activeType, setActiveType] = useState('all');
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [shopError, setShopError] = useState(false);
+  const [timeLeft, setTimeLeft] = useState('');
+
+  // La tienda de Fortnite rota todos los días a las 00:00 UTC — calculamos
+  // cuánto falta para eso y lo actualizamos cada segundo.
+  useEffect(() => {
+    function actualizarContador() {
+      const ahora = new Date();
+      const proximoReinicio = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate() + 1, 0, 0, 0));
+      const restante = proximoReinicio.getTime() - ahora.getTime();
+      const h = Math.floor(restante / 3600000);
+      const m = Math.floor((restante % 3600000) / 60000);
+      const s = Math.floor((restante % 60000) / 1000);
+      setTimeLeft(`${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+    }
+    actualizarContador();
+    const t = setInterval(actualizarContador, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     async function fetchShop() {
@@ -143,9 +166,12 @@ export default function TiendaFortnite() {
             groups[sectionName].push(entry);
           });
           setGroupedShop(groups);
+        } else {
+          setShopError(true);
         }
       } catch (error) {
         console.error('Error fetching shop:', error);
+        setShopError(true);
       } finally {
         setLoading(false);
       }
@@ -201,7 +227,8 @@ export default function TiendaFortnite() {
           <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="opacity-100 underline underline-offset-4 transition">Tienda Fortnite</Link>
-          <Link href="/billetera" className="hover:opacity-70 transition">Mi Billetera</Link>
+          <Link href="/vincular-cuenta" className="hover:opacity-70 transition">Vincular Cuenta</Link>
+          <Link href="/mi-cuenta" className="hover:opacity-70 transition">Mi Cuenta</Link>
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-3">
@@ -213,14 +240,11 @@ export default function TiendaFortnite() {
           </Link>
 
           {session ? (
-            <div className="hidden sm:flex items-center gap-3 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg">
-              <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
-              </Link>
-              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
-            </div>
+            <Link href="/mi-cuenta" className="hidden sm:flex items-center gap-2 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg hover:opacity-80 transition">
+              <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
+            </Link>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white px-6 py-2 rounded-lg font-black text-sm border-2 border-[#0A0806]">Login</button>
+            <button onClick={() => signIn()} className="hidden sm:block bg-[#0A0806] hover:opacity-90 text-[#E3A23D] px-6 py-2 rounded-lg font-black text-sm border-2 border-[#0A0806]">Iniciar Sesión</button>
           )}
 
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-[#0A0806] ml-1 p-2">
@@ -234,18 +258,31 @@ export default function TiendaFortnite() {
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
           <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
           <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
-          <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Billetera</Link>
+          <Link href="/vincular-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Vincular Cuenta</Link>
+          <Link href="/mi-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Cuenta</Link>
           <div className="pt-2"><CurrencySelector /></div>
         </div>
       )}
 
       <div className="max-w-[1600px] mx-auto px-6 md:px-10 pt-10 w-full">
-        <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">
-          <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
-          TIENDA ACTIVA HOY
-        </span>
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806]">
+            <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
+            TIENDA ACTIVA HOY
+          </span>
+          <span className="inline-flex items-center gap-2 bg-red-500/10 text-red-400 border-2 border-red-500/30 font-mono font-bold text-xs px-4 py-2 rounded-lg">
+            ⏳ Se reinicia en: {timeLeft}
+          </span>
+        </div>
         <h1 className="font-display font-extrabold text-3xl md:text-5xl mb-2">Tienda <span className="text-[#E3A23D]">Fortnite</span></h1>
-        <p className="text-[#9A9384] max-w-xl mb-6">Todo lo disponible hoy en la tienda del juego, listo para entregarse directo a tu cuenta.</p>
+        <p className="text-[#9A9384] max-w-xl mb-4">Todo lo disponible hoy en la tienda del juego.</p>
+
+        <div className="flex items-start gap-3 bg-[#1D1913] border-2 border-[#4A93D6] rounded-xl p-4 mb-6 max-w-2xl">
+          <span className="text-lg leading-none mt-0.5">🎁</span>
+          <p className="text-xs text-[#D9D4C7] leading-relaxed">
+            <strong className="text-[#F5F1E6]">Estos objetos se entregan como regalo dentro del juego.</strong> Si es la primera vez que te agregamos como amigo, Epic Games exige <strong className="text-[#4A93D6]">48 horas de amistad</strong> antes de poder enviarte un regalo — no es un error nuestro, es una regla de Epic. Si ya tenés más de 48hs de amigo con nosotros, la entrega es en minutos.
+          </p>
+        </div>
 
         {availableTypes.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
@@ -307,6 +344,13 @@ export default function TiendaFortnite() {
             <div className="flex flex-col justify-center items-center py-40">
               <Gamepad2 size={64} className="animate-spin text-[#E3A23D] mb-4" />
               <h2 className="font-display text-2xl font-bold text-[#9A9384] animate-pulse">Cargando tienda...</h2>
+            </div>
+          ) : shopError ? (
+            <div className="flex flex-col justify-center items-center py-40 kk-panel rounded-3xl text-center px-6">
+              <Gamepad2 size={64} className="text-[#3A3527] mb-4" />
+              <h2 className="text-2xl font-bold text-[#D9D4C7]">No pudimos cargar la tienda de Fortnite</h2>
+              <p className="text-[#9A9384] mt-2 max-w-md">El servicio que trae los objetos del día puede estar caído por un momento. Probá de nuevo en unos minutos.</p>
+              <button onClick={() => window.location.reload()} className="mt-6 bg-[#E3A23D] text-[#0A0806] px-6 py-3 rounded-xl font-display font-bold border-[3px] border-[#0A0806]">Reintentar</button>
             </div>
           ) : Object.keys(filteredShop).length === 0 ? (
             <div className="flex flex-col justify-center items-center py-40 kk-panel rounded-3xl">

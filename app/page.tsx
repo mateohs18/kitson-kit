@@ -9,12 +9,13 @@ import CurrencySelector from '../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import {
-  ShoppingCart, Gamepad2, LogOut,
+  ShoppingCart, Gamepad2,
   PackageSearch, Menu, X, Star, BellRing,
-  Search, ChevronDown, CheckCircle2, MessageSquare, Shield, CreditCard
+  Search, ChevronDown, CheckCircle2, MessageSquare,
+  Send
 } from 'lucide-react';
 
-interface Product { id: string; name: string; price: number; image_url?: string; }
+interface Product { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type?: 'regalo' | 'recarga'; }
 
 export default function Home() {
   const addToCart = useCartStore((state) => state.addToCart);
@@ -27,6 +28,8 @@ export default function Home() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [hoursLeft, setHoursLeft] = useState(0);
   const [stats, setStats] = useState({ totalOrders: 0, averageRating: 5.0, totalReviews: 0 });
   const [searchReview, setSearchReview] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -35,7 +38,7 @@ export default function Home() {
   const lastOrderIdRef = useRef<number | null>(null);
 
   const faqs = [
-    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "El sistema automatizado procesa tu pedido. Al validarse tu comprobante de pago, la entrega suele tardar entre 1 y 5 minutos." },
+    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "Depende del producto: las recargas directas se acreditan en minutos apenas se valida el pago. Los objetos que se entregan como regalo (la mayoría de los cosméticos) tardan igual de rápido, EXCEPTO si es tu primera compra con nosotros — ahí Epic Games exige 48 horas de amistad antes de poder enviarte el regalo. Cada producto indica cuál de los dos es." },
     { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos pagos manuales directos en tu moneda local: Binance, Yape, Nequi, Transferencia Bancaria y Oxxo." },
     { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos. Nunca pediremos tu contraseña." }
   ];
@@ -54,14 +57,13 @@ export default function Home() {
       if (ultimaData.order) {
         lastOrderIdRef.current = ultimaData.order.id;
       }
-
       let avg = 5.0; let revCount = 0;
       if (reviewsData && reviewsData.length > 0) {
         setReviews(reviewsData);
         revCount = reviewsData.length;
         avg = reviewsData.reduce((acc, curr) => acc + curr.rating, 0) / revCount;
       }
-      setStats({ totalOrders: 150, averageRating: avg, totalReviews: revCount });
+      setStats({ totalOrders: ultimaData.totalOrders || 0, averageRating: avg, totalReviews: revCount });
       setLoading(false);
     }
     fetchData();
@@ -82,6 +84,23 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    function actualizar() {
+      const ahora = new Date();
+      const proximoReinicio = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate() + 1, 0, 0, 0));
+      setHoursLeft(Math.max(0, Math.round((proximoReinicio.getTime() - ahora.getTime()) / 3600000)));
+    }
+    actualizar();
+    const t = setInterval(actualizar, 60000);
+    return () => clearInterval(t);
+  }, []);
+
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
   reviews.forEach(r => { if(ratingCounts[r.rating as keyof typeof ratingCounts] !== undefined) ratingCounts[r.rating as keyof typeof ratingCounts]++; });
   const filteredReviews = reviews.filter(r => r.comment.toLowerCase().includes(searchReview.toLowerCase()) || r.user_name.toLowerCase().includes(searchReview.toLowerCase()));
@@ -89,10 +108,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body selection:bg-[#E3A23D] selection:text-[#0A0806]">
 
-      <header className="flex items-center justify-between p-4 md:px-8 border-b-4 border-[#0A0806] bg-[#E3A23D] sticky top-0 z-[100]">
+      <header className={`flex items-center justify-between border-b-4 border-[#0A0806] bg-[#E3A23D] sticky top-0 z-[100] transition-all duration-300 ${isScrolled ? 'p-2.5 md:px-8' : 'p-4 md:px-8'}`}>
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-full border-[3px] border-[#0A0806] overflow-hidden bg-[#F5F1E6]">
+            <div className={`rounded-full border-[3px] border-[#0A0806] overflow-hidden bg-[#F5F1E6] transition-all duration-300 ${isScrolled ? 'w-8 h-8' : 'w-10 h-10'}`}>
               <Image src="/logo.jpg" alt="Logo Kitson Kit" width={40} height={40} className="w-full h-full object-cover" />
             </div>
             <span className="font-display font-bold text-xl text-[#0A0806] hidden xl:block">KITSON KIT</span>
@@ -100,26 +119,28 @@ export default function Home() {
         </div>
 
         <nav className="hidden lg:flex flex-1 justify-center gap-8 font-semibold text-sm text-[#0A0806]">
-          <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
-          <Link href="#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
-          <Link href="/tienda-diaria" className="hover:opacity-70 transition">Tienda Fortnite</Link>
-          <Link href="/billetera" className="hover:opacity-70 transition">Mi Billetera</Link>
+          <Link href="/" className="relative py-1 group">Inicio<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
+          <Link href="#catalogo" className="relative py-1 group">Catálogo<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
+          <Link href="/tienda-diaria" className="relative py-1 group flex items-center gap-1.5">
+            Tienda Fortnite
+            <span className="bg-[#0A0806]/10 text-[#0A0806] text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full">⏳{hoursLeft}h</span>
+            <span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span>
+          </Link>
+          <Link href="/vincular-cuenta" className="relative py-1 group">Vincular Cuenta<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
+          <Link href="/mi-cuenta" className="relative py-1 group">Mi Cuenta<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-3">
           <div className="hidden sm:block"><CurrencySelector /></div>
-          <Link href="/carrito" className="flex items-center gap-2 bg-[#0A0806] text-[#E3A23D] py-2 px-4 rounded-lg font-bold hover:opacity-90 transition">
+          <Link href="/carrito" className="flex items-center gap-2 bg-[#0A0806] text-[#E3A23D] py-2 px-4 rounded-lg font-bold hover:opacity-90 hover:-translate-y-0.5 transition-all">
             <ShoppingCart size={18} />
             <span className="text-xs font-black">{totalItemsCount}</span>
           </Link>
           {session ? (
-            <div className="hidden sm:flex items-center gap-3 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg">
-              <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
-                <span className="text-sm font-bold text-[#F5F1E6]">{session.user?.name}</span>
-              </Link>
-              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
-            </div>
+            <Link href="/mi-cuenta" className="hidden sm:flex items-center gap-2 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg hover:opacity-80 transition">
+              <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
+              <span className="text-sm font-bold text-[#F5F1E6]">{session.user?.name}</span>
+            </Link>
           ) : (
             <button onClick={() => signIn()} className="hidden sm:block bg-[#0A0806] hover:opacity-90 text-[#E3A23D] px-6 py-2 rounded-lg font-black text-sm transition border-2 border-[#0A0806]">Iniciar Sesión</button>
           )}
@@ -133,7 +154,8 @@ export default function Home() {
             <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
             <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
             <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
-            <Link href="/billetera" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Billetera</Link>
+            <Link href="/vincular-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Vincular Cuenta</Link>
+            <Link href="/mi-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Cuenta</Link>
             <div className="pt-2"><CurrencySelector /></div>
           </div>
 
@@ -155,7 +177,7 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="relative px-6 md:px-12 py-16 md:py-20 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-center max-w-7xl mx-auto">
+      <section className="relative px-6 md:px-12 pt-16 pb-24 md:pt-20 md:pb-32 grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center max-w-7xl mx-auto">
         <div>
           <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-6">
             <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
@@ -186,19 +208,23 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 border-y-4 border-[#0A0806] max-w-7xl mx-auto">
-        <div className="p-5 md:p-6 border-r-2 border-[#0A0806]">
-          <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">{(stats.totalOrders + 30000).toLocaleString('en-US')}</div>
-          <div className="text-xs text-[#9A9384] font-medium">Pedidos entregados</div>
-        </div>
+      <section className={`grid ${(stats.totalOrders > 0 || stats.totalReviews > 0) ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'} border-y-4 border-[#0A0806] max-w-7xl mx-auto`}>
+        {stats.totalOrders > 0 && (
+          <div className="p-5 md:p-6 border-r-2 border-[#0A0806]">
+            <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">{stats.totalOrders.toLocaleString('en-US')}</div>
+            <div className="text-xs text-[#9A9384] font-medium">Pedidos entregados</div>
+          </div>
+        )}
         <div className="p-5 md:p-6 border-r-2 border-[#0A0806] md:border-r-2">
           <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">2–5 min</div>
           <div className="text-xs text-[#9A9384] font-medium">Tiempo de entrega</div>
         </div>
-        <div className="p-5 md:p-6 border-r-2 border-[#0A0806]">
-          <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">{stats.averageRating.toFixed(1)}</div>
-          <div className="text-xs text-[#9A9384] font-medium">Calificación promedio</div>
-        </div>
+        {stats.totalReviews > 0 && (
+          <div className="p-5 md:p-6 border-r-2 border-[#0A0806]">
+            <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">{stats.averageRating.toFixed(1)}</div>
+            <div className="text-xs text-[#9A9384] font-medium">Calificación promedio</div>
+          </div>
+        )}
         <div className="p-5 md:p-6">
           <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">6</div>
           <div className="text-xs text-[#9A9384] font-medium">Métodos de pago</div>
@@ -212,14 +238,28 @@ export default function Home() {
         </div>
         {loading ? (
           <div className="flex justify-center p-20"><Gamepad2 size={48} className="animate-spin text-[#E3A23D]" /></div>
+        ) : products.length === 0 ? (
+          <div className="kk-panel p-12 rounded-3xl text-center max-w-xl mx-auto">
+            <PackageSearch size={40} className="mx-auto text-[#E3A23D] mb-4" />
+            <h3 className="font-display text-xl font-bold mb-2">Todavía no hay ofertas cargadas</h3>
+            <p className="text-[#9A9384] text-sm mb-6">Mientras tanto, mirá la Tienda Diaria — ahí siempre hay algo nuevo.</p>
+            <Link href="/tienda-diaria" className="bg-[#E3A23D] text-[#0A0806] px-6 py-3 rounded-xl font-display font-bold inline-block border-[3px] border-[#0A0806]">Ver Tienda Diaria</Link>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((p) => {
               const localPrice = (p.price * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const esRecarga = p.delivery_type === 'recarga';
+              const tieneDescuento = !!p.compare_at_price && p.compare_at_price > p.price;
+              const precioAntes = tieneDescuento ? (p.compare_at_price! * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+              const porcentajeOff = tieneDescuento ? Math.round((1 - p.price / p.compare_at_price!) * 100) : 0;
               return (
                 <div key={p.id} className="kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer">
-                  <div className="bg-[#E3A23D] border-b-[3px] border-[#0A0806] px-3 py-1.5">
-                    <span className="font-display font-bold text-[10px] uppercase tracking-wide text-[#0A0806]">Oferta</span>
+                  <div className={`flex items-center justify-between border-b-[3px] border-[#0A0806] px-3 py-1.5 ${esRecarga ? 'bg-[#4A93D6]' : 'bg-[#E3A23D]'}`}>
+                    <span className={`font-display font-bold text-[10px] uppercase tracking-wide ${esRecarga ? 'text-[#0C2438]' : 'text-[#0A0806]'}`}>
+                      {esRecarga ? '⚡ Recarga directa' : '🎁 Regalo'}
+                    </span>
+                    {tieneDescuento && <span className="bg-red-500 text-white text-[10px] font-display font-bold px-2 py-0.5 rounded-full">-{porcentajeOff}%</span>}
                   </div>
                   <div className="p-5">
                     <div className="aspect-square bg-[#14110C] rounded-xl mb-5 flex items-center justify-center overflow-hidden relative border-2 border-[#0A0806]">
@@ -228,10 +268,20 @@ export default function Home() {
                       ) : <Gamepad2 size={64} className="text-[#9A9384]" />}
                     </div>
                     <h3 className="font-bold text-lg mb-1 text-[#F5F1E6]">{p.name}</h3>
-                    <div className="flex items-end gap-1 mb-5">
-                      <p className="text-[#E3A23D] font-mono font-semibold text-2xl">{activeCurrency.symbol}{localPrice}</p>
-                      <span className="text-[#9A9384] text-xs font-bold mb-1">{activeCurrency.currency}</span>
-                    </div>
+                    {tieneDescuento ? (
+                      <div className="flex items-baseline gap-2 mb-3">
+                        <span className="text-[#5A554A] font-mono text-sm line-through">{activeCurrency.symbol}{precioAntes}</span>
+                        <p className="text-[#E3A23D] font-mono font-semibold text-2xl">{activeCurrency.symbol}{localPrice}</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-end gap-1 mb-3">
+                        <p className="text-[#E3A23D] font-mono font-semibold text-2xl">{activeCurrency.symbol}{localPrice}</p>
+                        <span className="text-[#9A9384] text-xs font-bold mb-1">{activeCurrency.currency}</span>
+                      </div>
+                    )}
+                    {!esRecarga && (
+                      <p className="text-[10px] text-[#9A9384] mb-3 leading-snug">Se entrega como regalo. Si es tu primera compra, Epic Games exige 48hs de amistad antes de poder enviártelo.</p>
+                    )}
                     <button onClick={() => addToCart(p)} className="w-full bg-[#0A0806] hover:bg-[#E3A23D] text-[#E3A23D] hover:text-[#0A0806] py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 border-2 border-[#0A0806]">
                       <ShoppingCart size={18} /> Añadir
                     </button>
@@ -243,12 +293,22 @@ export default function Home() {
         )}
       </section>
 
-      <section id="reseñas" className="px-6 py-20 border-t-4 border-[#0A0806]">
+      <section id="reseñas" className="px-6 py-24 border-t-4 border-[#0A0806]">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12 border-l-[6px] border-[#E3A23D] pl-6">
             <h2 className="font-display font-bold text-3xl md:text-5xl leading-tight">Nuestra Squad <br/><span className="text-[#E3A23D]">de Leyendas</span></h2>
             <p className="text-[#9A9384] mt-4 max-w-xl font-medium">Lee las opiniones reales de los gamers que ya aseguraron su cuenta con nosotros.</p>
           </div>
+          {stats.totalReviews === 0 ? (
+            <div className="kk-panel p-12 rounded-3xl text-center max-w-xl mx-auto">
+              <MessageSquare size={40} className="mx-auto text-[#E3A23D] mb-4" />
+              <h3 className="font-display text-xl font-bold mb-2">Sé el primero en dejar tu opinión</h3>
+              <p className="text-[#9A9384] text-sm mb-6">Todavía no tenemos reseñas publicadas. Si ya compraste, contanos cómo te fue.</p>
+              <Link href="/mi-cuenta" className="bg-[#E3A23D] text-[#0A0806] px-6 py-3 rounded-xl font-display font-bold inline-flex items-center gap-2 border-[3px] border-[#0A0806]">
+                <MessageSquare size={18} /> Dejar mi reseña
+              </Link>
+            </div>
+          ) : (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="w-full lg:w-[350px] shrink-0 kk-panel p-8 rounded-3xl h-fit relative overflow-hidden">
               <div className="flex items-center gap-4 mb-2">
@@ -277,7 +337,7 @@ export default function Home() {
                   );
                 })}
               </div>
-              <Link href="/mis-pedidos" className="w-full bg-[#14110C] hover:bg-[#E3A23D] text-[#F5F1E6] hover:text-[#0A0806] py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all mb-2 border-2 border-[#0A0806]">
+              <Link href="/mi-cuenta" className="w-full bg-[#14110C] hover:bg-[#E3A23D] text-[#F5F1E6] hover:text-[#0A0806] py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all mb-2 border-2 border-[#0A0806]">
                 <MessageSquare size={18} /> Dejar mi Reseña
               </Link>
             </div>
@@ -316,10 +376,11 @@ export default function Home() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </section>
 
-      <section id="faq" className="max-w-4xl mx-auto px-6 py-20 border-t-4 border-[#0A0806]">
+      <section id="faq" className="max-w-4xl mx-auto px-6 py-24 border-t-4 border-[#0A0806]">
         <div className="text-center mb-12">
           <h2 className="font-display font-bold text-3xl md:text-4xl mb-4">Preguntas Frecuentes</h2>
           <p className="text-[#9A9384]">Todo lo que necesitas saber sobre cómo funciona Kitson Kit.</p>
@@ -339,8 +400,8 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="border-t-4 border-[#0A0806] bg-[#0A0806] pt-16 pb-8 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
+      <footer className="border-t-4 border-[#0A0806] bg-[#0A0806] pt-20 pb-8 px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-14">
           <div className="md:col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-full border-2 border-[#E3A23D] overflow-hidden">
@@ -351,9 +412,19 @@ export default function Home() {
             <p className="text-[#9A9384] text-sm max-w-sm leading-relaxed mb-6">
               Tu tienda de confianza para recargas, cosméticos y suscripciones. Operamos de forma 100% legal y segura para proteger tu cuenta en todo momento.
             </p>
-            <div className="flex gap-4">
-              <div className="bg-[#1D1913] border border-[#3A3527] p-2 rounded-md"><CreditCard size={20} className="text-[#9A9384]" /></div>
-              <div className="bg-[#1D1913] border border-[#3A3527] p-2 rounded-md"><Shield size={20} className="text-[#9A9384]" /></div>
+            <div className="flex gap-3 mb-6">
+              <a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="bg-[#1D1913] hover:bg-[#5865F2] border border-[#3A3527] hover:border-[#5865F2] p-2.5 rounded-lg transition-colors group">
+                <Send size={18} className="text-[#9A9384] group-hover:text-white" />
+              </a>
+              <a href="mailto:soporte@kitson-kit.store" className="bg-[#1D1913] hover:bg-[#E3A23D] border border-[#3A3527] hover:border-[#E3A23D] p-2.5 rounded-lg transition-colors group">
+                <MessageSquare size={18} className="text-[#9A9384] group-hover:text-[#0A0806]" />
+              </a>
+            </div>
+            <p className="text-[10px] text-[#5A554A] uppercase tracking-widest font-bold mb-2">Métodos de pago aceptados</p>
+            <div className="flex flex-wrap gap-2">
+              {['Binance', 'Yape', 'Nequi', 'OXXO', 'Transferencia'].map((m) => (
+                <span key={m} className="bg-[#1D1913] border border-[#3A3527] text-[#9A9384] text-[10px] font-bold px-2.5 py-1 rounded-md">{m}</span>
+              ))}
             </div>
           </div>
           <div>
@@ -361,7 +432,7 @@ export default function Home() {
             <ul className="space-y-3 text-sm text-[#9A9384]">
               <li><Link href="#catalogo" className="hover:text-[#E3A23D] transition">Catálogo</Link></li>
               <li><Link href="/tienda-diaria" className="hover:text-[#E3A23D] transition">Tienda Fortnite</Link></li>
-              <li><Link href="/billetera" className="hover:text-[#E3A23D] transition">Mi Billetera</Link></li>
+              <li><Link href="/mi-cuenta" className="hover:text-[#E3A23D] transition">Mi Billetera</Link></li>
             </ul>
           </div>
           <div>
@@ -370,6 +441,7 @@ export default function Home() {
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Términos del Servicio</Link></li>
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Política de Reembolsos</Link></li>
               <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
+              <li><a href="mailto:soporte@kitson-kit.store" className="hover:text-[#E3A23D] transition">soporte@kitson-kit.store</a></li>
             </ul>
           </div>
         </div>

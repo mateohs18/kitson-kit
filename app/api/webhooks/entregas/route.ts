@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       // 👇 CAMBIO: Usamos el ID completo
       const fullId = order.id;
 
-      const reviewLink = `https://kitson-kit.store/mis-pedidos?reviewOrder=${fullId}`;
+      const reviewLink = `https://kitson-kit.store/mi-cuenta?reviewOrder=${fullId}`;
 
       // Petición HTTP directa a Brevo (Pasa el firewall de Railway al instante)
       const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {

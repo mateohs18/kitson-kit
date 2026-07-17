@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Debes iniciar sesión.' }, { status: 401 });
   }
 
-  const { amount, receiptUrl } = await req.json();
+  const { amount, receiptUrl, packageLabel } = await req.json();
   const monto = Number(amount);
 
   if (!Number.isFinite(monto) || monto <= 0) {
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       amount: monto,
       receipt_url: receiptUrl,
       status: 'PENDIENTE',
+      package_label: packageLabel || null,
     }])
     .select()
     .single();
@@ -40,17 +41,22 @@ export async function POST(req: Request) {
   const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
   if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
+    const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
+    const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
+
     await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
       method: 'POST',
       headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        content: menciones || undefined,
         embeds: [{
           title: '💰 Nueva solicitud de recarga de saldo',
           description: `Un cliente pidió cargar saldo a su billetera.\n\n📄 **[Ver comprobante](${recarga.receipt_url})**`,
           color: 14924072,
           fields: [
             { name: '👤 Cliente', value: `\`${recarga.user_email}\``, inline: true },
-            { name: '💵 Monto', value: `$${monto.toFixed(2)} USD`, inline: true },
+            { name: '💵 Monto a acreditar', value: `$${monto.toFixed(2)} USD`, inline: true },
+            ...(packageLabel ? [{ name: '📦 Paquete', value: packageLabel, inline: false }] : []),
             { name: '🆔 Solicitud', value: `\`${recarga.id}\``, inline: false },
           ],
         }],
