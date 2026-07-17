@@ -1,6 +1,7 @@
 import { verifyKey } from 'discord-interactions';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { aprobarRecarga } from '../../../lib/recargas';
+import { marcarAmistadCuenta } from '../../../lib/amistad';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +105,21 @@ export async function POST(req: Request) {
           type: 7,
           data: {
             content: `✅ **RECARGA APROBADA**\nNuevo saldo de **${resultado.email}**: **$${resultado.nuevoSaldo?.toFixed(2)} USD**.`,
+            components: [],
+            embeds: [],
+          },
+        });
+      }
+      if (customId.startsWith('amistad_cuenta_')) {
+        const email = customId.replace('amistad_cuenta_', '');
+        const resultado = await marcarAmistadCuenta(email);
+        if (!resultado.ok) {
+          return Response.json({ type: 4, data: { content: `❌ ${resultado.error}`, flags: 64 } });
+        }
+        return Response.json({
+          type: 7,
+          data: {
+            content: `✅ **SOLICITUD CONFIRMADA**\nArrancó el contador de 48hs para **${email}**.`,
             components: [],
             embeds: [],
           },
