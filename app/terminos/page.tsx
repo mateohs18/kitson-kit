@@ -29,10 +29,13 @@ export default function TerminosPage() {
               <h2 className="font-display text-2xl font-bold">1. Tiempos de entrega</h2>
             </div>
             <p className="text-[#9A9384] leading-relaxed mb-4">
-              Todos los pedidos pagados con <strong className="text-[#D9D4C7]">Saldo Kitson</strong> se procesan de manera automatizada. Sin embargo, en ocasiones el envío de regalos dentro del juego puede demorar entre 1 y 15 minutos dependiendo de los servidores de Epic Games.
+              Todos los pedidos pagados con <strong className="text-[#D9D4C7]">Saldo Kitson</strong> se procesan de manera automatizada. Las <strong className="text-[#D9D4C7]">recargas directas</strong> se acreditan en minutos.
+            </p>
+            <p className="text-[#9A9384] leading-relaxed mb-4">
+              Los productos marcados como <strong className="text-[#D9D4C7]">regalo</strong> se envían dentro del juego. <strong className="text-[#4A93D6]">Importante:</strong> Epic Games exige un mínimo de 48 horas de amistad entre dos cuentas antes de permitir el envío de un regalo. Si es tu primera compra con nosotros, ese plazo aplica y no depende de Kitson Kit — es una regla del propio juego. Si ya tenés más de 48hs de amistad con nuestra cuenta de entrega, el envío es en minutos.
             </p>
             <p className="text-[#9A9384] leading-relaxed">
-              Los pagos realizados mediante <strong className="text-[#D9D4C7]">Transferencia Manual</strong> están sujetos a verificación humana. El equipo revisará el comprobante subido a la plataforma y acreditará el saldo o enviará los artículos en un plazo máximo de 24 horas hábiles.
+              Los pagos realizados mediante <strong className="text-[#D9D4C7]">Transferencia Manual</strong> están sujetos a verificación humana. El equipo revisará el comprobante subido a la plataforma y acreditará el saldo o enviará los artículos en un plazo máximo de 24 horas hábiles (sin contar las 48hs de amistad si corresponden).
             </p>
           </section>
 

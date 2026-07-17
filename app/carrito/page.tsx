@@ -6,11 +6,10 @@ import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
-import { supabase } from '../../lib/supabase';
-import { signIn, signOut, useSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import {
-  ShoppingCart, Trash2, Gamepad2, Menu, X, LogOut,
-  Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Mail, Lock
+  ShoppingCart, Trash2, Gamepad2, Menu, X,
+  Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Check, CreditCard
 } from 'lucide-react';
 
 export default function CartPage() {
@@ -24,18 +23,13 @@ export default function CartPage() {
 
   const [gamerId, setGamerId] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [processingFile, setProcessingFile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [balance, setBalance] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'saldo' | 'manual'>('manual');
-
-  // ESTADOS PARA EL PANEL DE AUTENTICACIÓN
-  const [authTab, setAuthMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -54,6 +48,14 @@ export default function CartPage() {
 
   if (!mounted) return null;
 
+  // Validación simple de formato: Epic Games no permite espacios y pide mínimo 3 caracteres.
+  const gamerIdTrimmed = gamerId.trim();
+  const gamerIdValid = gamerIdTrimmed.length >= 3 && !/\s/.test(gamerIdTrimmed);
+
+  const paymentReady = paymentMethod === 'saldo' ? balance >= totalPrice() && totalPrice() > 0 : !!receiptFile;
+
+  const currentStep = !gamerIdValid ? 1 : !paymentReady ? 2 : 3;
+
   const convertedTotal = (totalPrice() * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handleCopy = (text: string) => {
@@ -62,33 +64,12 @@ export default function CartPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) return alert("Por favor, completa todos los campos.");
-    setIsAuthLoading(true);
-
-    try {
-      if (authTab === 'register') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("¡Cuenta creada! Revisa tu correo o inicia sesión para continuar.");
-        setAuthMode('login');
-      } else {
-        const res = await signIn('credentials', { redirect: false, email, password });
-        if (res?.error) alert("Credenciales incorrectas. Verifica tus datos.");
-      }
-    } catch (err: any) {
-      alert(err.message || "Ocurrió un error en la autenticación.");
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
-
   const handleCheckout = async () => {
     if (!session) return alert("Debes iniciar sesión para procesar tu pedido.");
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     if (!gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
+    if (paymentMethod === 'saldo' && balance < totalPrice()) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
 
     setIsProcessing(true);
 
@@ -120,7 +101,7 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: gamerId,
+          gamerId: gamerId.trim(),
           totalPrice: totalPrice(),
           paymentMethod: paymentMethod,
           receiptUrl: finalReceiptUrl
@@ -159,20 +140,17 @@ export default function CartPage() {
           <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:opacity-70 transition">Tienda Fortnite</Link>
+          <Link href="/vincular-cuenta" className="hover:opacity-70 transition">Vincular Cuenta</Link>
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-3">
           <div className="hidden sm:block"><CurrencySelector /></div>
           {session ? (
-            <div className="hidden sm:flex items-center gap-3 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg">
-              <Link href="/mis-pedidos" className="flex items-center gap-2 hover:opacity-80 transition">
-                <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
-                <span className="text-sm font-bold text-[#F5F1E6]">{session.user?.name}</span>
-              </Link>
-              <button onClick={() => signOut()} className="text-red-400 hover:text-red-300 ml-2 border-l border-white/10 pl-3"><LogOut size={16}/></button>
-            </div>
+            <Link href="/mi-cuenta" className="hidden sm:flex items-center gap-2 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg hover:opacity-80 transition">
+              <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
+            </Link>
           ) : (
-            <button onClick={() => signIn('discord')} className="hidden sm:block bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm px-6 py-2.5 rounded-lg font-black border-2 border-[#0A0806]">Login</button>
+            <button onClick={() => signIn()} className="hidden sm:block bg-[#0A0806] hover:opacity-90 text-[#E3A23D] px-6 py-2 rounded-lg font-black text-sm border-2 border-[#0A0806]">Iniciar Sesión</button>
           )}
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-[#0A0806] ml-1 p-2">
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -185,11 +163,38 @@ export default function CartPage() {
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
           <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
           <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
+          <Link href="/vincular-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Vincular Cuenta</Link>
           <div className="pt-2"><CurrencySelector /></div>
+          <div className="mt-6 pt-6 border-t border-white/10">
+            {!session && <button onClick={() => signIn()} className="w-full bg-[#E3A23D] text-[#0A0806] py-4 rounded-xl font-black text-lg border-[3px] border-[#0A0806]">Iniciar Sesión</button>}
+          </div>
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 relative z-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 pt-28 pb-12 relative z-10">
+        {!orderSuccess && (
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-10 max-w-lg mx-auto">
+            {[
+              { n: 1, label: 'Tu cuenta' },
+              { n: 2, label: 'Pago' },
+              { n: 3, label: 'Entrega' },
+            ].map((step, idx) => {
+              const done = currentStep > step.n;
+              const active = currentStep === step.n;
+              return (
+                <div key={step.n} className="flex items-center flex-1 last:flex-none">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className={`w-9 h-9 rounded-full border-2 border-[#0A0806] flex items-center justify-center font-display font-bold text-sm transition-colors ${done ? 'bg-[#7BC77E] text-[#0A0806]' : active ? 'bg-[#E3A23D] text-[#0A0806]' : 'bg-[#1D1913] text-[#9A9384]'}`}>
+                      {done ? <Check size={16} /> : step.n}
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wide ${active || done ? 'text-[#F5F1E6]' : 'text-[#5A554A]'}`}>{step.label}</span>
+                  </div>
+                  {idx < 2 && <div className={`flex-1 h-[2px] mx-2 mb-4 transition-colors ${done ? 'bg-[#7BC77E]' : 'bg-[#3A3527]'}`}></div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {orderSuccess ? (
           <div className="text-center py-16 kk-panel rounded-3xl max-w-2xl mx-auto px-6">
             <div className="w-24 h-24 rounded-full border-[3px] border-[#0A0806] bg-[#4A93D6] overflow-hidden mx-auto mb-6 flex items-center justify-center">
@@ -197,18 +202,28 @@ export default function CartPage() {
             </div>
             <h2 className="font-display font-bold text-3xl mb-4">¡Pedido procesado!</h2>
             <p className="text-[#9A9384] mb-8 max-w-md mx-auto">Tu compra se ha registrado con éxito. Nuestro equipo te enviará los artículos a la brevedad.</p>
-            <Link href="/mis-pedidos" className="bg-[#E3A23D] text-[#0A0806] px-8 py-3 rounded-xl font-display font-bold border-[3px] border-[#0A0806] inline-block">Ver mis pedidos</Link>
+            <Link href="/mi-cuenta" className="bg-[#E3A23D] text-[#0A0806] px-8 py-3 rounded-xl font-display font-bold border-[3px] border-[#0A0806] inline-block">Ver mis pedidos</Link>
           </div>
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="flex-1 space-y-6">
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]"/> 1. Cuenta destino</h3>
-                <input
-                  type="text" placeholder="Tu ID de Epic Games o GamerTag"
-                  value={gamerId} onChange={(e) => setGamerId(e.target.value)}
-                  className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none focus:border-[#E3A23D] transition-colors"
-                />
+                <div className="relative">
+                  <input
+                    type="text" placeholder="Tu ID de Epic Games o GamerTag"
+                    value={gamerId} onChange={(e) => setGamerId(e.target.value)}
+                    className={`w-full bg-[#14110C] border-2 rounded-xl px-4 py-3 pr-11 text-[#F5F1E6] focus:outline-none transition-colors ${gamerId.trim().length === 0 ? 'border-[#0A0806] focus:border-[#E3A23D]' : gamerIdValid ? 'border-[#7BC77E]' : 'border-red-500/60'}`}
+                  />
+                  {gamerId.trim().length > 0 && (
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                      {gamerIdValid ? <Check size={20} className="text-[#7BC77E]" /> : <X size={20} className="text-red-400" />}
+                    </span>
+                  )}
+                </div>
+                {gamerId.trim().length > 0 && !gamerIdValid && (
+                  <p className="text-xs text-red-400 mt-2">El ID no puede tener espacios y debe tener al menos 3 caracteres.</p>
+                )}
               </div>
 
               <div className="kk-panel p-6 rounded-3xl">
@@ -240,49 +255,16 @@ export default function CartPage() {
 
             <div className="w-full lg:w-[450px]">
               {!session ? (
-                <div className="kk-panel p-8 rounded-3xl">
-                  <h2 className="font-display text-2xl font-bold mb-2 text-center">Únete a la Squad</h2>
-                  <p className="text-sm text-[#9A9384] text-center mb-6">Regístrate o ingresa para procesar tu pago.</p>
-
-                  <div className="flex gap-2 mb-6 bg-[#14110C] p-1.5 rounded-xl border-2 border-[#0A0806]">
-                    <button onClick={() => setAuthMode('login')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${authTab === 'login' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}>Iniciar Sesión</button>
-                    <button onClick={() => setAuthMode('register')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${authTab === 'register' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}>Crear Cuenta</button>
+                <div className="kk-panel p-8 rounded-3xl text-center">
+                  <div className="w-16 h-16 rounded-full border-[3px] border-[#0A0806] bg-[#4A93D6] mx-auto mb-4 overflow-hidden flex items-center justify-center relative">
+                    <div className="absolute inset-0 kk-dots opacity-15"></div>
+                    <Image src="/logo.jpg" alt="Mascota Kitson Kit" width={60} height={60} className="w-4/5 h-4/5 object-contain rounded-full relative z-[1]" />
                   </div>
-
-                  <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-                    <div className="relative">
-                      <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9A9384]" />
-                      <input type="email" placeholder="Tu correo electrónico" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-[#E3A23D] transition-colors" />
-                    </div>
-                    <div className="relative">
-                      <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9A9384]" />
-                      <input type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-[#E3A23D] transition-colors" />
-                    </div>
-                    <button type="submit" disabled={isAuthLoading} className="w-full bg-[#E3A23D] text-[#0A0806] py-3 rounded-xl font-display font-bold text-sm flex items-center justify-center gap-2 border-[3px] border-[#0A0806]">
-                      {isAuthLoading ? <Loader2 size={16} className="animate-spin" /> : authTab === 'login' ? "Ingresar" : "Completar Registro"}
-                    </button>
-                  </form>
-
-                  <div className="relative flex py-2 items-center mb-6">
-                    <div className="flex-grow border-t border-white/10"></div>
-                    <span className="flex-shrink mx-4 text-[#9A9384] text-xs font-bold uppercase tracking-wider">O ingresa con</span>
-                    <div className="flex-grow border-t border-white/10"></div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => signIn('google')} className="bg-[#F5F1E6] text-[#0A0806] py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-colors border-2 border-[#0A0806]">
-                      <svg width="16" height="16" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                      </svg>
-                      Google
-                    </button>
-                    <button onClick={() => signIn('discord')} className="bg-[#5865F2] hover:bg-[#4752C4] text-white py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-colors border-2 border-[#0A0806]">
-                      Discord
-                    </button>
-                  </div>
+                  <h2 className="font-display text-2xl font-bold mb-2">Únete a la Squad</h2>
+                  <p className="text-sm text-[#9A9384] mb-6">Iniciá sesión para procesar tu pago. Tu carrito te va a estar esperando.</p>
+                  <Link href="/login?callbackUrl=/carrito" className="w-full bg-[#E3A23D] text-[#0A0806] py-3 rounded-xl font-display font-bold text-sm inline-flex items-center justify-center gap-2 border-[3px] border-[#0A0806]">
+                    Iniciar sesión
+                  </Link>
                 </div>
               ) : (
                 <div className="kk-panel p-8 rounded-3xl sticky top-24">
@@ -322,7 +304,9 @@ export default function CartPage() {
                               <p className="text-xs text-[#9A9384] mb-2 font-medium">{acc.method}</p>
                               <div className="flex items-center justify-between bg-[#0A0806] p-3 rounded-lg group">
                                 <span className="font-mono font-semibold text-[#E3A23D] tracking-wider text-sm">{acc.number}</span>
-                                <button onClick={() => handleCopy(acc.number)} className="text-[#9A9384] hover:text-[#F5F1E6] transition-colors p-1"><Copy size={16} /></button>
+                                <button onClick={() => handleCopy(acc.number)} className="text-[#9A9384] hover:text-[#F5F1E6] transition-colors p-1">
+                                  {copiedId === acc.number ? <CheckCircle2 className="text-[#7BC77E]" size={16} /> : <Copy size={16} />}
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -332,8 +316,30 @@ export default function CartPage() {
                       <div className="mb-8">
                         <label className="block text-sm font-bold text-[#D9D4C7] mb-2">Sube la captura de pago <span className="text-red-400">*</span></label>
                         <label className="relative flex flex-col items-center justify-center w-full py-6 px-4 bg-[#14110C] border-2 border-dashed border-[#3A3527] hover:border-[#E3A23D] rounded-2xl cursor-pointer transition-colors group">
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { if(e.target.files) setReceiptFile(e.target.files[0]) }} />
-                          {receiptFile ? (
+                          <input
+                            type="file" accept="image/*" className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setProcessingFile(true);
+                              setReceiptFile(null);
+                              // Validamos el tamaño antes de dejar avanzar (el servidor también lo revisa, esto es para avisar rápido).
+                              if (file.size > 5 * 1024 * 1024) {
+                                setProcessingFile(false);
+                                return alert("El archivo pesa más de 5MB. Subí una imagen más liviana.");
+                              }
+                              setTimeout(() => {
+                                setReceiptFile(file);
+                                setProcessingFile(false);
+                              }, 300);
+                            }}
+                          />
+                          {processingFile ? (
+                            <div className="text-center">
+                              <Loader2 size={24} className="text-[#E3A23D] mx-auto mb-2 animate-spin" />
+                              <p className="text-sm font-bold text-[#D9D4C7]">Procesando imagen...</p>
+                            </div>
+                          ) : receiptFile ? (
                             <span className="text-sm font-bold text-[#7BC77E]">{receiptFile.name}</span>
                           ) : (
                             <div className="text-center">
@@ -348,10 +354,10 @@ export default function CartPage() {
 
                   <button
                     onClick={handleCheckout}
-                    disabled={isProcessing || cart.length === 0}
+                    disabled={isProcessing || processingFile || cart.length === 0 || !gamerIdValid || (paymentMethod === 'manual' && !receiptFile)}
                     className="w-full bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] py-4 rounded-xl font-display font-bold flex items-center justify-center gap-2 border-[3px] border-[#0A0806]"
                   >
-                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : "Confirmar compra"}
+                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : !gamerIdValid ? "Completá tu ID para continuar" : "Confirmar compra"}
                   </button>
                 </div>
               )}
