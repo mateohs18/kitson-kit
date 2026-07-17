@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 
 export async function POST(req: Request) {
+// ... resto del código
   try {
     const session = await getServerSession(authOptions);
     const adminEmail = process.env.ADMIN_EMAIL;
