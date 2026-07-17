@@ -56,58 +56,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
-    // 3. ENVIAR ALERTA A DISCORD
-    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-    const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-
-    if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
-      const resumenProductos = cart.map((item: any) => `• ${item.name} (x${item.quantity})`).join('\n');
-      const metodoTexto = paymentMethod === 'saldo' ? '💰 Pagado con Saldo Kitson' : '🏦 Transferencia Bancaria';
-      const urlComprobante = receiptUrl ? `\n\n📄 **[Ver Comprobante de Pago](${receiptUrl})**` : '';
-
-      // Menciona a todos los admins configurados (podés poner más de uno separados por coma).
-      const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
-      const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
-
-      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: menciones || undefined,
-          embeds: [
-            {
-              title: paymentMethod === 'saldo' ? "✅ Nueva Orden (Pagada)" : "⏳ Nueva Orden (Verificar Transferencia)",
-              description: `Se ha procesado una nueva compra.\n**Método:** ${metodoTexto}${urlComprobante}`,
-              color: paymentMethod === 'saldo' ? 5763719 : 16766720, // Verde para saldo, Amarillo para transferencia
-              fields: [
-                { name: "👤 Cliente", value: `\`${email}\``, inline: true },
-                { name: "🎮 Epic ID", value: `\`${gamerId}\``, inline: true },
-                { name: "💵 Monto", value: `$${Number(totalPrice).toFixed(2)} USD`, inline: false },
-                { name: "📦 Artículos", value: resumenProductos, inline: false },
-                { name: "🆔 Orden ID", value: `\`${orden.id}\``, inline: false }
-              ]
-            }
-          ],
-          components: [
-            {
-              type: 1,
-              components: [
-                {
-                  type: 2,
-                  style: 3,
-                  label: '📦 Marcar como Entregado',
-                  custom_id: `entregar_${orden.id}`
-                }
-              ]
-            }
-          ]
-        })
-      });
+    // 4. 🔥 ENVIAR LA ORDEN AUTOMÁTICAMENTE A TU BOT (NGROK)
+    // Solo automatizamos si pagó con saldo. Si es transferencia, tú lo revisas manual.
+    if (paymentMethod === 'saldo') {
+      // ⚠️ IMPORTANTE: Si reiniciaste Ngrok, asegúrate de actualizar esta URL
+      const NGROK_URL = "https://underwear-july-sanded.ngrok-free.dev"; 
+      
+      for (const item of cart) {
+        try {
+          console.log(`Enviando ${item.name} a ${gamerId} mediante Ngrok...`);
+          
+          const botResponse = await fetch(`${NGROK_URL}/api/bot/enviar-regalo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              epicName: gamerId, // El ID/Nombre de Epic del cliente
+              offerId: item.offerId, // El ID de la skin que configuramos en la tarjeta
+              mensaje: "¡Gracias por comprar en Kitson Kit!"
+            })
+          });
+          
+          // Si el bot de tu PC responde que todo salió bien, actualizamos la base de datos
+          if (botResponse.ok) {
+            console.log(`✅ Regalo entregado con éxito: ${item.name}`);
+            await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
+          } else {
+            console.error(`❌ El bot rechazó el envío de ${item.name}:`, await botResponse.text());
+          }
+        } catch (botError) {
+          console.error("❌ No se pudo conectar con Ngrok. ¿Tu PC y el bot están encendidos?", botError);
+        }
+      }
     }
-
-    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
-  } catch (error) {
-    console.error("Error general:", error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-  }
-}
