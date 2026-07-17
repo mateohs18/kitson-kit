@@ -48,19 +48,53 @@ export default function VincularCuenta() {
     if (!session) return signIn();
     const trimmed = epicId.trim();
     if (trimmed.length < 3 || /\s/.test(trimmed)) return alert('Ingresá un nombre válido (sin espacios, mínimo 3 caracteres).');
+    
     setEnviando(true);
-    const res = await fetch('/api/guardar-epic-id', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ epicId: trimmed }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setEnviado(true);
-      fetchPerfil();
-    } else {
-      alert('❌ ' + data.error);
+
+    try {
+      // ==========================================
+      // PASO 1: Conectar con el bot para que envíe la solicitud
+      // ==========================================
+      // ⚠️ CAMBIA 'http://localhost:3001' POR TU LINK DE NGROK SI TU WEB ESTÁ EN LÍNEA
+      const botRes = await fetch('http://localhost:3001/api/bot/agregar-amigo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ epicId: trimmed }),
+      });
+      
+      const botData = await botRes.json();
+
+      if (!botRes.ok) {
+        // Si el bot falló (ej. letras raras o no existe), mostramos el error del bot
+        alert('❌ ' + botData.error);
+        setEnviando(false);
+        return;
+      }
+
+      // ==========================================
+      // PASO 2: Si el bot tuvo éxito, lo guardamos en tu base de datos web
+      // ==========================================
+      const res = await fetch('/api/guardar-epic-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ epicId: trimmed }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        setEnviado(true);
+        fetchPerfil();
+        alert('✅ ' + botData.message); // Muestra el mensaje de éxito del bot
+      } else {
+        alert('❌ Error al guardar en tu web: ' + data.error);
+      }
+      
+    } catch (error) {
+      console.error(error);
+      alert('❌ No se pudo conectar con el bot. Verifica que esté encendido.');
     }
+    
     setEnviando(false);
   }
 
