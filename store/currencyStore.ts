@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export const PAYMENT_OPTIONS = [
   { 
@@ -22,14 +23,45 @@ export const PAYMENT_OPTIONS = [
   }
 ];
 
+// Mapa de código de país (ISO) -> id interno de PAYMENT_OPTIONS
+const COUNTRY_TO_OPTION: Record<string, string> = {
+  MX: 'MX',
+  CO: 'CO',
+  PE: 'PE',
+};
+
 interface CurrencyState {
   selectedCountry: string;
+  hasAutoDetected: boolean;
+  hasManuallySelected: boolean;
   setCountry: (id: string) => void;
   getActiveConfig: () => typeof PAYMENT_OPTIONS[0];
+  autoDetectCountry: () => Promise<void>;
 }
 
-export const useCurrencyStore = create<CurrencyState>((set, get) => ({
-  selectedCountry: 'US',
-  setCountry: (id) => set({ selectedCountry: id }),
-  getActiveConfig: () => PAYMENT_OPTIONS.find(c => c.id === get().selectedCountry) || PAYMENT_OPTIONS[0]
-}));
+export const useCurrencyStore = create<CurrencyState>()(
+  persist(
+    (set, get) => ({
+      selectedCountry: 'US',
+      hasAutoDetected: false,
+      hasManuallySelected: false,
+      setCountry: (id) => set({ selectedCountry: id, hasManuallySelected: true }),
+      getActiveConfig: () => PAYMENT_OPTIONS.find(c => c.id === get().selectedCountry) || PAYMENT_OPTIONS[0],
+      autoDetectCountry: async () => {
+        // Si el usuario ya eligió a mano alguna vez, o ya intentamos detectar antes, no hacemos nada.
+        if (get().hasManuallySelected || get().hasAutoDetected) return;
+        set({ hasAutoDetected: true });
+        try {
+          const res = await fetch('https://free.freeipapi.com/api/json/');
+          if (!res.ok) return;
+          const data = await res.json();
+          const match = COUNTRY_TO_OPTION[data.countryCode];
+          if (match) set({ selectedCountry: match });
+        } catch {
+          // Si falla la detección, nos quedamos con USD sin romper nada.
+        }
+      },
+    }),
+    { name: 'kitson-currency' }
+  )
+);
