@@ -37,66 +37,63 @@ export async function POST(req: Request) {
       await supabaseAdmin.from('profiles').update({ balance: nuevoSaldo }).eq('email', emailAutenticado);
     }
 
-    // 2. CREAR LA ORDEN EN LA BASE DE DATOS
-    const { data: orden, error: ordenError } = await supabaseAdmin
-      .from('orders')
-      .insert([{ 
-        user_email: email.trim(), 
-        user_name: userName || 'Usuario',
-        gamer_id: gamerId,
-        items: cart,              
-        total_price: totalPrice, 
-        status: 'PENDIENTE' 
-      }])
-      .select()
-      .single();
+    // ENDPOINT 2: Enviar el cosmético (Regalo)
+app.post('/api/bot/enviar-regalo', async (req, res) => {
+  const { epicName, offerId, mensaje } = req.body;
 
-    if (ordenError || !orden) {
-      console.error("❌ ERROR EN SUPABASE:", ordenError);
-      return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
+  try {
+    console.log(`🎁 Procesando regalo para: ${epicName}...`);
+
+    let accountIdReceptor = null;
+
+    // 2. EL TRUCO INFALIBLE: Buscamos al jugador directamente en la lista de amigos del bot.
+    // Convertimos la lista de amigos en un arreglo y buscamos el nombre, sin importar símbolos.
+    const amigosArray = Array.from(bot.friends.values());
+    const amigo = amigosArray.find(f => f.displayName && f.displayName.toLowerCase() === epicName.toLowerCase());
+
+    if (amigo) {
+      accountIdReceptor = amigo.id;
+      console.log(`✅ Jugador encontrado en tu lista de amigos. Account ID: ${accountIdReceptor}`);
+    } else {
+      // Plan B: Si no está en amigos (quizás lo escribieron mal), intenta en la API pública
+      try {
+        const userResponse = await bot.http.epicgamesRequest({
+          method: 'GET',
+          url: `https://account-public-service-prod.ol.epicgames.com/account/api/public/account/displayName/${encodeURIComponent(epicName)}`
+        });
+        accountIdReceptor = userResponse.id;
+        console.log(`✅ Jugador encontrado vía API. Account ID: ${accountIdReceptor}`);
+      } catch (lookupErr) {
+        console.error(`❌ No se encontró al jugador: ${epicName}`);
+        return res.status(404).json({ success: false, error: 'Jugador no encontrado.' });
+      }
     }
 
-    // 4. 🔥 ENVIAR LA ORDEN AUTOMÁTICAMENTE A TU BOT (NGROK)
-    // Solo automatizamos si pagó con saldo. Si es transferencia, tú lo revisas manual.
-    if (paymentMethod === 'saldo') {
-      // ⚠️ IMPORTANTE: Si reiniciaste Ngrok, asegúrate de actualizar esta URL
-      const NGROK_URL = "https://underwear-july-sanded.ngrok-free.dev"; 
-      
-      for (const item of cart) {
-        try {
-          console.log(`Enviando ${item.name} a ${gamerId} mediante Ngrok...`);
-          
-          const botResponse = await fetch(`${NGROK_URL}/api/bot/enviar-regalo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              epicName: gamerId, // El ID/Nombre de Epic del cliente
-              offerId: item.offerId, // El ID de la skin que configuramos en la tarjeta
-              mensaje: "¡Gracias por comprar en Kitson Kit!"
-            })
-          });
-          
-          // Si el bot de tu PC responde que todo salió bien, actualizamos la base de datos
-          if (botResponse.ok) {
-            console.log(`✅ Regalo entregado con éxito: ${item.name}`);
-            await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
-          } else {
-            console.error(`❌ El bot rechazó el envío de ${item.name}:`, await botResponse.text());
-          }
-        // ... aquí termina tu bloque de código de Ngrok ...
-          } catch (botError) {
-            console.error("❌ No se pudo conectar con Ngrok...", botError);
-          }
-        }
-      } // <- Esta llave cierra el if (paymentMethod === 'saldo')
+    // 3. Preparamos la caja de regalo
+    const giftPayload = {
+      offerId: offerId, 
+      purchaseQuantity: 1,
+      currency: "MtxCurrency",
+      currencySubType: "",
+      expectedTotalPrice: 0, 
+      gameContext: "",
+      receiverAccountIds: [accountIdReceptor], 
+      giftWrapTemplateId: "GiftBox:gb_makeitrain",
+      personalMessage: mensaje || "¡Gracias por tu compra en Kitson Kit!"
+    };
 
-      // 👇 ESTO ES LO QUE PROBABLEMENTE SE BORRÓ 👇
-      
-      // Retornamos el éxito a la página web
-      return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
+    // 4. Enviamos la petición a Epic Games
+    await bot.http.epicgamesRequest({
+      method: 'POST',
+      url: `https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile/${bot.user.id}/client/GiftCatalogEntry?profileId=common_core&rvn=-1`,
+      body: giftPayload
+    });
 
-    } catch (error) {
-      console.error("Error general:", error);
-      return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-    }
-} // <- Esta llave final cierra la función principal export async function POST
+    console.log(`🎉 ¡Regalo enviado con éxito a ${epicName}!`);
+    res.json({ success: true, message: 'Regalo enviado correctamente.' });
+    
+  } catch (error) {
+    console.error('❌ Error enviando regalo:', error.message || error);
+    res.status(500).json({ success: false, error: 'Fallo al entregar el regalo.' });
+  }
+});
