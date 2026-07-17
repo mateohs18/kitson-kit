@@ -83,8 +83,20 @@ export async function POST(req: Request) {
           } else {
             console.error(`❌ El bot rechazó el envío de ${item.name}:`, await botResponse.text());
           }
-        } catch (botError) {
-          console.error("❌ No se pudo conectar con Ngrok. ¿Tu PC y el bot están encendidos?", botError);
+        // ... aquí termina tu bloque de código de Ngrok ...
+          } catch (botError) {
+            console.error("❌ No se pudo conectar con Ngrok...", botError);
+          }
         }
-      }
+      } // <- Esta llave cierra el if (paymentMethod === 'saldo')
+
+      // 👇 ESTO ES LO QUE PROBABLEMENTE SE BORRÓ 👇
+      
+      // Retornamos el éxito a la página web
+      return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
+
+    } catch (error) {
+      console.error("Error general:", error);
+      return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
     }
+} // <- Esta llave final cierra la función principal export async function POST
