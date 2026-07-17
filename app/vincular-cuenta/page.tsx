@@ -54,18 +54,17 @@ export default function VincularCuenta() {
     try {
       // ==========================================
       // PASO 1: Conectar con el bot para que envíe la solicitud
+      // Enviamos tanto epicId como epicName para compatibilidad total con el backend
       // ==========================================
-      // ⚠️ CAMBIA 'http://localhost:3001' POR TU LINK DE NGROK SI TU WEB ESTÁ EN LÍNEA
       const botRes = await fetch('http://localhost:3001/api/bot/agregar-amigo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ epicId: trimmed }),
+        body: JSON.stringify({ epicId: trimmed, epicName: trimmed }),
       });
       
       const botData = await botRes.json();
 
       if (!botRes.ok) {
-        // Si el bot falló (ej. letras raras o no existe), mostramos el error del bot
         alert('❌ ' + botData.error);
         setEnviando(false);
         return;
@@ -85,7 +84,7 @@ export default function VincularCuenta() {
       if (res.ok) {
         setEnviado(true);
         fetchPerfil();
-        alert('✅ ' + botData.message); // Muestra el mensaje de éxito del bot
+        alert('✅ ' + botData.message); 
       } else {
         alert('❌ Error al guardar en tu web: ' + data.error);
       }
