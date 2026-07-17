@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import AuthProvider from "../components/AuthProvider";
+import AuthProvider from "./components/AuthProvider";
 
 export const metadata: Metadata = {
   // 1. Añadimos el dominio base para que Next.js entienda las rutas
