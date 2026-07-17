@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const cuerpo = await req.json();
     const { email, userName, cart, gamerId, totalPrice, paymentMethod, receiptUrl } = cuerpo;
 
-    // 🔥 VALIDACIONES DE DATOS
+    // 🔥 AHORA LOS ERRORES SON ESPECÍFICOS
     if (!email) return NextResponse.json({ error: 'Falta el correo electrónico (email)' }, { status: 400 });
     if (!cart || cart.length === 0) return NextResponse.json({ error: 'El carrito está vacío' }, { status: 400 });
     if (totalPrice === undefined) return NextResponse.json({ error: 'Falta el precio total' }, { status: 400 });
@@ -16,7 +16,8 @@ export async function POST(req: Request) {
 
     let nuevoSaldo = 0;
 
-    // 1. SI PAGA CON SALDO: Descontar de la base de datos
+    // 1. SI PAGA CON SALDO: hay que estar autenticado y solo se puede
+    // descontar el saldo de la cuenta que inició sesión (nunca la de otro).
     if (paymentMethod === 'saldo') {
       const session = await getServerSession(authOptions);
 
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Debes iniciar sesión para pagar con saldo.' }, { status: 401 });
       }
 
+      // Ignoramos el email que mande el cliente y usamos el de la sesión
+      // verificada en el servidor, para que nadie pueda descontar saldo ajeno.
       const emailAutenticado = session.user.email.trim();
 
       const { data: user, error: userError } = await supabaseAdmin.from('profiles').select('balance').eq('email', emailAutenticado).single();
@@ -34,80 +37,77 @@ export async function POST(req: Request) {
       await supabaseAdmin.from('profiles').update({ balance: nuevoSaldo }).eq('email', emailAutenticado);
     }
 
-    // ENDPOINT 2: Enviar el cosmético (Regalo)
-app.post('/api/bot/enviar-regalo', async (req, res) => {
-  const { epicName, offerId, mensaje } = req.body;
-  
-  // Limpiamos espacios invisibles adelante o atrás
-  const nombreBuscado = epicName.trim();
+    // 2. CREAR LA ORDEN EN LA BASE DE DATOS
+    const { data: orden, error: ordenError } = await supabaseAdmin
+      .from('orders')
+      .insert([{ 
+        user_email: email.trim(), 
+        user_name: userName || 'Usuario',
+        gamer_id: gamerId,
+        items: cart,              
+        total_price: totalPrice, 
+        status: 'PENDIENTE' 
+      }])
+      .select()
+      .single();
 
-  try {
-    console.log(`\n🎁 Procesando regalo para: "${nombreBuscado}"...`);
-
-    // ==========================================
-    // 🕵️‍♂️ RADAR DE AMIGOS (MODO DEBUG)
-    // ==========================================
-    const amigosArray = Array.from(bot.friends.values());
-    console.log(`👥 El bot tiene ${amigosArray.length} amigos en su lista.`);
-    
-    // Mostramos los nombres exactos separados para ver si hay símbolos raros
-    const nombresAmigos = amigosArray.map(f => f.displayName).filter(Boolean);
-    console.log(`📜 Nombres que el bot está viendo: [ ${nombresAmigos.join(' ] | [ ')} ]`);
-    // ==========================================
-
-    let accountIdReceptor = null;
-
-    // Buscamos coincidencia exacta primero, o minúsculas como plan B
-    const amigo = amigosArray.find(f => 
-      f.displayName && (
-        f.displayName === nombreBuscado || 
-        f.displayName.toLowerCase() === nombreBuscado.toLowerCase()
-      )
-    );
-
-    if (amigo) {
-      accountIdReceptor = amigo.id;
-      console.log(`✅ Jugador encontrado en tu lista de amigos. Account ID: ${accountIdReceptor}`);
-    } else {
-      // Plan B: API pública
-      try {
-        const userResponse = await bot.http.epicgamesRequest({
-          method: 'GET',
-          url: `https://account-public-service-prod.ol.epicgames.com/account/api/public/account/displayName/${encodeURIComponent(nombreBuscado)}`
-        });
-        accountIdReceptor = userResponse.id;
-        console.log(`✅ Jugador encontrado vía API. Account ID: ${accountIdReceptor}`);
-      } catch (lookupErr) {
-        console.error(`❌ No se encontró al jugador en amigos ni en la API.`);
-        return res.status(404).json({ success: false, error: 'Jugador no encontrado.' });
-      }
+    if (ordenError || !orden) {
+      console.error("❌ ERROR EN SUPABASE:", ordenError);
+      return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
-    // 3. Preparamos la caja de regalo
-    const giftPayload = {
-      offerId: offerId, 
-      purchaseQuantity: 1,
-      currency: "MtxCurrency",
-      currencySubType: "",
-      expectedTotalPrice: 0, 
-      gameContext: "",
-      receiverAccountIds: [accountIdReceptor], 
-      giftWrapTemplateId: "GiftBox:gb_makeitrain",
-      personalMessage: mensaje || "¡Gracias por tu compra en Kitson Kit!"
-    };
+    // 3. ENVIAR ALERTA A DISCORD
+    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+    const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
-    // 4. Enviamos la petición a Epic Games
-    await bot.http.epicgamesRequest({
-      method: 'POST',
-      url: `https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile/${bot.user.id}/client/GiftCatalogEntry?profileId=common_core&rvn=-1`,
-      body: giftPayload
-    });
+    if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
+      const resumenProductos = cart.map((item: any) => `• ${item.name} (x${item.quantity})`).join('\n');
+      const metodoTexto = paymentMethod === 'saldo' ? '💰 Pagado con Saldo Kitson' : '🏦 Transferencia Bancaria';
+      const urlComprobante = receiptUrl ? `\n\n📄 **[Ver Comprobante de Pago](${receiptUrl})**` : '';
 
-    console.log(`🎉 ¡Regalo enviado con éxito a ${nombreBuscado}!`);
-    res.json({ success: true, message: 'Regalo enviado correctamente.' });
-    
+      // Menciona a todos los admins configurados (podés poner más de uno separados por coma).
+      const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
+      const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
+
+      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: menciones || undefined,
+          embeds: [
+            {
+              title: paymentMethod === 'saldo' ? "✅ Nueva Orden (Pagada)" : "⏳ Nueva Orden (Verificar Transferencia)",
+              description: `Se ha procesado una nueva compra.\n**Método:** ${metodoTexto}${urlComprobante}`,
+              color: paymentMethod === 'saldo' ? 5763719 : 16766720, // Verde para saldo, Amarillo para transferencia
+              fields: [
+                { name: "👤 Cliente", value: `\`${email}\``, inline: true },
+                { name: "🎮 Epic ID", value: `\`${gamerId}\``, inline: true },
+                { name: "💵 Monto", value: `$${Number(totalPrice).toFixed(2)} USD`, inline: false },
+                { name: "📦 Artículos", value: resumenProductos, inline: false },
+                { name: "🆔 Orden ID", value: `\`${orden.id}\``, inline: false }
+              ]
+            }
+          ],
+          components: [
+            {
+              type: 1,
+              components: [
+                {
+                  type: 2,
+                  style: 3,
+                  label: '📦 Marcar como Entregado',
+                  custom_id: `entregar_${orden.id}`
+                }
+              ]
+            }
+          ]
+        })
+      });
+    }
+
+    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
   } catch (error) {
-    console.error('❌ Error enviando regalo:', error.message || error);
-    res.status(500).json({ success: false, error: 'Fallo al entregar el regalo.' });
+    console.error("Error general:", error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
-});
+}
