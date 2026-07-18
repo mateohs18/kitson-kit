@@ -1,123 +1,107 @@
-// app/estadobots/page.tsx
-'use client';
+@import "tailwindcss";
 
-import { useEffect, useState } from 'react';
-
-interface BotStatus {
-  name: string;
-  accountId: string;
-  ready: boolean;
-  displayName: string;
-  vbucks: number;
-  giftsSentToday: number;
-  giftLimit: number;
-  giftsRemaining: number;
+:root {
+  --background: #14110C;
+  --foreground: #F5F1E6;
+  --kk-ink: #0A0806;
+  --kk-gold: #E3A23D;
+  --kk-blue: #4A93D6;
+  --kk-cream: #F5F1E6;
+  --kk-muted: #9A9384;
+  --kk-panel: #1D1913;
 }
 
-export default function EstadoBotsPage() {
-  const [bots, setBots] = useState<BotStatus[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState('');
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono-kk);
+}
 
-  const fetchBots = async () => {
-    setLoading(true);
-    try {
-      const botUrl = process.env.NEXT_PUBLIC_BOT_URL || 'http://localhost:3001';
-      const res = await fetch(`${botUrl}/api/bots/status`, {
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setBots(data.bots || []);
-      setLastUpdate(new Date().toLocaleTimeString());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setLoading(false);
-    }
-  };
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+}
 
-  useEffect(() => {
-    fetchBots();
-    const interval = setInterval(fetchBots, 30000);
-    return () => clearInterval(interval);
-  }, []);
+/* =========================================
+   SCROLLBAR PERSONALIZADO
+   ========================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-  if (loading && bots.length === 0) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-white text-xl">Cargando bots...</div>
-      </div>
-    );
-  }
+::-webkit-scrollbar-track {
+  background: var(--kk-ink);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
-        <div className="bg-[#1a1a2e] rounded-xl p-8 max-w-md border border-red-500/30 text-center">
-          <div className="text-red-500 text-lg mb-4">❌ {error}</div>
-          <button
-            onClick={fetchBots}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:opacity-90 transition"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
+::-webkit-scrollbar-thumb {
+  background: var(--kk-gold);
+  border-radius: 10px;
+}
 
-  return (
-    <div className="min-h-screen bg-[#0a0a0f] p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-white">🤖 Estado de Bots</h1>
-          <span className="text-gray-400 text-sm">Última actualización: {lastUpdate}</span>
-        </div>
+::-webkit-scrollbar-thumb:hover {
+  background: #f0b458;
+}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bots.map((bot) => (
-            <div
-              key={bot.accountId}
-              className="bg-[#1a1a2e] rounded-xl p-5 border border-[#2a2a4a] hover:border-[#3a3a5a] transition"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-lg font-semibold text-white">{bot.name}</h2>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    bot.ready ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                  }`}
-                >
-                  {bot.ready ? 'Online' : 'Offline'}
-                </span>
-              </div>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
 
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between text-gray-300 border-b border-[#2a2a4a] pb-1">
-                  <span>V-Bucks</span>
-                  <span className="text-yellow-400 font-medium">{bot.vbucks}</span>
-                </div>
-                <div className="flex justify-between text-gray-300 border-b border-[#2a2a4a] pb-1">
-                  <span>Regalos hoy</span>
-                  <span className="text-white">
-                    {bot.giftsSentToday} / {bot.giftLimit}
-                  </span>
-                </div>
-                <div className="flex justify-between text-gray-300">
-                  <span>Restantes</span>
-                  <span className="text-blue-400 font-medium">{bot.giftsRemaining}</span>
-                </div>
-              </div>
+/* =========================================
+   ANIMACIONES
+   ========================================= */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: flex;
+  width: 200%;
+  animation: marquee 20s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
 
-              <div className="mt-2 text-[10px] text-gray-500 truncate">
-                ID: {bot.accountId}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes particle-drift {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { transform: translateY(-140px) translateX(20px); opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(var(--float-rot, 0deg)); }
+  50% { transform: translateY(-10px) rotate(var(--float-rot, 0deg)); }
+}
+
+/* =========================================
+   ESTILO KITSON KIT — CÓMIC / ARCADE
+   ========================================= */
+.kk-dots {
+  background-image: radial-gradient(var(--kk-ink) 1.4px, transparent 1.4px);
+  background-size: 9px 9px;
+}
+
+.kk-panel {
+  background: var(--kk-panel);
+  border: 3px solid var(--kk-ink);
+  border-radius: 14px;
+}
+
+.kk-card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.kk-card-hover:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 5px 5px 0 var(--kk-ink);
 }
