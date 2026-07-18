@@ -77,6 +77,9 @@ export async function POST(req: Request) {
       
       for (const item of cart) {
         try {
+          // 💡 LA MAGIA ESTÁ AQUÍ: Si falla offerId, usa el id directamente
+          const codigoFortnite = item.offerId || item.id;
+
           const botResponse = await fetch(`${NGROK_URL}/api/bot/enviar-regalo`, {
             method: 'POST',
             headers: { 
@@ -85,8 +88,8 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({ 
               epicName: gamerId, 
-              offerId: item.offerId, 
-              precio: item.price || item.precio || 0,
+              offerId: codigoFortnite, // 👈 Ahora el paquete irá 100% completo
+              precio: item.price || 0,
               mensaje: "¡Gracias por tu compra en Kitson!" 
             })
           });
@@ -101,9 +104,3 @@ export async function POST(req: Request) {
         }
       }
     }
-
-    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
-  } catch (error) {
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-  }
-}
