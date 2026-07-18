@@ -260,14 +260,13 @@ app.post('/api/bot/enviar-regalo', async (req, res) => {
   }
 });
 
-// Iniciar servidor
 const PORT = 3001;
 app.listen(PORT, async () => {
   console.log(`\n🌐 Servidor Express corriendo en http://localhost:${PORT}`);
   console.log('📋 Endpoints disponibles:');
   console.log('   GET  /api/status');
   console.log('   POST /api/bot/agregar-amigo');
-  console.log('   POST /api/bot/enviar-regalo\n`);
+  console.log('   POST /api/bot/enviar-regalo\n');
 
   await getToken();
 });
