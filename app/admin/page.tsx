@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
 import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,7 @@ export default function AdminPanel() {
   const [loadingSaldo, setLoadingSaldo] = useState(false);
   const [aprobandoId, setAprobandoId] = useState<string | null>(null);
   const [busquedaPedidos, setBusquedaPedidos] = useState("");
+  const [pedidoExpandido, setPedidoExpandido] = useState<string | null>(null);
 
   // Estados para el formulario de productos (sirve tanto para crear como editar)
   const [editandoProducto, setEditandoProducto] = useState<Producto | null>(null);
@@ -523,6 +524,7 @@ export default function AdminPanel() {
               <tr>
                 <th className="p-4">ID pedido</th>
                 <th className="p-4">Cliente</th>
+                <th className="p-4">Artículos</th>
                 <th className="p-4">Monto</th>
                 <th className="p-4">Estado</th>
                 <th className="p-4">Regalo (48hs)</th>
@@ -538,10 +540,17 @@ export default function AdminPanel() {
                 .map(order => {
                 const isDelivered = order.status?.toUpperCase().includes('ENTREGAD');
                 const tieneRegalos = Array.isArray(order.items) && order.items.some((it: any) => it.delivery_type === 'regalo');
+                const expandido = pedidoExpandido === order.id;
                 return (
-                  <tr key={order.id} className="hover:bg-white/5 transition-colors">
+                  <Fragment key={order.id}>
+                  <tr className="hover:bg-white/5 transition-colors">
                     <td className="p-4 font-mono text-xs text-[#9A9384]">{order.id.slice(0,8)}...</td>
                     <td className="p-4 font-bold">{order.user_email}</td>
+                    <td className="p-4">
+                      <button onClick={() => setPedidoExpandido(expandido ? null : order.id)} className="text-[#4A93D6] hover:underline text-xs font-bold">
+                        {Array.isArray(order.items) ? order.items.length : 0} ítem(s) {expandido ? '▲' : '▼'}
+                      </button>
+                    </td>
                     <td className="p-4 font-mono font-semibold text-[#E3A23D]">${order.total_price.toFixed(2)}</td>
                     <td className="p-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 w-fit border ${isDelivered ? 'bg-[#7BC77E]/10 text-[#7BC77E] border-[#7BC77E]/30' : 'bg-[#E3A23D]/10 text-[#E3A23D] border-[#E3A23D]/30'}`}>
@@ -570,6 +579,23 @@ export default function AdminPanel() {
                       )}
                     </td>
                   </tr>
+                  {expandido && Array.isArray(order.items) && (
+                    <tr key={`${order.id}-detalle`} className="bg-[#14110C]">
+                      <td colSpan={7} className="p-4">
+                        <div className="space-y-2">
+                          {order.items.map((it: any, idx: number) => (
+                            <div key={idx} className="flex flex-wrap items-center gap-3 text-xs bg-[#1D1913] border border-[#0A0806] rounded-lg px-3 py-2">
+                              <span className="font-bold text-[#F5F1E6]">{it.name}</span>
+                              {it.vbucks && <span className="text-[#E3A23D] font-mono">🪙 {Number(it.vbucks).toLocaleString('en-US')} pavos</span>}
+                              {it.offer_id && <span className="text-[#9A9384] font-mono truncate max-w-xs" title={it.offer_id}>ID: {it.offer_id}</span>}
+                              {it.delivery_type && <span className="text-[#4A93D6]">{it.delivery_type === 'recarga' ? '⚡ Recarga' : '🎁 Regalo'}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

@@ -65,15 +65,20 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Precio real en pavos, tal como lo da la API (esto NO es lo que le cobrás al
+  // cliente — eso lo sigue definiendo baseUsdPrice de arriba — es solo para que
+  // vos como admin sepas cuántos pavos vale el objeto a la hora de entregarlo).
+  const vbucksPrice = entry.finalPrice;
   // ID determinístico: si la API no trae offerId, usamos nombre+precio para que
   // el mismo objeto siempre genere el mismo ID (y así se agrupe con quantity: 2
   // en vez de duplicarse como dos líneas distintas en el carrito).
   const itemId = entry.offerId || encodeURIComponent(`${name}-${baseUsdPrice}`);
+  const itemPayload = { id: itemId, name, price: baseUsdPrice, image_url: displayImage, offer_id: entry.offerId || null, vbucks: vbucksPrice };
 
   return (
     <div
       className={`kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
-      onClick={() => addToCart({ id: itemId, name, price: baseUsdPrice, image_url: displayImage })}
+      onClick={() => addToCart(itemPayload)}
     >
       <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
         <div
@@ -94,7 +99,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
         <button
           onClick={(e) => {
             e.stopPropagation();
-            addToCart({ id: itemId, name, price: baseUsdPrice, image_url: displayImage });
+            addToCart(itemPayload);
           }}
           className="absolute top-2 right-2 z-[2] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
           title="Añadir al carrito"
@@ -108,10 +113,16 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
         {featured && !isBundle && (
           <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-3 ${rarity.className}`}>{rarity.label}</span>
         )}
-        <div className="flex items-baseline gap-1">
+        <div className="flex items-baseline gap-1 mb-1">
           <span className={`text-[#E3A23D] font-mono font-semibold ${featured ? 'text-3xl' : 'text-lg'}`}>{activeCurrency.symbol}{localPrice}</span>
           <span className="text-[#9A9384] text-[10px] font-bold uppercase">{activeCurrency.currency}</span>
         </div>
+        <div className="flex items-center gap-1 text-[#9A9384] text-[10px] font-mono">
+          <span>🪙</span> {vbucksPrice.toLocaleString('en-US')} pavos
+        </div>
+        {featured && entry.offerId && (
+          <p className="text-[9px] font-mono text-[#5A554A] mt-2 truncate" title={entry.offerId}>ID: {entry.offerId}</p>
+        )}
       </div>
     </div>
   );

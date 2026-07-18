@@ -9,6 +9,8 @@ export interface Product {
   image_url?: string;
   emoji?: string;
   delivery_type?: 'regalo' | 'recarga';
+  offer_id?: string | null;
+  vbucks?: number;
 }
 
 // 2. Definimos cómo luce un ítem dentro del carrito (Producto + Cantidad)
