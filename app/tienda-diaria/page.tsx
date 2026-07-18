@@ -7,7 +7,7 @@ import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2, List, Search, ArrowUp } from 'lucide-react';
+import { ShoppingCart, Menu, X, Gamepad2, List, Search, ArrowUp, Eye, ChevronLeft, Calendar } from 'lucide-react';
 
 const rarityMeta: Record<string, { label: string; className: string }> = {
   legendary: { label: 'Legendario', className: 'bg-[#E3A23D] text-[#0A0806]' },
@@ -60,19 +60,56 @@ function getEntryMeta(entry: any) {
   const styleVariants: { tag: string; name: string; image: string }[] =
     (mainItem?.variants || []).find((v: any) => (v.options || []).filter((o: any) => o.image).length > 1)?.options?.filter((o: any) => o.image) || [];
 
-  return { name, rarityValue, displayImage, typeValue, isBundle, itemCount: safeItems.length, mainItem, styleVariants };
+  // Todas las imágenes de presentación que trae la entrada (varios ángulos/versiones),
+  // para armar el carrusel que rota solo. Si no hay más de una, usamos solo displayImage.
+  const renderImages: string[] = (entry.newDisplayAsset?.renderImages || [])
+    .map((r: any) => r.image)
+    .filter(Boolean);
+  const carouselImages = renderImages.length > 1 ? renderImages : [displayImage];
+
+  const description = isBundle ? (entry.offerTag?.text?.replace(/<[^>]+>/g, '') || '') : (mainItem?.description || '');
+
+  // Descuento real de Epic Games (no inventado): a veces regularPrice > finalPrice de verdad.
+  const hasRealDiscount = typeof entry.regularPrice === 'number' && entry.regularPrice > entry.finalPrice;
+
+  // Cada objeto individual dentro de un lote, con su propia imagen y rareza,
+  // para poder mostrarlos por separado en la vista rápida.
+  const subItems = safeItems.map((it: any) => ({
+    name: it.name || it.title || 'Objeto',
+    description: it.description || '',
+    image: it.images?.featured || it.images?.icon || it.images?.large || it.albumArt || it.image || '',
+    rarityValue: it.rarity?.value || 'common',
+    typeLabel: it.type?.displayValue || '',
+  })).filter((it: any) => it.image);
+
+  return {
+    name, rarityValue, displayImage, typeValue, isBundle, itemCount: safeItems.length, mainItem,
+    styleVariants, carouselImages, description, hasRealDiscount, subItems,
+  };
 }
 
-const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean }) => {
-  const { name, rarityValue, displayImage, isBundle, itemCount, styleVariants } = getEntryMeta(entry);
+const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, onQuickView }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean, onQuickView: (entry: any) => void }) => {
+  const { name, rarityValue, displayImage, isBundle, itemCount, styleVariants, carouselImages, hasRealDiscount } = getEntryMeta(entry);
   const [selectedStyle, setSelectedStyle] = useState<number | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+
+  // Rota sola entre las imágenes disponibles, solo si hay más de una y el
+  // usuario no eligió un estilo a mano (ahí priorizamos lo que él eligió).
+  useEffect(() => {
+    if (carouselImages.length < 2 || selectedStyle !== null) return;
+    const t = setInterval(() => setCarouselIndex((i) => (i + 1) % carouselImages.length), 3200);
+    return () => clearInterval(t);
+  }, [carouselImages.length, selectedStyle]);
+
   if (!name || !displayImage) return null;
 
-  const imagenMostrada = selectedStyle !== null && styleVariants[selectedStyle] ? styleVariants[selectedStyle].image : displayImage;
+  const imagenMostrada = selectedStyle !== null && styleVariants[selectedStyle] ? styleVariants[selectedStyle].image : carouselImages[carouselIndex];
 
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const regularUsdPrice = entry.regularPrice / 100;
+  const regularLocalPrice = (regularUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Precio real en pavos, tal como lo da la API (esto NO es lo que le cobrás al
   // cliente — eso lo sigue definiendo baseUsdPrice de arriba — es solo para que
   // vos como admin sepas cuántos pavos vale el objeto a la hora de entregarlo).
@@ -98,6 +135,11 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
         <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
           <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
         </div>
+        {hasRealDiscount && (
+          <span className="absolute top-2 right-2 z-[2] bg-red-500 text-white text-[10px] font-display font-bold px-2 py-1 rounded-full">
+            -{Math.round((1 - entry.finalPrice / entry.regularPrice) * 100)}%
+          </span>
+        )}
         <Image
           src={imagenMostrada}
           alt={name}
@@ -105,6 +147,13 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
           sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"}
           className="object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] z-[1]"
         />
+        {carouselImages.length > 1 && selectedStyle === null && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1">
+            {carouselImages.map((_, i) => (
+              <span key={i} className={`h-1.5 rounded-full transition-all ${i === carouselIndex ? 'w-4 bg-[#E3A23D]' : 'w-1.5 bg-white/40'}`}></span>
+            ))}
+          </div>
+        )}
         {styleVariants.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1.5 bg-[#0A0806]/70 backdrop-blur-sm px-2 py-1.5 rounded-full">
             {styleVariants.slice(0, 5).map((v, i) => (
@@ -119,22 +168,34 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
             ))}
           </div>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            addToCart(itemPayload);
-          }}
-          className="absolute top-2 right-2 z-[2] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
-          title="Añadir al carrito"
-        >
-          <ShoppingCart size={16} />
-        </button>
+        <div className="absolute top-2 right-2 z-[2] flex gap-2" style={{ top: hasRealDiscount ? '2.75rem' : '0.5rem' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuickView(entry); }}
+            className="bg-[#0A0806]/80 hover:bg-[#0A0806] text-[#F5F1E6] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
+            title="Vista rápida"
+          >
+            <Eye size={16} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              addToCart(itemPayload);
+            }}
+            className="bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
+            title="Añadir al carrito"
+          >
+            <ShoppingCart size={16} />
+          </button>
+        </div>
       </div>
 
       <div className={`p-4 flex flex-col justify-center ${featured ? 'md:w-2/5' : ''}`}>
         <h3 className={`font-bold text-[#F5F1E6] leading-tight mb-2 ${featured ? 'font-display text-2xl' : 'text-sm truncate'}`}>{name}</h3>
         {featured && !isBundle && (
           <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-3 ${rarity.className}`}>{rarity.label}</span>
+        )}
+        {hasRealDiscount && (
+          <span className="text-[#5A554A] font-mono text-xs line-through mr-1">{activeCurrency.symbol}{regularLocalPrice}</span>
         )}
         <div className="flex items-baseline gap-1 mb-1">
           <span className={`text-[#E3A23D] font-mono font-semibold ${featured ? 'text-3xl' : 'text-lg'}`}>{activeCurrency.symbol}{localPrice}</span>
@@ -146,6 +207,113 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
         {featured && entry.offerId && (
           <p className="text-[9px] font-mono text-[#5A554A] mt-2 truncate" title={entry.offerId}>ID: {entry.offerId}</p>
         )}
+      </div>
+    </div>
+  );
+};
+
+const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: any; activeCurrency: any; addToCart: any; onClose: () => void }) => {
+  const meta = getEntryMeta(entry);
+  const [subIndex, setSubIndex] = useState<number | null>(null);
+  const [imgIndex, setImgIndex] = useState(0);
+
+  const viendoSubItem = subIndex !== null && meta.subItems[subIndex];
+  const imagenesActuales = viendoSubItem ? [viendoSubItem.image] : meta.carouselImages;
+
+  useEffect(() => {
+    if (imagenesActuales.length < 2) return;
+    const t = setInterval(() => setImgIndex((i) => (i + 1) % imagenesActuales.length), 3200);
+    return () => clearInterval(t);
+  }, [imagenesActuales.length, viendoSubItem]);
+
+  const rarity = rarityMeta[(viendoSubItem ? viendoSubItem.rarityValue : meta.rarityValue).toLowerCase()] || defaultRarity;
+  const baseUsdPrice = entry.finalPrice / 100;
+  const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const regularLocalPrice = ((entry.regularPrice / 100) * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const itemId = entry.offerId || encodeURIComponent(`${meta.name}-${baseUsdPrice}`);
+  const itemPayload = { id: itemId, name: meta.name, price: baseUsdPrice, image_url: meta.displayImage, offer_id: entry.offerId || null, vbucks: entry.finalPrice };
+
+  const fechaFmt = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="kk-panel rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+          <div className="relative aspect-square bg-[#14110C] flex items-center justify-center overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-40 pointer-events-none"
+              style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
+            ></div>
+            <img src={imagenesActuales[imgIndex] || meta.displayImage} alt={viendoSubItem ? viendoSubItem.name : meta.name} className="w-full h-full object-contain z-[1]" />
+            {imagenesActuales.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[2] flex gap-1">
+                {imagenesActuales.map((_: string, i: number) => (
+                  <span key={i} className={`h-1.5 rounded-full transition-all ${i === imgIndex ? 'w-4 bg-[#E3A23D]' : 'w-1.5 bg-white/40'}`}></span>
+                ))}
+              </div>
+            )}
+            <button onClick={onClose} className="absolute top-3 right-3 z-[3] bg-[#0A0806]/80 hover:bg-[#0A0806] text-[#F5F1E6] p-2 rounded-full"><X size={18} /></button>
+          </div>
+
+          <div className="p-6 flex flex-col">
+            {viendoSubItem ? (
+              <>
+                <button onClick={() => { setSubIndex(null); setImgIndex(0); }} className="flex items-center gap-1 text-[#9A9384] hover:text-[#E3A23D] text-xs font-bold mb-3 w-fit">
+                  <ChevronLeft size={14} /> Volver al lote
+                </button>
+                <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 ${rarity.className}`}>{viendoSubItem.typeLabel || rarity.label}</span>
+                <h2 className="font-display font-bold text-2xl mb-3">{viendoSubItem.name}</h2>
+                {viendoSubItem.description && <p className="text-sm text-[#9A9384] leading-relaxed mb-4">{viendoSubItem.description}</p>}
+                <p className="text-xs text-[#9A9384] bg-[#14110C] border border-[#0A0806] rounded-xl p-3 mb-4">Este objeto es parte del lote — se compra junto con el resto, no por separado.</p>
+              </>
+            ) : (
+              <>
+                <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 ${rarity.className}`}>{meta.isBundle ? 'Lote' : rarity.label}</span>
+                <h2 className="font-display font-bold text-2xl mb-3">{meta.name}</h2>
+                {meta.description && <p className="text-sm text-[#9A9384] leading-relaxed mb-4">{meta.description}</p>}
+
+                {meta.isBundle && meta.subItems.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-bold text-[#D9D4C7] uppercase tracking-wide mb-2">Incluye:</p>
+                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                      {meta.subItems.map((it: any, i: number) => (
+                        <button
+                          key={i}
+                          onClick={() => { setSubIndex(i); setImgIndex(0); }}
+                          className="aspect-square bg-[#14110C] border-2 border-[#0A0806] hover:border-[#E3A23D] rounded-lg overflow-hidden transition-colors"
+                          title={it.name}
+                        >
+                          <img src={it.image} alt={it.name} className="w-full h-full object-contain" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="mt-auto pt-4">
+              {entry.inDate && entry.outDate && (
+                <div className="flex items-center gap-2 text-[#9A9384] text-xs mb-4">
+                  <Calendar size={14} />
+                  Disponible hasta el {fechaFmt(entry.outDate)}
+                </div>
+              )}
+              <div className="flex items-baseline gap-2 mb-1">
+                {meta.hasRealDiscount && <span className="text-[#5A554A] font-mono text-sm line-through">{activeCurrency.symbol}{regularLocalPrice}</span>}
+                <span className="text-[#E3A23D] font-mono font-bold text-3xl">{activeCurrency.symbol}{localPrice}</span>
+                <span className="text-[#9A9384] text-xs font-bold uppercase">{activeCurrency.currency}</span>
+              </div>
+              <p className="text-[#9A9384] text-xs font-mono mb-5">🪙 {entry.finalPrice.toLocaleString('en-US')} pavos</p>
+              <button
+                onClick={() => { addToCart(itemPayload); onClose(); }}
+                className="w-full bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] py-4 rounded-xl font-display font-bold text-base border-[3px] border-[#0A0806] transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              >
+                <ShoppingCart size={18} /> {meta.isBundle ? 'Añadir lote al carrito' : 'Añadir al carrito'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -169,6 +337,7 @@ export default function TiendaFortnite() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [shopError, setShopError] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [quickViewEntry, setQuickViewEntry] = useState<any | null>(null);
 
   // La tienda de Fortnite rota todos los días a las 00:00 UTC — calculamos
   // cuánto falta para eso y lo actualizamos cada segundo.
@@ -417,6 +586,7 @@ export default function TiendaFortnite() {
                             entry={entry}
                             activeCurrency={activeCurrency}
                             addToCart={addToCart}
+                            onQuickView={setQuickViewEntry}
                             featured
                           />
                         ))}
@@ -430,6 +600,7 @@ export default function TiendaFortnite() {
                           entry={entry}
                           activeCurrency={activeCurrency}
                           addToCart={addToCart}
+                          onQuickView={setQuickViewEntry}
                         />
                       ))}
                     </div>
@@ -459,6 +630,15 @@ export default function TiendaFortnite() {
       >
         <ArrowUp size={22} />
       </button>
+
+      {quickViewEntry && (
+        <QuickViewModal
+          entry={quickViewEntry}
+          activeCurrency={activeCurrency}
+          addToCart={addToCart}
+          onClose={() => setQuickViewEntry(null)}
+        />
+      )}
     </div>
   );
 }
