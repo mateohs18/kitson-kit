@@ -86,11 +86,21 @@ export async function POST(req: Request) {
               'ngrok-skip-browser-warning': 'true' // EL PASE VIP PARA SALTAR EL ESCUDO
             },
             body: JSON.stringify({ 
-  epicName: gamerId, 
-  offerId: item.offerId, 
-  precio: item.price, // 👈 ¡ESTO ES VITAL! (Asegúrate de que 'price' o 'precio' sea el nombre correcto en tu carrito)
-  mensaje: "¡Gracias por tu compra!" 
-})
+              epicName: gamerId, 
+              offerId: item.offerId, 
+              precio: item.price, // Asegúrate de que tu carrito use "price" o el nombre correcto
+              mensaje: "¡Gracias por tu compra!" 
+            })
+          }); // 👈 ¡ESTO ERA LO QUE FALTABA PARA CERRAR EL FETCH!
+          
+          if (botResponse.ok) {
+            await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
+          } else {
+            console.error("❌ El bot rechazó la solicitud:", await botResponse.text());
+          }
+        } catch (botError) {
+          console.error("❌ Error de red conectando con Ngrok:", botError);
+        }
           
           if (botResponse.ok) {
             await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
