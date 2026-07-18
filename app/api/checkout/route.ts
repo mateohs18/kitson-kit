@@ -88,7 +88,7 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({ 
               epicName: gamerId, 
-              offerId: codigoFortnite, // 👈 Ahora el paquete irá 100% completo
+              offerId: codigoFortnite, 
               precio: item.price || 0,
               mensaje: "¡Gracias por tu compra en Kitson!" 
             })
@@ -104,3 +104,9 @@ export async function POST(req: Request) {
         }
       }
     }
+
+    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
+  } catch (error) {
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  }
+}
