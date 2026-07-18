@@ -55,12 +55,20 @@ function getEntryMeta(entry: any) {
 
   const typeValue = isBundle ? 'bundle' : (mainItem?.type?.value || 'other');
 
-  return { name, rarityValue, displayImage, typeValue, isBundle, itemCount: safeItems.length, mainItem };
+  // Variantes de estilo con imagen propia (ej: Default, Camuflaje, Festiva...).
+  // Tomamos el primer grupo de variantes que tenga al menos 2 opciones con imagen.
+  const styleVariants: { tag: string; name: string; image: string }[] =
+    (mainItem?.variants || []).find((v: any) => (v.options || []).filter((o: any) => o.image).length > 1)?.options?.filter((o: any) => o.image) || [];
+
+  return { name, rarityValue, displayImage, typeValue, isBundle, itemCount: safeItems.length, mainItem, styleVariants };
 }
 
 const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean }) => {
-  const { name, rarityValue, displayImage, isBundle, itemCount } = getEntryMeta(entry);
+  const { name, rarityValue, displayImage, isBundle, itemCount, styleVariants } = getEntryMeta(entry);
+  const [selectedStyle, setSelectedStyle] = useState<number | null>(null);
   if (!name || !displayImage) return null;
+
+  const imagenMostrada = selectedStyle !== null && styleVariants[selectedStyle] ? styleVariants[selectedStyle].image : displayImage;
 
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.finalPrice / 100;
@@ -73,7 +81,8 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
   // el mismo objeto siempre genere el mismo ID (y así se agrupe con quantity: 2
   // en vez de duplicarse como dos líneas distintas en el carrito).
   const itemId = entry.offerId || encodeURIComponent(`${name}-${baseUsdPrice}`);
-  const itemPayload = { id: itemId, name, price: baseUsdPrice, image_url: displayImage, offer_id: entry.offerId || null, vbucks: vbucksPrice };
+  const nombreConEstilo = selectedStyle !== null && styleVariants[selectedStyle] ? `${name} (${styleVariants[selectedStyle].name})` : name;
+  const itemPayload = { id: itemId, name: nombreConEstilo, price: baseUsdPrice, image_url: imagenMostrada, offer_id: entry.offerId || null, vbucks: vbucksPrice };
 
   return (
     <div
@@ -90,12 +99,26 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false }
           <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
         </div>
         <Image
-          src={displayImage}
+          src={imagenMostrada}
           alt={name}
           fill
           sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"}
           className="object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] z-[1]"
         />
+        {styleVariants.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1.5 bg-[#0A0806]/70 backdrop-blur-sm px-2 py-1.5 rounded-full">
+            {styleVariants.slice(0, 5).map((v, i) => (
+              <button
+                key={v.tag}
+                onClick={(e) => { e.stopPropagation(); setSelectedStyle(i); }}
+                title={v.name}
+                className={`w-5 h-5 rounded-full overflow-hidden border-2 transition-transform hover:scale-110 ${(selectedStyle ?? 0) === i ? 'border-[#E3A23D] scale-110' : 'border-white/40'}`}
+              >
+                <img src={v.image} alt={v.name} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
