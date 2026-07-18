@@ -65,7 +65,6 @@ export async function POST(req: Request) {
               { name: "🆔 Orden ID", value: `\`${orden.id}\``, inline: false }
             ]
           }],
-          // Ocultamos el botón si es saldo, lo mostramos si es transferencia
           components: paymentMethod === 'saldo' ? [] : [{ type: 1, components: [{ type: 2, style: 3, label: '📦 Marcar como Entregado', custom_id: `entregar_${orden.id}` }] }]
         })
       });
@@ -74,7 +73,6 @@ export async function POST(req: Request) {
     // 4. 🔥 ENVIAR LA ORDEN AUTOMÁTICAMENTE A TU BOT (NGROK) 🔥
     if (paymentMethod === 'saldo') {
       
-      // 👇👇👇 ¡PON TU ENLACE DE NGROK ACTUAL AQUÍ ADENTRO! 👇👇👇
       const NGROK_URL = "https://underwear-july-sanded.ngrok-free.dev";
       
       for (const item of cart) {
@@ -88,19 +86,10 @@ export async function POST(req: Request) {
             body: JSON.stringify({ 
               epicName: gamerId, 
               offerId: item.offerId, 
-              precio: item.price, // Asegúrate de que tu carrito use "price" o el nombre correcto
-              mensaje: "¡Gracias por tu compra!" 
+              precio: item.price || item.precio || 0, // Fallback automático por si el nombre cambia
+              mensaje: "¡Gracias por tu compra en Kitson!" 
             })
-          }); // 👈 ¡ESTO ERA LO QUE FALTABA PARA CERRAR EL FETCH!
-          
-          if (botResponse.ok) {
-            await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
-          } else {
-            console.error("❌ El bot rechazó la solicitud:", await botResponse.text());
-          }
-        } catch (botError) {
-          console.error("❌ Error de red conectando con Ngrok:", botError);
-        }
+          });
           
           if (botResponse.ok) {
             await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
