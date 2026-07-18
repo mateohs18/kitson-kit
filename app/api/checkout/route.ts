@@ -85,8 +85,12 @@ export async function POST(req: Request) {
               'Content-Type': 'application/json',
               'ngrok-skip-browser-warning': 'true' // EL PASE VIP PARA SALTAR EL ESCUDO
             },
-            body: JSON.stringify({ epicName: gamerId, offerId: item.offerId, mensaje: "¡Gracias por tu compra!" })
-          });
+            body: JSON.stringify({ 
+  epicName: gamerId, 
+  offerId: item.offerId, 
+  precio: item.price, // 👈 ¡ESTO ES VITAL! (Asegúrate de que 'price' o 'precio' sea el nombre correcto en tu carrito)
+  mensaje: "¡Gracias por tu compra!" 
+})
           
           if (botResponse.ok) {
             await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
