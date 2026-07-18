@@ -1,109 +1,275 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
-import { supabaseAdmin } from '../../../lib/supabase-admin';
+// index.js - Servidor Express con fallback para precio como offerId
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const fs = require('fs');
 
-export async function POST(req: Request) {
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.url}`);
+  next();
+});
+
+// Configuración
+let accessToken = null;
+let tokenExpiry = null;
+let deviceAuth = null;
+let accountId = null;
+
+try {
+  deviceAuth = JSON.parse(fs.readFileSync('./deviceAuth.json', 'utf8'));
+  accountId = deviceAuth.accountId;
+  console.log('✅ DeviceAuth cargado correctamente');
+  console.log(`   Account ID: ${accountId}`);
+} catch (error) {
+  console.error('❌ Error cargando deviceAuth:', error.message);
+  console.log('💡 Ejecuta: node generar-credenciales-manual.cjs');
+  process.exit(1);
+}
+
+// Funciones de autenticación
+async function getToken() {
   try {
-    const cuerpo = await req.json();
-    const { email, userName, cart, gamerId, totalPrice, paymentMethod, receiptUrl } = cuerpo;
+    console.log('🔄 Obteniendo token...');
+    const params = new URLSearchParams({
+      grant_type: 'device_auth',
+      account_id: deviceAuth.accountId,
+      device_id: deviceAuth.deviceId,
+      secret: deviceAuth.secret
+    });
 
-    if (!email) return NextResponse.json({ error: 'Falta email' }, { status: 400 });
-    if (!cart || cart.length === 0) return NextResponse.json({ error: 'Carrito vacío' }, { status: 400 });
-    if (totalPrice === undefined) return NextResponse.json({ error: 'Falta precio total' }, { status: 400 });
-    if (!gamerId) return NextResponse.json({ error: 'Falta ID de Epic' }, { status: 400 });
+    const response = await axios({
+      method: 'POST',
+      url: 'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic M2Y2OWU1NmM3NjQ5NDkyYzhjYzI5ZjFhZjA4YThhMTI6YjUxZWU5Y2IxMjIzNGY1MGE2OWVmYTY3ZWY1MzgxMmU='
+      },
+      data: params.toString(),
+      timeout: 15000
+    });
 
-    let nuevoSaldo = 0;
+    const data = response.data;
+    accessToken = data.access_token;
+    tokenExpiry = Date.now() + (data.expires_in * 1000);
+    console.log('✅ Token obtenido correctamente');
+    return accessToken;
+  } catch (error) {
+    console.error('❌ Error obteniendo token:', error.response?.data || error.message);
+    return null;
+  }
+}
 
-    // 1. DESCONTAR SALDO
-    if (paymentMethod === 'saldo') {
-      const session = await getServerSession(authOptions);
-      if (!session?.user?.email) return NextResponse.json({ error: 'Inicia sesión para pagar con saldo.' }, { status: 401 });
+async function ensureToken() {
+  if (!accessToken || Date.now() >= tokenExpiry) {
+    return await getToken();
+  }
+  return accessToken;
+}
 
-      const emailAutenticado = session.user.email.trim();
-      const { data: user, error: userError } = await supabaseAdmin.from('profiles').select('balance').eq('email', emailAutenticado).single();
-      
-      if (userError || !user) return NextResponse.json({ error: 'No registrado.' }, { status: 404 });
-      if (Number(user.balance) < Number(totalPrice)) return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 });
+// Auxiliares
+async function getAccountIdByName(displayName) {
+  const token = await ensureToken();
+  if (!token) return null;
 
-      nuevoSaldo = Number(user.balance) - Number(totalPrice);
-      await supabaseAdmin.from('profiles').update({ balance: nuevoSaldo }).eq('email', emailAutenticado);
+  try {
+    const response = await axios({
+      method: 'GET',
+      url: `https://account-public-service-prod.ol.epicgames.com/account/api/public/account/displayName/${encodeURIComponent(displayName)}`,
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 10000
+    });
+    return response.data?.id || null;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      console.log(`❌ Usuario "${displayName}" no encontrado`);
+    } else {
+      console.error(`❌ Error buscando ${displayName}:`, error.response?.data?.errorMessage || error.message);
+    }
+    return null;
+  }
+}
+
+// ENDPOINTS
+app.get('/api/status', async (req, res) => {
+  const token = await ensureToken();
+  res.json({
+    ready: !!token,
+    accountId: accountId,
+    hasToken: !!token,
+    tokenValid: token ? Date.now() < tokenExpiry : false
+  });
+});
+
+app.post('/api/bot/agregar-amigo', async (req, res) => {
+  console.log('📥 /agregar-amigo body:', req.body);
+  const { epicName } = req.body;
+  if (!epicName) {
+    return res.status(400).json({ success: false, error: 'epicName requerido' });
+  }
+
+  const token = await ensureToken();
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'No se pudo obtener token' });
+  }
+
+  try {
+    const friendId = await getAccountIdByName(epicName);
+    if (!friendId) {
+      return res.status(404).json({ success: false, error: `Usuario "${epicName}" no encontrado` });
     }
 
-    // 2. CREAR LA ORDEN
-    const { data: orden, error: ordenError } = await supabaseAdmin
-      .from('orders')
-      .insert([{ user_email: email.trim(), user_name: userName || 'Usuario', gamer_id: gamerId, items: cart, total_price: totalPrice, status: 'PENDIENTE' }])
-      .select().single();
+    await axios({
+      method: 'POST',
+      url: `https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/${accountId}/friends/${friendId}`,
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: {}
+    });
 
-    if (ordenError || !orden) return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
+    console.log(`✅ Solicitud de amistad enviada a ${epicName}`);
+    res.json({ success: true, message: `Solicitud enviada a ${epicName}` });
+  } catch (error) {
+    console.error('❌ Error en agregar-amigo:', error.response?.data || error.message);
+    res.status(500).json({ success: false, error: error.response?.data?.errorMessage || error.message });
+  }
+});
 
-    // 3. ALERTA A DISCORD
-    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-    const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+// ENVÍO DE REGALO - VERSIÓN CON FALLBACK: usa 'precio' como 'offerId' si no viene 'offerId'
+app.post('/api/bot/enviar-regalo', async (req, res) => {
+  console.log('📥 /enviar-regalo body RECIBIDO:', req.body);
 
-    if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
-      const resumenProductos = cart.map((item: any) => `• ${item.name} (x${item.quantity})`).join('\n');
-      const metodoTexto = paymentMethod === 'saldo' ? '💰 Pagado con Saldo' : '🏦 Transferencia';
-      const urlComprobante = receiptUrl ? `\n\n📄 **[Ver Comprobante](${receiptUrl})**` : '';
-      const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
-      const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
+  let { epicName, offerId, mensaje, precio } = req.body;
 
-      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: menciones || undefined,
-          embeds: [{
-            title: paymentMethod === 'saldo' ? "✅ Nueva Orden (Pagada)" : "⏳ Verificar Transferencia",
-            description: `Se ha procesado una compra.\n**Método:** ${metodoTexto}${urlComprobante}`,
-            color: paymentMethod === 'saldo' ? 5763719 : 16766720,
-            fields: [
-              { name: "👤 Cliente", value: `\`${email}\``, inline: true },
-              { name: "🎮 Epic ID", value: `\`${gamerId}\``, inline: true },
-              { name: "📦 Artículos", value: resumenProductos, inline: false },
-              { name: "🆔 Orden ID", value: `\`${orden.id}\``, inline: false }
-            ]
-          }],
-          components: paymentMethod === 'saldo' ? [] : [{ type: 1, components: [{ type: 2, style: 3, label: '📦 Marcar como Entregado', custom_id: `entregar_${orden.id}` }] }]
-        })
+  // Si no viene offerId pero viene precio, usa precio como offerId (solo para pruebas)
+  if (!offerId && precio) {
+    console.log('⚠️ No se recibió offerId, usando "precio" como offerId (fallback)');
+    offerId = String(precio);
+  }
+
+  if (!epicName || !offerId) {
+    console.log('❌ Faltan campos: epicName o offerId');
+    return res.status(400).json({ success: false, error: 'epicName y offerId son requeridos' });
+  }
+
+  const token = await ensureToken();
+  if (!token) {
+    console.log('❌ Token no disponible');
+    return res.status(401).json({ success: false, error: 'No se pudo obtener token' });
+  }
+
+  try {
+    console.log(`🔍 Buscando ID de ${epicName}...`);
+    const friendId = await getAccountIdByName(epicName);
+    if (!friendId) {
+      console.log(`❌ Usuario ${epicName} no encontrado`);
+      return res.status(404).json({ success: false, error: `Usuario "${epicName}" no encontrado` });
+    }
+    console.log(`✅ ID de ${epicName}: ${friendId}`);
+
+    // Verificar amistad
+    let areFriends = false;
+    try {
+      const friendsResponse = await axios({
+        method: 'GET',
+        url: `https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/${accountId}/friends`,
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      areFriends = friendsResponse.data.some(f => f.accountId === friendId);
+    } catch (error) {
+      console.warn('⚠️ No se pudo verificar amistad:', error.message);
+    }
+
+    if (!areFriends) {
+      console.log(`❌ No son amigos de ${epicName}`);
+      return res.status(400).json({
+        success: false,
+        error: `No eres amigo de ${epicName}. Debe aceptar la solicitud primero.`
+      });
+    }
+    console.log('✅ Son amigos');
+
+    // Obtener precio del catálogo
+    let itemPrice = 0;
+    try {
+      const catalogResponse = await axios({
+        method: 'GET',
+        url: 'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/storefront/v2/catalog',
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 10000
+      });
+
+      for (const store of catalogResponse.data.storefronts) {
+        if (store.catalogEntries) {
+          const entry = store.catalogEntries.find(e => e.offerId === offerId);
+          if (entry) {
+            itemPrice = entry.regularPrice || entry.devPrice || 0;
+            break;
+          }
+        }
+      }
+      console.log(`💰 Precio obtenido para ${offerId}: ${itemPrice}`);
+    } catch (error) {
+      console.warn('⚠️ Error obteniendo catálogo:', error.message);
+    }
+
+    if (itemPrice === 0) {
+      console.log('❌ Precio 0, no se puede enviar regalo');
+      return res.status(400).json({
+        success: false,
+        error: 'No se pudo obtener el precio del artículo. Verifica el offerId.'
       });
     }
 
-    // 4. 🔥 ENVIAR LA ORDEN AUTOMÁTICAMENTE A TU BOT (NGROK) 🔥
-    if (paymentMethod === 'saldo') {
-      
-      const NGROK_URL = "https://underwear-july-sanded.ngrok-free.dev";
-      
-      for (const item of cart) {
-        try {
-          const botResponse = await fetch(`${NGROK_URL}/api/bot/enviar-regalo`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true' // EL PASE VIP PARA SALTAR EL ESCUDO
-            },
-            body: JSON.stringify({ 
-              epicName: gamerId, 
-              offerId: item.offerId, 
-              precio: item.price || item.precio || 0, // Fallback automático por si el nombre cambia
-              mensaje: "¡Gracias por tu compra en Kitson!" 
-            })
-          });
-          
-          if (botResponse.ok) {
-            await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
-          } else {
-            console.error("❌ El bot rechazó la solicitud:", await botResponse.text());
-          }
-        } catch (botError) {
-          console.error("❌ Error de red conectando con Ngrok:", botError);
-        }
-      }
-    }
+    const payload = {
+      offerId,
+      purchaseQuantity: 1,
+      currency: 'MtxCurrency',
+      currencySubType: '',
+      expectedTotalPrice: itemPrice,
+      gameContext: '',
+      receiverAccountIds: [friendId],
+      giftWrapTemplateId: 'GiftBox:gb_makeitrain',
+      personalMessage: mensaje || '¡Gracias por tu compra!'
+    };
 
-    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id });
+    console.log('📦 Enviando payload:', payload);
+
+    const response = await axios({
+      method: 'POST',
+      url: `https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile/${accountId}/client/GiftCatalogEntry?profileId=common_core&rvn=-1`,
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: payload,
+      timeout: 30000
+    });
+
+    console.log(`✅ Regalo enviado exitosamente a ${epicName}`);
+    res.json({ success: true, message: `Regalo enviado a ${epicName}` });
+
   } catch (error) {
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    console.error('❌ Error en /enviar-regalo:');
+    console.error(error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.errorMessage || error.message,
+      details: error.response?.data || null
+    });
   }
-}
+});
+
+// Iniciar servidor
+const PORT = 3001;
+app.listen(PORT, async () => {
+  console.log(`\n🌐 Servidor Express corriendo en http://localhost:${PORT}`);
+  console.log('📋 Endpoints disponibles:');
+  console.log('   GET  /api/status');
+  console.log('   POST /api/bot/agregar-amigo');
+  console.log('   POST /api/bot/enviar-regalo\n`);
+
+  await getToken();
+});
+
+console.log('🔄 Iniciando servidor...');
