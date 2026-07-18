@@ -59,7 +59,7 @@
 
       try {
         // 🔁 CAMBIA ESTA URL POR LA DE TU SERVIDOR (ngrok o dominio)
-        const response = await fetch('https://tu-ngrok-url/api/bots/status');
+        const response = await fetch('https://underwear-july-sanded.ngrok-free.dev/api/bots/status');
         if (!response.ok) throw new Error('Error en la respuesta del servidor');
         const data = await response.json();
 
