@@ -23,7 +23,7 @@ export default function EstadoBotsPage() {
     try {
       setLoading(true);
       // Cambia la URL por la de tu servidor (ngrok o dominio)
-      const res = await fetch('https://tu-ngrok-url/api/bots/status');
+      const res = await fetch('https://underwear-july-sanded.ngrok-free.dev/api/bots/status');
       if (!res.ok) throw new Error('Error al obtener datos');
       const data = await res.json();
       setBots(data.bots || []);
