@@ -89,21 +89,19 @@ function getEntryMeta(entry: any) {
 }
 
 const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, onQuickView }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean, onQuickView: (entry: any) => void }) => {
-  const { name, rarityValue, displayImage, isBundle, itemCount, styleVariants, carouselImages, hasRealDiscount } = getEntryMeta(entry);
-  const [selectedStyle, setSelectedStyle] = useState<number | null>(null);
+  const { name, rarityValue, displayImage, isBundle, itemCount, carouselImages, hasRealDiscount } = getEntryMeta(entry);
   const [carouselIndex, setCarouselIndex] = useState(0);
 
-  // Rota sola entre las imágenes disponibles, solo si hay más de una y el
-  // usuario no eligió un estilo a mano (ahí priorizamos lo que él eligió).
+  // Rota sola entre las imágenes disponibles, si hay más de una.
   useEffect(() => {
-    if (carouselImages.length < 2 || selectedStyle !== null) return;
+    if (carouselImages.length < 2) return;
     const t = setInterval(() => setCarouselIndex((i) => (i + 1) % carouselImages.length), 3200);
     return () => clearInterval(t);
-  }, [carouselImages.length, selectedStyle]);
+  }, [carouselImages.length]);
 
   if (!name || !displayImage) return null;
 
-  const imagenMostrada = selectedStyle !== null && styleVariants[selectedStyle] ? styleVariants[selectedStyle].image : carouselImages[carouselIndex];
+  const imagenMostrada = carouselImages[carouselIndex];
 
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.finalPrice / 100;
@@ -118,13 +116,12 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
   // el mismo objeto siempre genere el mismo ID (y así se agrupe con quantity: 2
   // en vez de duplicarse como dos líneas distintas en el carrito).
   const itemId = entry.offerId || encodeURIComponent(`${name}-${baseUsdPrice}`);
-  const nombreConEstilo = selectedStyle !== null && styleVariants[selectedStyle] ? `${name} (${styleVariants[selectedStyle].name})` : name;
-  const itemPayload = { id: itemId, name: nombreConEstilo, price: baseUsdPrice, image_url: imagenMostrada, offer_id: entry.offerId || null, vbucks: vbucksPrice };
+  const itemPayload = { id: itemId, name, price: baseUsdPrice, image_url: imagenMostrada, offer_id: entry.offerId || null, vbucks: vbucksPrice };
 
   return (
     <div
       className={`kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
-      onClick={() => addToCart(itemPayload)}
+      onClick={() => onQuickView(entry)}
     >
       <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
         <div
@@ -147,24 +144,10 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
           sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"}
           className="object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] z-[1]"
         />
-        {carouselImages.length > 1 && selectedStyle === null && (
+        {carouselImages.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1">
             {carouselImages.map((_, i) => (
               <span key={i} className={`h-1.5 rounded-full transition-all ${i === carouselIndex ? 'w-4 bg-[#E3A23D]' : 'w-1.5 bg-white/40'}`}></span>
-            ))}
-          </div>
-        )}
-        {styleVariants.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1.5 bg-[#0A0806]/70 backdrop-blur-sm px-2 py-1.5 rounded-full">
-            {styleVariants.slice(0, 5).map((v, i) => (
-              <button
-                key={v.tag}
-                onClick={(e) => { e.stopPropagation(); setSelectedStyle(i); }}
-                title={v.name}
-                className={`w-5 h-5 rounded-full overflow-hidden border-2 transition-transform hover:scale-110 ${(selectedStyle ?? 0) === i ? 'border-[#E3A23D] scale-110' : 'border-white/40'}`}
-              >
-                <img src={v.image} alt={v.name} className="w-full h-full object-cover" />
-              </button>
             ))}
           </div>
         )}

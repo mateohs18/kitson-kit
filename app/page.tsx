@@ -8,11 +8,12 @@ import { useCurrencyStore } from '../store/currencyStore';
 import CurrencySelector from '../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
+import { faqs } from '../lib/faqs';
 import {
   ShoppingCart, Gamepad2,
   PackageSearch, Menu, X, Star, BellRing,
   Search, ChevronDown, CheckCircle2, MessageSquare,
-  Send
+  Send, MessageCircle
 } from 'lucide-react';
 
 interface Product { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type?: 'regalo' | 'recarga'; }
@@ -36,12 +37,6 @@ export default function Home() {
 
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
   const lastOrderIdRef = useRef<number | null>(null);
-
-  const faqs = [
-    { q: "¿Cuánto tiempo tarda en llegar mi recarga?", a: "Depende del producto: las recargas directas se acreditan en minutos apenas se valida el pago. Los objetos que se entregan como regalo (la mayoría de los cosméticos) tardan igual de rápido, EXCEPTO si es tu primera compra con nosotros — ahí Epic Games exige 48 horas de amistad antes de poder enviarte el regalo. Cada producto indica cuál de los dos es." },
-    { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos pagos manuales directos en tu moneda local: Binance, Yape, Nequi, Transferencia Bancaria y Oxxo." },
-    { q: "¿Es seguro dar mi ID de jugador?", a: "Totalmente. Solo necesitamos tu ID público o GamerTag para enviarte los artículos. Nunca pediremos tu contraseña." }
-  ];
 
   useEffect(() => {
     async function fetchData() {
@@ -392,7 +387,7 @@ export default function Home() {
                 <span className="font-bold text-lg text-[#F5F1E6]">{faq.q}</span>
                 <ChevronDown className={`text-[#E3A23D] transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} />
               </button>
-              <div className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-40 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-96 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
                 <p className="text-[#9A9384] leading-relaxed">{faq.a}</p>
               </div>
             </div>
@@ -412,11 +407,26 @@ export default function Home() {
             <p className="text-[#9A9384] text-sm max-w-sm leading-relaxed mb-6">
               Tu tienda de confianza para recargas, cosméticos y suscripciones. Operamos de forma 100% legal y segura para proteger tu cuenta en todo momento.
             </p>
-            <div className="flex gap-3 mb-6">
-              <a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="bg-[#1D1913] hover:bg-[#5865F2] border border-[#3A3527] hover:border-[#5865F2] p-2.5 rounded-lg transition-colors group">
+            <div className="flex gap-3 mb-6 flex-wrap">
+              <a href="https://wa.me/573156098437" target="_blank" rel="noopener noreferrer" className="bg-[#1D1913] hover:bg-[#25D366] border border-[#3A3527] hover:border-[#25D366] p-2.5 rounded-lg transition-colors group" title="WhatsApp">
+                <MessageCircle size={18} className="text-[#9A9384] group-hover:text-white" />
+              </a>
+              <a href="https://www.instagram.com/kitsonkit2.0/" target="_blank" rel="noopener noreferrer" className="bg-[#1D1913] hover:bg-[#E1306C] border border-[#3A3527] hover:border-[#E1306C] p-2.5 rounded-lg transition-colors group" title="Instagram">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#9A9384] group-hover:text-white" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                </svg>
+              </a>
+              <a href="https://www.facebook.com/kitson.kit.2025" target="_blank" rel="noopener noreferrer" className="bg-[#1D1913] hover:bg-[#1877F2] border border-[#3A3527] hover:border-[#1877F2] p-2.5 rounded-lg transition-colors group" title="Facebook">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#9A9384] group-hover:text-white" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+                </svg>
+              </a>
+              <a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="bg-[#1D1913] hover:bg-[#5865F2] border border-[#3A3527] hover:border-[#5865F2] p-2.5 rounded-lg transition-colors group" title="Discord">
                 <Send size={18} className="text-[#9A9384] group-hover:text-white" />
               </a>
-              <a href="mailto:soporte@kitson-kit.store" className="bg-[#1D1913] hover:bg-[#E3A23D] border border-[#3A3527] hover:border-[#E3A23D] p-2.5 rounded-lg transition-colors group">
+              <a href="mailto:soporte@kitson-kit.store" className="bg-[#1D1913] hover:bg-[#E3A23D] border border-[#3A3527] hover:border-[#E3A23D] p-2.5 rounded-lg transition-colors group" title="Email">
                 <MessageSquare size={18} className="text-[#9A9384] group-hover:text-[#0A0806]" />
               </a>
             </div>
@@ -438,8 +448,10 @@ export default function Home() {
           <div>
             <h4 className="font-bold text-[#F5F1E6] mb-4 uppercase tracking-widest text-xs">Legal & Soporte</h4>
             <ul className="space-y-3 text-sm text-[#9A9384]">
+              <li><Link href="/faq" className="hover:text-[#E3A23D] transition">Preguntas Frecuentes</Link></li>
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Términos del Servicio</Link></li>
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Política de Reembolsos</Link></li>
+              <li><a href="https://wa.me/573156098437" target="_blank" rel="noopener noreferrer" className="hover:text-[#25D366] transition flex items-center gap-2">WhatsApp</a></li>
               <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
               <li><a href="mailto:soporte@kitson-kit.store" className="hover:text-[#E3A23D] transition">soporte@kitson-kit.store</a></li>
             </ul>
