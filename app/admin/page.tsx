@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-interface Producto { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type: 'regalo' | 'recarga'; }
+interface Producto { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
 
 export default function AdminPanel() {
   const { data: session, status } = useSession();
@@ -33,6 +33,9 @@ export default function AdminPanel() {
   const [nombreProducto, setNombreProducto] = useState("");
   const [precioProducto, setPrecioProducto] = useState("");
   const [precioOriginalProducto, setPrecioOriginalProducto] = useState("");
+  const [precioMX, setPrecioMX] = useState("");
+  const [precioCO, setPrecioCO] = useState("");
+  const [precioPE, setPrecioPE] = useState("");
   const [imagenProducto, setImagenProducto] = useState("");
   const [tipoEntregaProducto, setTipoEntregaProducto] = useState<'regalo' | 'recarga'>('regalo');
   const [guardandoProducto, setGuardandoProducto] = useState(false);
@@ -227,6 +230,9 @@ export default function AdminPanel() {
     setNombreProducto("");
     setPrecioProducto("");
     setPrecioOriginalProducto("");
+    setPrecioMX("");
+    setPrecioCO("");
+    setPrecioPE("");
     setImagenProducto("");
     setTipoEntregaProducto('regalo');
     setMostrarFormProducto(true);
@@ -237,6 +243,9 @@ export default function AdminPanel() {
     setNombreProducto(p.name);
     setPrecioProducto(String(p.price));
     setPrecioOriginalProducto(p.compare_at_price ? String(p.compare_at_price) : "");
+    setPrecioMX(p.price_mx ? String(p.price_mx) : "");
+    setPrecioCO(p.price_co ? String(p.price_co) : "");
+    setPrecioPE(p.price_pe ? String(p.price_pe) : "");
     setImagenProducto(p.image_url || "");
     setTipoEntregaProducto(p.delivery_type || 'regalo');
     setMostrarFormProducto(true);
@@ -250,6 +259,9 @@ export default function AdminPanel() {
       name: nombreProducto.trim(),
       price: precioProducto,
       compare_at_price: precioOriginalProducto ? Number(precioOriginalProducto) : null,
+      price_mx: precioMX ? Number(precioMX) : null,
+      price_co: precioCO ? Number(precioCO) : null,
+      price_pe: precioPE ? Number(precioPE) : null,
       image_url: imagenProducto.trim(),
       delivery_type: tipoEntregaProducto,
     };
@@ -479,6 +491,35 @@ export default function AdminPanel() {
                 />
               </div>
               <p className="text-xs text-[#9A9384] mb-4 -mt-2">Dejalo vacío si no hay descuento real. Si lo cargás, tiene que ser mayor al precio actual.</p>
+
+              <label className="block text-sm font-bold text-[#D9D4C7] mb-2">Precio fijo por país (opcional)</label>
+              <p className="text-xs text-[#9A9384] mb-3">Si lo dejás vacío, ese país ve el precio en USD convertido automáticamente con la tasa de cambio. Si le ponés un número acá, ve ESE precio exacto (útil para redondear, ej. $99 en vez de $87.32).</p>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9A9384] mb-1">🇲🇽 MXN</label>
+                  <input
+                    type="number" placeholder="Auto"
+                    value={precioMX} onChange={(e) => setPrecioMX(e.target.value)}
+                    className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9A9384] mb-1">🇨🇴 COP</label>
+                  <input
+                    type="number" placeholder="Auto"
+                    value={precioCO} onChange={(e) => setPrecioCO(e.target.value)}
+                    className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9A9384] mb-1">🇵🇪 PEN</label>
+                  <input
+                    type="number" placeholder="Auto"
+                    value={precioPE} onChange={(e) => setPrecioPE(e.target.value)}
+                    className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+                  />
+                </div>
+              </div>
               <input
                 type="text" placeholder="URL de la imagen (opcional)"
                 value={imagenProducto} onChange={(e) => setImagenProducto(e.target.value)}

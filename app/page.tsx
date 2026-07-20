@@ -16,7 +16,7 @@ import {
   Send, MessageCircle
 } from 'lucide-react';
 
-interface Product { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type?: 'regalo' | 'recarga'; }
+interface Product { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type?: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
 
 export default function Home() {
   const addToCart = useCartStore((state) => state.addToCart);
@@ -243,7 +243,8 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((p) => {
-              const localPrice = (p.price * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const precioFijoPais = activeCurrency.id === 'MX' ? p.price_mx : activeCurrency.id === 'CO' ? p.price_co : activeCurrency.id === 'PE' ? p.price_pe : null;
+              const localPrice = (precioFijoPais ?? (p.price * activeCurrency.rate)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               const esRecarga = p.delivery_type === 'recarga';
               const tieneDescuento = !!p.compare_at_price && p.compare_at_price > p.price;
               const precioAntes = tieneDescuento ? (p.compare_at_price! * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
@@ -277,7 +278,17 @@ export default function Home() {
                     {!esRecarga && (
                       <p className="text-[10px] text-[#9A9384] mb-3 leading-snug">Se entrega como regalo. Si es tu primera compra, Epic Games exige 48hs de amistad antes de poder enviártelo.</p>
                     )}
-                    <button onClick={() => addToCart(p)} className="w-full bg-[#0A0806] hover:bg-[#E3A23D] text-[#E3A23D] hover:text-[#0A0806] py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 border-2 border-[#0A0806]">
+                    <button
+                      onClick={() => {
+                        // Si hay un precio fijo para el país activo, lo convertimos a un
+                        // "USD equivalente" para que el resto del sistema (carrito, checkout,
+                        // pedidos) siga funcionando igual sin tocar nada más — al mostrarlo
+                        // de nuevo con la tasa de este país, va a dar exactamente ese precio fijo.
+                        const precioParaCarrito = precioFijoPais ? precioFijoPais / activeCurrency.rate : p.price;
+                        addToCart({ ...p, price: precioParaCarrito });
+                      }}
+                      className="w-full bg-[#0A0806] hover:bg-[#E3A23D] text-[#E3A23D] hover:text-[#0A0806] py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 border-2 border-[#0A0806]"
+                    >
                       <ShoppingCart size={18} /> Añadir
                     </button>
                   </div>

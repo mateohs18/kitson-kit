@@ -88,8 +88,14 @@ function getEntryMeta(entry: any) {
   };
 }
 
+const rarityHex: Record<string, string> = {
+  legendary: '#E3A23D', epic: '#4A93D6', rare: '#6B7D91', uncommon: '#6FA85A',
+  marvel: '#C24A3D', starwars: '#3B5B8C', icon: '#4BA89A',
+};
+const defaultRarityHex = '#5A554A';
+
 const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, onQuickView }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean, onQuickView: (entry: any) => void }) => {
-  const { name, rarityValue, displayImage, isBundle, itemCount, carouselImages, hasRealDiscount } = getEntryMeta(entry);
+  const { name, rarityValue, displayImage, isBundle, itemCount, carouselImages, hasRealDiscount, description } = getEntryMeta(entry);
   const [carouselIndex, setCarouselIndex] = useState(0);
 
   // Rota sola entre las imágenes disponibles, si hay más de una.
@@ -104,6 +110,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
   const imagenMostrada = carouselImages[carouselIndex];
 
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
+  const colorRareza = rarityHex[rarityValue.toLowerCase()] || defaultRarityHex;
   const baseUsdPrice = entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const regularUsdPrice = entry.regularPrice / 100;
@@ -123,20 +130,15 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
       className={`group kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
       onClick={() => onQuickView(entry)}
     >
-      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-[4/5]'}`}>
+      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-1/2 aspect-[4/5] md:aspect-auto' : 'aspect-[4/5]'}`}>
         <div
-          className="absolute inset-0 opacity-40 pointer-events-none"
-          style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: featured ? `linear-gradient(160deg, ${colorRareza}55, #14110C 75%)` : `radial-gradient(circle at 50% 55%, ${colorRareza}33, transparent 65%)` }}
         ></div>
         {featured && <div className="absolute inset-0 kk-dots opacity-[0.06] pointer-events-none"></div>}
         <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
           <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
         </div>
-        {hasRealDiscount && (
-          <span className="absolute top-2 right-2 z-[2] bg-red-500 text-white text-[10px] font-display font-bold px-2 py-1 rounded-full">
-            -{Math.round((1 - entry.finalPrice / entry.regularPrice) * 100)}%
-          </span>
-        )}
         <Image
           src={imagenMostrada}
           alt={name}
@@ -151,7 +153,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
             ))}
           </div>
         )}
-        <div className="absolute top-2 right-2 z-[2] flex gap-2" style={{ top: hasRealDiscount ? '2.75rem' : '0.5rem' }}>
+        <div className="absolute top-2 right-2 z-[2] flex gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onQuickView(entry); }}
             className="bg-[#0A0806]/80 hover:bg-[#0A0806] text-[#F5F1E6] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
@@ -172,10 +174,13 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
         </div>
       </div>
 
-      <div className={`p-4 flex flex-col justify-center ${featured ? 'md:w-2/5' : ''}`}>
+      <div className={`p-4 flex flex-col justify-center ${featured ? 'md:w-1/2' : ''}`}>
         <h3 className={`font-bold text-[#F5F1E6] leading-tight mb-2 ${featured ? 'font-display text-2xl' : 'text-sm truncate'}`}>{name}</h3>
         {featured && !isBundle && (
           <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-3 ${rarity.className}`}>{rarity.label}</span>
+        )}
+        {featured && description && (
+          <p className="text-sm text-[#9A9384] leading-relaxed mb-3 line-clamp-3">{description}</p>
         )}
         {hasRealDiscount && (
           <span className="text-[#5A554A] font-mono text-xs line-through mr-1">{activeCurrency.symbol}{regularLocalPrice}</span>

@@ -9,12 +9,18 @@ async function verificarAdmin() {
   return !!session?.user?.email && !!adminEmail && session.user.email === adminEmail;
 }
 
+function parsePrecioPais(valor: any): number | null {
+  if (valor === null || valor === undefined || valor === '') return null;
+  const n = Number(valor);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export async function POST(req: Request) {
   if (!(await verificarAdmin())) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }
 
-  const { name, price, compare_at_price, image_url, delivery_type } = await req.json();
+  const { name, price, compare_at_price, image_url, delivery_type, price_mx, price_co, price_pe } = await req.json();
   if (!name || price === undefined) {
     return NextResponse.json({ error: 'Falta el nombre o el precio.' }, { status: 400 });
   }
@@ -33,7 +39,10 @@ export async function POST(req: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('products')
-    .insert([{ name, price: precioNum, compare_at_price: precioOriginal, image_url: image_url || null, delivery_type: tipoEntrega }])
+    .insert([{
+      name, price: precioNum, compare_at_price: precioOriginal, image_url: image_url || null, delivery_type: tipoEntrega,
+      price_mx: parsePrecioPais(price_mx), price_co: parsePrecioPais(price_co), price_pe: parsePrecioPais(price_pe),
+    }])
     .select()
     .single();
 
@@ -49,7 +58,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }
 
-  const { id, name, price, compare_at_price, image_url, delivery_type } = await req.json();
+  const { id, name, price, compare_at_price, image_url, delivery_type, price_mx, price_co, price_pe } = await req.json();
   if (!id) {
     return NextResponse.json({ error: 'Falta el ID del producto.' }, { status: 400 });
   }
@@ -68,7 +77,10 @@ export async function PUT(req: Request) {
 
   const { error } = await supabaseAdmin
     .from('products')
-    .update({ name, price: precioNum, compare_at_price: precioOriginal, image_url: image_url || null, delivery_type: tipoEntrega })
+    .update({
+      name, price: precioNum, compare_at_price: precioOriginal, image_url: image_url || null, delivery_type: tipoEntrega,
+      price_mx: parsePrecioPais(price_mx), price_co: parsePrecioPais(price_co), price_pe: parsePrecioPais(price_pe),
+    })
     .eq('id', id);
 
   if (error) {
