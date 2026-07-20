@@ -13,7 +13,7 @@ import {
   ShoppingCart, Gamepad2,
   PackageSearch, Menu, X, Star, BellRing,
   Search, ChevronDown, CheckCircle2, MessageSquare,
-  Send, MessageCircle
+  Send, MessageCircle, Hourglass, Gift
 } from 'lucide-react';
 
 interface Product { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type?: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
@@ -118,10 +118,9 @@ export default function Home() {
           <Link href="#catalogo" className="relative py-1 group">Catálogo<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
           <Link href="/tienda-diaria" className="relative py-1 group flex items-center gap-1.5">
             Tienda Fortnite
-            <span className="bg-[#0A0806]/10 text-[#0A0806] text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full">⏳{hoursLeft}h</span>
+            <span className="bg-[#0A0806]/10 text-[#0A0806] text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Hourglass size={9} />{hoursLeft}h</span>
             <span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span>
           </Link>
-          <Link href="/vincular-cuenta" className="relative py-1 group">Vincular Cuenta<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
           <Link href="/mi-cuenta" className="relative py-1 group">Mi Cuenta<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
         </nav>
 
@@ -149,7 +148,6 @@ export default function Home() {
             <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
             <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
             <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
-            <Link href="/vincular-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Vincular Cuenta</Link>
             <Link href="/mi-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Cuenta</Link>
             <div className="pt-2"><CurrencySelector /></div>
           </div>
@@ -253,7 +251,7 @@ export default function Home() {
                 <div key={p.id} className="kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer">
                   <div className={`flex items-center justify-between border-b-[3px] border-[#0A0806] px-3 py-1.5 ${esRecarga ? 'bg-[#4A93D6]' : 'bg-[#E3A23D]'}`}>
                     <span className={`font-display font-bold text-[10px] uppercase tracking-wide ${esRecarga ? 'text-[#0C2438]' : 'text-[#0A0806]'}`}>
-                      {esRecarga ? '⚡ Recarga directa' : '🎁 Regalo'}
+                      {esRecarga ? <>⚡ Recarga directa</> : <span className="inline-flex items-center gap-1"><Gift size={11} /> Regalo</span>}
                     </span>
                     {tieneDescuento && <span className="bg-red-500 text-white text-[10px] font-display font-bold px-2 py-0.5 rounded-full">-{porcentajeOff}%</span>}
                   </div>
@@ -375,6 +373,9 @@ export default function Home() {
                       </div>
                     </div>
                     <p className="text-[#D9D4C7] leading-relaxed font-medium relative z-10 italic">&quot;{r.comment}&quot;</p>
+                    {r.image_url && (
+                      <img src={r.image_url} alt="Foto adjunta a la reseña" className="mt-4 rounded-xl border-2 border-[#0A0806] max-h-64 w-auto relative z-10" />
+                    )}
                   </div>
                 )) : (
                   <div className="text-center py-12 kk-panel rounded-2xl text-[#9A9384] font-bold">El radar no encontró reseñas con esa búsqueda.</div>

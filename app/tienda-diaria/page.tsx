@@ -7,7 +7,7 @@ import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, useSession } from 'next-auth/react';
-import { ShoppingCart, Menu, X, Gamepad2, List, Search, ArrowUp, Eye, ChevronLeft, Calendar } from 'lucide-react';
+import { ShoppingCart, Menu, X, Gamepad2, List, Search, ArrowUp, Eye, ChevronLeft, Calendar, Hourglass, Gift } from 'lucide-react';
 
 const rarityMeta: Record<string, { label: string; className: string }> = {
   legendary: { label: 'Legendario', className: 'bg-[#E3A23D] text-[#0A0806]' },
@@ -418,7 +418,6 @@ export default function TiendaFortnite() {
           <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="opacity-100 underline underline-offset-4 transition">Tienda Fortnite</Link>
-          <Link href="/vincular-cuenta" className="hover:opacity-70 transition">Vincular Cuenta</Link>
           <Link href="/mi-cuenta" className="hover:opacity-70 transition">Mi Cuenta</Link>
         </nav>
 
@@ -449,7 +448,6 @@ export default function TiendaFortnite() {
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
           <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
           <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
-          <Link href="/vincular-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Vincular Cuenta</Link>
           <Link href="/mi-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Mi Cuenta</Link>
           <div className="pt-2"><CurrencySelector /></div>
         </div>
@@ -462,14 +460,14 @@ export default function TiendaFortnite() {
             TIENDA ACTIVA HOY
           </span>
           <span className="inline-flex items-center gap-2 bg-red-500/10 text-red-400 border-2 border-red-500/30 font-mono font-bold text-xs px-4 py-2 rounded-lg">
-            ⏳ Se reinicia en: {timeLeft}
+            <Hourglass size={13} className="inline mr-1" /> Se reinicia en: {timeLeft}
           </span>
         </div>
         <h1 className="font-display font-extrabold text-3xl md:text-5xl mb-2">Tienda <span className="text-[#E3A23D]">Fortnite</span></h1>
         <p className="text-[#9A9384] max-w-xl mb-4">Todo lo disponible hoy en la tienda del juego.</p>
 
         <div className="flex items-start gap-3 bg-[#1D1913] border-2 border-[#4A93D6] rounded-xl p-4 mb-6 max-w-2xl">
-          <span className="text-lg leading-none mt-0.5">🎁</span>
+          <span className="text-lg leading-none mt-0.5"><Gift size={18} className="text-[#4A93D6]" /></span>
           <p className="text-xs text-[#D9D4C7] leading-relaxed">
             <strong className="text-[#F5F1E6]">Estos objetos se entregan como regalo dentro del juego.</strong> Si es la primera vez que te agregamos como amigo, Epic Games exige <strong className="text-[#4A93D6]">48 horas de amistad</strong> antes de poder enviarte un regalo — no es un error nuestro, es una regla de Epic. Si ya tenés más de 48hs de amigo con nosotros, la entrega es en minutos.
           </p>

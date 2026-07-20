@@ -10,13 +10,14 @@ import { useCurrencyStore } from '../../store/currencyStore';
 import { supabase } from '../../lib/supabase';
 import {
   Wallet, Pencil, Check, X, Zap, Gift, Clock, CheckCircle2, AlertTriangle,
-  UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Trophy, Package, Gamepad2
+  UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Trophy, Package, Gamepad2,
+  Hourglass, ShieldCheck, Camera
 } from 'lucide-react';
 
 const PACKAGES = [
-  { id: 'basico', label: 'Pack Básico', pay: 5, bonus: 0, icon: '⚡' },
-  { id: 'leyenda', label: 'Pack Leyenda', pay: 20, bonus: 2, icon: '⚡', highlight: true },
-  { id: 'kitson', label: 'Pack Kitson', pay: 50, bonus: 7, icon: '🎁' },
+  { id: 'basico', label: 'Pack Básico', pay: 5, bonus: 0 },
+  { id: 'leyenda', label: 'Pack Leyenda', pay: 20, bonus: 2, highlight: true },
+  { id: 'kitson', label: 'Pack Kitson', pay: 50, bonus: 7 },
 ];
 
 const TIER_INFO: Record<string, { color: string; next: number }> = {
@@ -53,6 +54,9 @@ export default function MiCuenta() {
   const [orders, setOrders] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'activos' | 'historial'>('activos');
   const [now, setNow] = useState(Date.now());
+  const [editingEpicId, setEditingEpicId] = useState(false);
+  const [epicIdInput, setEpicIdInput] = useState('');
+  const [savingEpicId, setSavingEpicId] = useState(false);
 
   // Modal de recarga
   const [showRecharge, setShowRecharge] = useState(false);
@@ -66,6 +70,8 @@ export default function MiCuenta() {
   const [reviewOrder, setReviewOrder] = useState<any | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [reviewPhoto, setReviewPhoto] = useState<File | null>(null);
+  const [subiendoReview, setSubiendoReview] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
 
   useEffect(() => {
@@ -98,12 +104,32 @@ export default function MiCuenta() {
     if (perfilRes.ok) {
       const data = await perfilRes.json();
       setPerfil(data);
+      setEpicIdInput(data.epicId || '');
     }
     if (pedidosRes.ok) {
       const data = await pedidosRes.json();
       setOrders(data.orders);
     }
     setLoading(false);
+  }
+
+  async function guardarEpicId() {
+    const trimmed = epicIdInput.trim();
+    if (trimmed.length < 3 || /\s/.test(trimmed)) return alert('El ID no puede tener espacios y debe tener al menos 3 caracteres.');
+    setSavingEpicId(true);
+    const res = await fetch('/api/guardar-epic-id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ epicId: trimmed }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      await fetchAll();
+      setEditingEpicId(false);
+    } else {
+      alert('❌ ' + data.error);
+    }
+    setSavingEpicId(false);
   }
 
   async function enviarRecarga() {
@@ -151,8 +177,19 @@ export default function MiCuenta() {
 
   async function submitReview() {
     if (!comment.trim()) return alert('Escribí un comentario.');
+    setSubiendoReview(true);
     try {
-      const { error } = await supabase.from('reviews').insert([{ user_name: session?.user?.name || 'Gamer', rating, comment }]);
+      let imageUrl: string | null = null;
+      if (reviewPhoto) {
+        const formData = new FormData();
+        formData.append('file', reviewPhoto);
+        const uploadRes = await fetch('/api/subir-foto-resena', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadData.error || 'No se pudo subir la foto.');
+        imageUrl = uploadData.url;
+      }
+
+      const { error } = await supabase.from('reviews').insert([{ user_name: session?.user?.name || 'Gamer', rating, comment, image_url: imageUrl }]);
       if (!error) {
         setReviewSuccess(true);
         setTimeout(() => {
@@ -160,10 +197,15 @@ export default function MiCuenta() {
           setReviewSuccess(false);
           setComment('');
           setRating(5);
+          setReviewPhoto(null);
         }, 2000);
+      } else {
+        alert('No se pudo publicar la reseña.');
       }
-    } catch {
-      alert('No se pudo publicar la reseña.');
+    } catch (err: any) {
+      alert(err.message || 'No se pudo publicar la reseña.');
+    } finally {
+      setSubiendoReview(false);
     }
   }
 
@@ -244,13 +286,53 @@ export default function MiCuenta() {
           </div>
 
           <div className="kk-panel rounded-3xl p-6">
-            <h3 className="font-display font-bold text-base mb-3 flex items-center gap-2"><Gamepad2 size={18} className="text-[#E3A23D]" /> Cuenta de Epic Games</h3>
+            <h3 className="font-display font-bold text-base mb-4 flex items-center gap-2"><Gamepad2 size={18} className="text-[#E3A23D]" /> Vincular cuenta Epic</h3>
 
-            {perfil?.epicId ? (
+            <div className="space-y-2.5 mb-5">
+              {[
+                { n: '1', title: 'Solicitud directa', desc: 'Cargás tu nombre y avisamos a nuestro equipo al instante.' },
+                { n: '2', title: 'Espera de 48h', desc: 'Regla de Epic Games para poder enviarte regalos.' },
+                { n: '3', title: '¡Todo listo!', desc: 'Pasado ese tiempo, tus compras vía regalo llegan en minutos.' },
+              ].map((step) => (
+                <div key={step.n} className="flex items-start gap-3">
+                  <div className="w-7 h-7 shrink-0 rounded-lg bg-[#14110C] border-2 border-[#0A0806] flex items-center justify-center font-mono text-[10px] font-bold text-[#E3A23D]">{step.n}</div>
+                  <div>
+                    <p className="font-bold text-xs text-[#F5F1E6]">{step.title}</p>
+                    <p className="text-[11px] text-[#9A9384] leading-snug">{step.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {editingEpicId || !perfil?.epicId ? (
+              <>
+                <label className="block text-[10px] font-bold text-[#9A9384] uppercase tracking-widest mb-2">Tu nombre de Epic Games</label>
+                <div className="relative mb-4">
+                  <Gamepad2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9A9384]" />
+                  <input
+                    type="text" value={epicIdInput} onChange={(e) => setEpicIdInput(e.target.value)}
+                    placeholder="Ej: Ninja, Bugha..."
+                    className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#E3A23D]"
+                  />
+                </div>
+                <div className="flex items-start gap-2 bg-[#7BC77E]/10 border border-[#7BC77E]/30 rounded-xl p-3 mb-4">
+                  <ShieldCheck size={15} className="text-[#7BC77E] shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-[#9A9384] leading-relaxed">Solo usamos tu nombre para enviarte la solicitud de amistad. Nunca te vamos a pedir tu contraseña.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={guardarEpicId} disabled={savingEpicId} className="flex-1 bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] py-3 rounded-xl font-display font-bold text-sm border-2 border-[#0A0806]">
+                    {savingEpicId ? 'Enviando...' : 'Enviar solicitud'}
+                  </button>
+                  {perfil?.epicId && (
+                    <button onClick={() => { setEditingEpicId(false); setEpicIdInput(perfil.epicId); }} className="px-3 bg-[#1D1913] text-[#9A9384] rounded-xl border-2 border-[#0A0806]"><X size={16} /></button>
+                  )}
+                </div>
+              </>
+            ) : (
               <>
                 <div className="flex items-center justify-between bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-4 py-3 mb-3">
                   <span className="text-sm font-mono text-[#F5F1E6]">{perfil.epicId}</span>
-                  <Link href="/vincular-cuenta" className="text-[#E3A23D]"><Pencil size={15} /></Link>
+                  <button onClick={() => setEditingEpicId(true)} className="text-[#E3A23D]"><Pencil size={15} /></button>
                 </div>
                 {(() => {
                   if (!perfil.friendRequestedAt) {
@@ -265,23 +347,16 @@ export default function MiCuenta() {
                   if (remaining > 0) {
                     return (
                       <div className="flex items-center gap-2 bg-[#E3A23D]/10 text-[#E3A23D] rounded-xl px-4 py-3 text-xs font-bold">
-                        <Clock size={16} /> Faltan {formatoRestante(remaining)}.
+                        <Hourglass size={16} /> Faltan {formatoRestante(remaining)}.
                       </div>
                     );
                   }
                   return (
                     <div className="flex items-center gap-2 bg-[#7BC77E]/10 text-[#7BC77E] rounded-xl px-4 py-3 text-xs font-bold">
-                      <CheckCircle2 size={16} /> ¡Listo para recibir regalos!
+                      <Gift size={16} /> ¡Listo para recibir regalos!
                     </div>
                   );
                 })()}
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-[#9A9384] mb-4">Todavía no vinculaste tu cuenta — es necesario para recibir cosméticos vía regalo.</p>
-                <Link href="/vincular-cuenta" className="w-full bg-[#E3A23D] text-[#0A0806] py-3 rounded-xl font-display font-bold text-sm border-[3px] border-[#0A0806] flex items-center justify-center gap-2">
-                  Vincular cuenta
-                </Link>
               </>
             )}
           </div>
@@ -401,7 +476,7 @@ export default function MiCuenta() {
                       className={`w-full kk-card-hover text-left rounded-2xl p-5 border-2 transition-colors flex items-center justify-between ${pkg.highlight ? 'border-[#E3A23D] bg-[#E3A23D]/5' : 'border-[#0A0806] bg-[#14110C]'}`}
                     >
                       <div>
-                        <p className="font-display font-bold text-lg flex items-center gap-2">{pkg.icon} {pkg.label}</p>
+                        <p className="font-display font-bold text-lg flex items-center gap-2">{pkg.id === 'kitson' ? <Gift size={18} className="text-[#E3A23D]" /> : <Zap size={18} className="text-[#E3A23D]" />} {pkg.label}</p>
                         <p className="text-xs text-[#9A9384]">Cargás ${pkg.pay.toFixed(2)}{pkg.bonus > 0 && <span className="text-[#7BC77E] font-bold"> + ${pkg.bonus} de regalo</span>}</p>
                       </div>
                       <p className="font-mono font-bold text-2xl text-[#E3A23D]">${(pkg.pay + pkg.bonus).toFixed(2)}</p>
@@ -442,7 +517,7 @@ export default function MiCuenta() {
       {reviewOrder && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="kk-panel p-8 rounded-3xl max-w-md w-full relative">
-            <button onClick={() => setReviewOrder(null)} className="absolute top-4 right-4 text-[#9A9384] hover:text-[#F5F1E6] font-bold">✕</button>
+            <button onClick={() => { setReviewOrder(null); setReviewPhoto(null); setComment(''); setRating(5); }} className="absolute top-4 right-4 text-[#9A9384] hover:text-[#F5F1E6] font-bold">✕</button>
             <h3 className="font-display text-2xl font-bold mb-2">Calificá tu experiencia</h3>
             <p className="text-[#9A9384] mb-6 text-sm">Tu opinión va a aparecer en la página principal con el tag de &quot;Verificado&quot;.</p>
 
@@ -463,10 +538,23 @@ export default function MiCuenta() {
                 <textarea
                   placeholder="¿Qué tal fue la atención y rapidez?..."
                   value={comment} onChange={(e) => setComment(e.target.value)}
-                  className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4 text-[#F5F1E6] focus:outline-none focus:border-[#E3A23D] h-32 mb-6 resize-none"
+                  className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4 text-[#F5F1E6] focus:outline-none focus:border-[#E3A23D] h-32 mb-4 resize-none"
                 />
-                <button onClick={submitReview} className="w-full bg-[#E3A23D] text-[#0A0806] py-4 rounded-xl font-display font-bold text-lg flex justify-center items-center gap-2 border-[3px] border-[#0A0806] hover:bg-[#f0b458]">
-                  <Send size={20} /> Publicar reseña
+                <label className="relative flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#14110C] border-2 border-dashed border-[#3A3527] hover:border-[#E3A23D] rounded-xl cursor-pointer transition-colors mb-6">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files && setReviewPhoto(e.target.files[0])} />
+                  <Camera size={16} className="text-[#E3A23D]" />
+                  <span className="text-xs font-bold text-[#D9D4C7]">{reviewPhoto ? reviewPhoto.name : 'Agregar una foto (opcional)'}</span>
+                  {reviewPhoto && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); setReviewPhoto(null); }}
+                      className="text-[#9A9384] hover:text-red-400"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </label>
+                <button onClick={submitReview} disabled={subiendoReview} className="w-full bg-[#E3A23D] disabled:opacity-40 text-[#0A0806] py-4 rounded-xl font-display font-bold text-lg flex justify-center items-center gap-2 border-[3px] border-[#0A0806] hover:bg-[#f0b458]">
+                  {subiendoReview ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />} {subiendoReview ? 'Publicando...' : 'Publicar reseña'}
                 </button>
               </>
             )}

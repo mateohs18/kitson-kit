@@ -140,7 +140,6 @@ export default function CartPage() {
           <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:opacity-70 transition">Tienda Fortnite</Link>
-          <Link href="/vincular-cuenta" className="hover:opacity-70 transition">Vincular Cuenta</Link>
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-3">
@@ -163,7 +162,6 @@ export default function CartPage() {
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Inicio</Link>
           <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Catálogo</Link>
           <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Tienda Fortnite</Link>
-          <Link href="/vincular-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="font-display text-xl font-bold text-[#F5F1E6] border-b border-white/10 pb-4">Vincular Cuenta</Link>
           <div className="pt-2"><CurrencySelector /></div>
           <div className="mt-6 pt-6 border-t border-white/10">
             {!session && <button onClick={() => signIn()} className="w-full bg-[#E3A23D] text-[#0A0806] py-4 rounded-xl font-black text-lg border-[3px] border-[#0A0806]">Iniciar Sesión</button>}

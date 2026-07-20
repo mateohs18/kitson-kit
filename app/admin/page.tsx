@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
-import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign, Gift } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Producto { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
@@ -533,7 +533,7 @@ export default function AdminPanel() {
                   type="button" onClick={() => setTipoEntregaProducto('regalo')}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-black border-2 border-[#0A0806] transition-colors ${tipoEntregaProducto === 'regalo' ? 'bg-[#E3A23D] text-[#0A0806]' : 'bg-[#1D1913] text-[#9A9384]'}`}
                 >
-                  🎁 Regalo (requiere 48hs si es nuevo)
+                  <Gift size={13} className="inline mr-1" /> Regalo (requiere 48hs si es nuevo)
                 </button>
                 <button
                   type="button" onClick={() => setTipoEntregaProducto('recarga')}
@@ -603,6 +603,11 @@ export default function AdminPanel() {
                       </div>
                     </div>
                     <p className="text-sm text-[#9A9384]">{r.comment}</p>
+                    {r.image_url && (
+                      <a href={r.image_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
+                        <img src={r.image_url} alt="Foto adjunta" className="h-16 w-16 object-cover rounded-lg border-2 border-[#0A0806]" />
+                      </a>
+                    )}
                   </div>
                   <button onClick={() => eliminarResena(r.id)} className="shrink-0 text-red-400 hover:underline text-xs font-bold flex items-center gap-1">
                     <Trash2 size={12}/> Eliminar
@@ -692,7 +697,7 @@ export default function AdminPanel() {
                               <span className="font-bold text-[#F5F1E6]">{it.name}</span>
                               {it.vbucks && <span className="text-[#E3A23D] font-mono">🪙 {Number(it.vbucks).toLocaleString('en-US')} pavos</span>}
                               {it.offer_id && <span className="text-[#9A9384] font-mono truncate max-w-xs" title={it.offer_id}>ID: {it.offer_id}</span>}
-                              {it.delivery_type && <span className="text-[#4A93D6]">{it.delivery_type === 'recarga' ? '⚡ Recarga' : '🎁 Regalo'}</span>}
+                              {it.delivery_type && <span className="text-[#4A93D6] inline-flex items-center gap-1">{it.delivery_type === 'recarga' ? '⚡ Recarga' : <><Gift size={11} /> Regalo</>}</span>}
                             </div>
                           ))}
                         </div>
