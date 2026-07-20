@@ -130,7 +130,7 @@ export default function EstadoBotsPage() {
                 {/* Cabecera del Bot */}
                 <div className="flex justify-between items-start mb-6 relative z-10">
                   <div className="overflow-hidden pr-3">
-                    <h2 className="font-display font-bold text-2xl text-[#F5F1E6] truncate">{bot.name}</h2>
+                    <h2 className="font-display font-bold text-2xl text-[#F5F1E6] truncate">{bot.displayName !== 'Desconocido' ? bot.displayName : bot.name}</h2>
                     <p className="text-[10px] font-mono text-[#9A9384] mt-1 flex items-center gap-1">ID: <span className="text-[#D9D4C7]">{bot.accountId}</span></p>
                   </div>
                   <span className={`shrink-0 px-3 py-1.5 text-[10px] uppercase font-black tracking-widest rounded-lg border-2 border-[#0A0806] flex items-center gap-1.5 shadow-sm ${bot.ready ? 'bg-emerald-400 text-[#0A0806]' : 'bg-red-500 text-[#F5F1E6]'}`}>
