@@ -27,7 +27,7 @@ export default function EstadoBotsPage() {
   const fetchBots = async () => {
     setLoading(true);
     try {
-      const botUrl = process.env.NEXT_PUBLIC_BOT_URL || 'kitson-kit.up.railway.app';
+      const botUrl = process.env.NEXT_PUBLIC_BOT_URL || 'bot-fortnite-kitson-production.up.railway.app';
       const res = await fetch(`${botUrl}/api/bots/status`, {
         cache: 'no-store',
       });
