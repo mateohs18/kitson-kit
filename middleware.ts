@@ -19,5 +19,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/agregar-saldo/:path*', '/api/marcar-entregado/:path*', '/api/pedidos-admin/:path*', '/api/recargas-admin/:path*', '/api/aprobar-recarga/:path*', '/api/discord/setup/:path*', '/api/productos-admin/:path*', '/api/gestionar-producto/:path*', '/api/resenas-admin/:path*', '/api/eliminar-resena/:path*', '/api/marcar-amistad-enviada/:path*', '/api/marcar-amistad-cuenta/:path*', '/api/solicitudes-amistad-admin/:path*'],
+  matcher: ['/admin/:path*', '/api/agregar-saldo/:path*', '/api/marcar-entregado/:path*', '/api/pedidos-admin/:path*', '/api/recargas-admin/:path*', '/api/aprobar-recarga/:path*', '/api/discord/setup/:path*', '/api/productos-admin/:path*', '/api/gestionar-producto/:path*', '/api/resenas-admin/:path*', '/api/eliminar-resena/:path*', '/api/marcar-amistad-enviada/:path*', '/api/marcar-amistad-cuenta/:path*', '/api/solicitudes-amistad-admin/:path*', '/api/actualizar-tasa-cambio/:path*'],
 };

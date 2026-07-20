@@ -120,10 +120,10 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
 
   return (
     <div
-      className={`kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
+      className={`group kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
       onClick={() => onQuickView(entry)}
     >
-      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-square'}`}>
+      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-3/5 aspect-video md:aspect-auto' : 'aspect-[4/5]'}`}>
         <div
           className="absolute inset-0 opacity-40 pointer-events-none"
           style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
@@ -141,8 +141,8 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
           src={imagenMostrada}
           alt={name}
           fill
-          sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"}
-          className="object-contain transform hover:scale-110 transition-transform duration-500 scale-[1.1] z-[1]"
+          sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 22vw"}
+          className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
         />
         {carouselImages.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1">
@@ -222,7 +222,7 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
       <div className="kk-panel rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-          <div className="relative aspect-square bg-[#14110C] flex items-center justify-center overflow-hidden">
+          <div className="relative aspect-[4/5] bg-[#14110C] flex items-center justify-center overflow-hidden">
             <div
               className="absolute inset-0 opacity-40 pointer-events-none"
               style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
@@ -576,7 +576,7 @@ export default function TiendaFortnite() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
                       {visibleSingles.map((entry, idx) => (
                         <FortniteItemCard
                           key={`single-${idx}`}

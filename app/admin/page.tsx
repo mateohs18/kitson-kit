@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
-import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Producto { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type: 'regalo' | 'recarga'; }
@@ -15,6 +15,8 @@ export default function AdminPanel() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [resenas, setResenas] = useState<any[]>([]);
   const [solicitudesAmistad, setSolicitudesAmistad] = useState<any[]>([]);
+  const [tasas, setTasas] = useState<{ MX: string; CO: string; PE: string }>({ MX: '', CO: '', PE: '' });
+  const [guardandoTasa, setGuardandoTasa] = useState<string | null>(null);
   const [marcandoAmistadEmail, setMarcandoAmistadEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +52,7 @@ export default function AdminPanel() {
     fetchProductos();
     fetchResenas();
     fetchSolicitudesAmistad();
+    fetchTasas();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
@@ -145,6 +148,31 @@ export default function AdminPanel() {
       const data = await res.json();
       setResenas(data.reviews);
     }
+  }
+
+  async function fetchTasas() {
+    const res = await fetch('/api/tasas-cambio');
+    if (res.ok) {
+      const data = await res.json();
+      setTasas({
+        MX: data.rates?.MX ? String(data.rates.MX) : '',
+        CO: data.rates?.CO ? String(data.rates.CO) : '',
+        PE: data.rates?.PE ? String(data.rates.PE) : '',
+      });
+    }
+  }
+
+  async function guardarTasa(pais: 'MX' | 'CO' | 'PE') {
+    if (!tasas[pais] || Number(tasas[pais]) <= 0) return alert('Ingresá una tasa válida.');
+    setGuardandoTasa(pais);
+    const res = await fetch('/api/actualizar-tasa-cambio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ countryCode: pais, rate: tasas[pais] }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert('❌ ' + data.error);
+    setGuardandoTasa(null);
   }
 
   async function fetchSolicitudesAmistad() {
@@ -297,6 +325,41 @@ export default function AdminPanel() {
               {loadingSaldo ? <Package className="animate-spin" size={20} /> : <Plus size={20} />}
               Añadir saldo
             </button>
+          </div>
+        </div>
+
+        {/* TASAS DE CAMBIO */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-2">
+            <DollarSign className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Tasas de cambio</h2>
+          </div>
+          <p className="text-[#9A9384] text-sm mb-6">Los precios de los productos siempre se cargan en dólares (USD) y no cambian. Esto solo define a cuántos pesos/soles equivale cada dólar hoy — actualizalo cuando cambie el valor real.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {([
+              { code: 'MX' as const, label: '🇲🇽 México (MXN)', hint: '1 USD =' },
+              { code: 'CO' as const, label: '🇨🇴 Colombia (COP)', hint: '1 USD =' },
+              { code: 'PE' as const, label: '🇵🇪 Perú (PEN)', hint: '1 USD =' },
+            ]).map((p) => (
+              <div key={p.code} className="bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4">
+                <p className="text-sm font-bold text-[#D9D4C7] mb-2">{p.label}</p>
+                <div className="flex gap-2">
+                  <input
+                    type="number" step="0.01" placeholder={p.hint}
+                    value={tasas[p.code]}
+                    onChange={(e) => setTasas((t) => ({ ...t, [p.code]: e.target.value }))}
+                    className="flex-1 bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+                  />
+                  <button
+                    onClick={() => guardarTasa(p.code)}
+                    disabled={guardandoTasa === p.code}
+                    className="bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-4 rounded-lg font-display font-bold text-xs border-2 border-[#0A0806]"
+                  >
+                    {guardandoTasa === p.code ? '...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

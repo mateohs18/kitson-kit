@@ -6,12 +6,13 @@ import { ChevronDown } from 'lucide-react';
 
 export default function CurrencySelector() {
   const [isOpen, setIsOpen] = useState(false);
-  const { selectedCountry, setCountry, autoDetectCountry } = useCurrencyStore();
+  const { selectedCountry, setCountry, autoDetectCountry, loadLiveRates } = useCurrencyStore();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     autoDetectCountry();
-  }, [autoDetectCountry]);
+    loadLiveRates();
+  }, [autoDetectCountry, loadLiveRates]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

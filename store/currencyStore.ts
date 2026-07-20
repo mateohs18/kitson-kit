@@ -34,9 +34,11 @@ interface CurrencyState {
   selectedCountry: string;
   hasAutoDetected: boolean;
   hasManuallySelected: boolean;
+  liveRates: Record<string, number>;
   setCountry: (id: string) => void;
   getActiveConfig: () => typeof PAYMENT_OPTIONS[0];
   autoDetectCountry: () => Promise<void>;
+  loadLiveRates: () => Promise<void>;
 }
 
 export const useCurrencyStore = create<CurrencyState>()(
@@ -45,8 +47,13 @@ export const useCurrencyStore = create<CurrencyState>()(
       selectedCountry: 'US',
       hasAutoDetected: false,
       hasManuallySelected: false,
+      liveRates: {},
       setCountry: (id) => set({ selectedCountry: id, hasManuallySelected: true }),
-      getActiveConfig: () => PAYMENT_OPTIONS.find(c => c.id === get().selectedCountry) || PAYMENT_OPTIONS[0],
+      getActiveConfig: () => {
+        const base = PAYMENT_OPTIONS.find(c => c.id === get().selectedCountry) || PAYMENT_OPTIONS[0];
+        const liveRate = get().liveRates[base.id];
+        return liveRate ? { ...base, rate: liveRate } : base;
+      },
       autoDetectCountry: async () => {
         // Si el usuario ya eligió a mano alguna vez, o ya intentamos detectar antes, no hacemos nada.
         if (get().hasManuallySelected || get().hasAutoDetected) return;
@@ -61,7 +68,20 @@ export const useCurrencyStore = create<CurrencyState>()(
           // Si falla la detección, nos quedamos con USD sin romper nada.
         }
       },
+      loadLiveRates: async () => {
+        // Trae las tasas que vos cargaste desde el panel de admin. Si falla
+        // (sin internet, servidor caído), se sigue usando el valor fijo de
+        // PAYMENT_OPTIONS de arriba — nunca se rompen los precios.
+        try {
+          const res = await fetch('/api/tasas-cambio');
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.rates) set({ liveRates: data.rates });
+        } catch {
+          // Silencioso a propósito: si falla, seguimos con las tasas fijas.
+        }
+      },
     }),
-    { name: 'kitson-currency' }
+    { name: 'kitson-currency', partialize: (state) => ({ selectedCountry: state.selectedCountry, hasAutoDetected: state.hasAutoDetected, hasManuallySelected: state.hasManuallySelected }) }
   )
 );
