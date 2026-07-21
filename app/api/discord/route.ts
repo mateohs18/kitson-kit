@@ -2,6 +2,7 @@ import { verifyKey } from 'discord-interactions';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { aprobarRecarga } from '../../../lib/recargas';
 import { marcarAmistadCuenta } from '../../../lib/amistad';
+import { emailPedidoEntregado } from '../../../lib/emails';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,7 +128,21 @@ export async function POST(req: Request) {
       }
       if (customId.startsWith('entregar_')) {
         const orderId = customId.split('_')[1];
-        await supabase.from('orders').update({ status: 'ENTREGADO' }).eq('id', orderId);
+        const { data: ordenEntregada } = await supabase
+          .from('orders')
+          .update({ status: 'ENTREGADO' })
+          .eq('id', orderId)
+          .select('id, user_email, user_name')
+          .single();
+
+        // 📧 Email al cliente, directo desde acá (ya no depende del webhook de Supabase)
+        if (ordenEntregada?.user_email) {
+          await emailPedidoEntregado({
+            id: ordenEntregada.id,
+            user_email: ordenEntregada.user_email,
+            user_name: ordenEntregada.user_name,
+          });
+        }
         
         // type 7 edita el mensaje, borra la tarjeta y deja la confirmación
         return Response.json({ 

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { getShopEntries, getMargenTienda, precioTiendaUsd, entryName } from '../../../lib/tienda-diaria';
+import { emailPedidoConfirmado, emailPedidoEntregado } from '../../../lib/emails';
 
 // ============================================================================
 // CHECKOUT SEGURO
@@ -228,6 +229,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
+    // 3b. 📧 EMAIL DE CONFIRMACIÓN AL CLIENTE (si falla, no rompe la compra)
+    emailPedidoConfirmado({
+      id: orden.id,
+      user_email: email.trim(),
+      user_name: userName || 'Usuario',
+      items: itemsParaOrden,
+      total_price: totalVerificado,
+      paymentMethod,
+    }).catch(() => {});
+
     // 4. ALERTA A DISCORD (igual que antes, pero con el total verificado)
     const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
     const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -330,6 +341,8 @@ export async function POST(req: Request) {
       // resolverlo a mano — el cliente nunca queda pagado y sin producto.
       if (todoEntregado) {
         await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
+        // 📧 Aviso de entrega inmediata (ya no depende del webhook de Supabase)
+        await emailPedidoEntregado({ id: orden.id, user_email: email.trim(), user_name: userName || 'Usuario' });
       }
     }
 
