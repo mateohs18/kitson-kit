@@ -466,6 +466,7 @@ export default function Home() {
               <li><Link href="/faq" className="hover:text-[#E3A23D] transition">Preguntas Frecuentes</Link></li>
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Términos del Servicio</Link></li>
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Política de Reembolsos</Link></li>
+              <li><Link href="/privacidad" className="hover:text-[#E3A23D] transition">Política de Privacidad</Link></li>
               <li><a href="https://wa.me/573156098437" target="_blank" rel="noopener noreferrer" className="hover:text-[#25D366] transition flex items-center gap-2">WhatsApp</a></li>
               <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
               <li><a href="mailto:soporte@kitson-kit.store" className="hover:text-[#E3A23D] transition">soporte@kitson-kit.store</a></li>
