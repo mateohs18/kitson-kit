@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '../store/cartStore';
@@ -36,7 +36,6 @@ export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const [livePurchase, setLivePurchase] = useState<{name: string, item: string} | null>(null);
-  const lastOrderIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -49,9 +48,6 @@ export default function Home() {
       if (productsData) setProducts(productsData);
 
       const ultimaData = await ultimaRes.json();
-      if (ultimaData.order) {
-        lastOrderIdRef.current = ultimaData.order.id;
-      }
       let avg = 5.0; let revCount = 0;
       if (reviewsData && reviewsData.length > 0) {
         setReviews(reviewsData);
@@ -63,20 +59,27 @@ export default function Home() {
     }
     fetchData();
 
-    const interval = setInterval(async () => {
-      const res = await fetch('/api/ultima-compra');
-      const data = await res.json();
-      const latestOrder = data.order;
-      if (latestOrder) {
-        if (lastOrderIdRef.current !== null && latestOrder.id !== lastOrderIdRef.current) {
-          setLivePurchase({ name: latestOrder.name, item: latestOrder.item });
+    // 🔴 TIEMPO REAL: en vez de preguntar cada 5 segundos si hubo una compra
+    // (miles de consultas por día), nos suscribimos al feed y Supabase nos
+    // avisa al instante cuando entra una orden nueva.
+    const canal = supabase
+      .channel('feed-compras')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'feed_compras' },
+        (payload: any) => {
+          const compra = payload?.new;
+          if (!compra) return;
+          setLivePurchase({
+            name: compra.name || 'Gamer Anónimo',
+            item: compra.item || 'Recarga de Saldo',
+          });
           setTimeout(() => setLivePurchase(null), 6000);
         }
-        lastOrderIdRef.current = latestOrder.id;
-      }
-    }, 5000);
+      )
+      .subscribe();
 
-    return () => clearInterval(interval);
+    return () => { supabase.removeChannel(canal); };
   }, []);
 
   useEffect(() => {
