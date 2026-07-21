@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
+import { getShopEntries, getMargenTienda, precioTiendaUsd, entryName } from '../../../lib/tienda-diaria';
 
 // ============================================================================
 // CHECKOUT SEGURO
@@ -35,39 +36,6 @@ interface ValidatedItem {
   quantity: number;
   offer_id: string | null;
   source: 'db' | 'tienda-diaria';
-}
-
-// ---------- Caché de la tienda diaria de Fortnite (5 min) ----------
-// Evita pegarle a fortnite-api.com en cada checkout.
-let shopCache: { fetchedAt: number; entries: any[] } | null = null;
-const SHOP_CACHE_MS = 5 * 60 * 1000;
-
-async function getFortniteShopEntries(): Promise<any[]> {
-  if (shopCache && Date.now() - shopCache.fetchedAt < SHOP_CACHE_MS) {
-    return shopCache.entries;
-  }
-  const res = await fetch('https://fortnite-api.com/v2/shop?language=es', {
-    // Evitamos el caché de Next para controlar el nuestro a mano
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('No se pudo consultar la tienda de Fortnite');
-  const json = await res.json();
-  const entries: any[] = json?.data?.entries || [];
-  shopCache = { fetchedAt: Date.now(), entries };
-  return entries;
-}
-
-// Nombre visible de una entrada de la tienda (mismo criterio que el frontend)
-function entryName(entry: any): string | null {
-  return (
-    entry?.bundle?.name ||
-    entry?.brItems?.[0]?.name ||
-    entry?.tracks?.[0]?.title ||
-    entry?.instruments?.[0]?.name ||
-    entry?.cars?.[0]?.name ||
-    entry?.legoKits?.[0]?.name ||
-    null
-  );
 }
 
 // ---------- Validación de precios en el servidor ----------
@@ -119,7 +87,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
   // 2) Los que no están en la DB deben ser ítems de la tienda diaria.
   //    Verificamos contra fortnite-api.com (la misma fuente del frontend).
   if (pendingDaily.length > 0) {
-    const entries = await getFortniteShopEntries();
+    const [entries, margen] = await Promise.all([getShopEntries(), getMargenTienda()]);
 
     for (const item of pendingDaily) {
       let match: any = null;
@@ -144,7 +112,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
       validated.push({
         id: item.id,
         name: entryName(match) || item.name || 'Ítem de tienda',
-        unitPrice: match.finalPrice / 100, // pavos / 100 = USD (misma fórmula del frontend)
+        unitPrice: precioTiendaUsd(match.finalPrice, margen), // misma fórmula que /api/tienda
         quantity: item.quantity,
         offer_id: match.offerId || null,
         source: 'tienda-diaria',

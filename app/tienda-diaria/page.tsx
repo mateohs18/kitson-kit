@@ -111,9 +111,9 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
 
   const rarity = rarityMeta[rarityValue.toLowerCase()] || defaultRarity;
   const colorRareza = rarityHex[rarityValue.toLowerCase()] || defaultRarityHex;
-  const baseUsdPrice = entry.finalPrice / 100;
+  const baseUsdPrice = entry.kkUsdPrice ?? entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const regularUsdPrice = entry.regularPrice / 100;
+  const regularUsdPrice = entry.kkRegularUsdPrice ?? entry.regularPrice / 100;
   const regularLocalPrice = (regularUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Precio real en pavos, tal como lo da la API (esto NO es lo que le cobrás al
   // cliente — eso lo sigue definiendo baseUsdPrice de arriba — es solo para que
@@ -215,9 +215,9 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
   }, [imagenesActuales.length, viendoSubItem]);
 
   const rarity = rarityMeta[(viendoSubItem ? viendoSubItem.rarityValue : meta.rarityValue).toLowerCase()] || defaultRarity;
-  const baseUsdPrice = entry.finalPrice / 100;
+  const baseUsdPrice = entry.kkUsdPrice ?? entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const regularLocalPrice = ((entry.regularPrice / 100) * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const regularLocalPrice = ((entry.kkRegularUsdPrice ?? entry.regularPrice / 100) * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const itemId = entry.offerId || encodeURIComponent(`${meta.name}-${baseUsdPrice}`);
   const itemPayload = { id: itemId, name: meta.name, price: baseUsdPrice, image_url: meta.displayImage, offer_id: entry.offerId || null, vbucks: entry.finalPrice };
 
@@ -347,7 +347,7 @@ export default function TiendaFortnite() {
   useEffect(() => {
     async function fetchShop() {
       try {
-        const response = await fetch('https://fortnite-api.com/v2/shop?language=es');
+        const response = await fetch('/api/tienda');
         const data = await response.json();
         if (data.status === 200 && data.data?.entries) {
           const groups: Record<string, any[]> = {};
