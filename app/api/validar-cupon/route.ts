@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { permitirPeticion, respuesta429 } from '../../../lib/rate-limit';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 
 // ============================================================================
@@ -11,6 +12,8 @@ import { supabaseAdmin } from '../../../lib/supabase-admin';
 // ============================================================================
 
 export async function POST(req: Request) {
+  if (!permitirPeticion(req, 'validar-cupon', 10)) return respuesta429();
+
   try {
     const { code, total } = await req.json();
 

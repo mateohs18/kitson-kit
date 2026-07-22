@@ -3,12 +3,15 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import sharp from 'sharp';
+import { permitirPeticion, respuesta429 } from '../../../lib/rate-limit';
 
 const TIPOS_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const TAMANO_MAXIMO = 5 * 1024 * 1024; // 5 MB (antes de comprimir)
 const ANCHO_MAXIMO = 1600; // Un comprobante no necesita más resolución que esto para leerse bien
 
 export async function POST(req: Request) {
+  if (!permitirPeticion(req, 'subir-comprobante', 6)) return respuesta429();
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Debes iniciar sesión para subir un comprobante.' }, { status: 401 });

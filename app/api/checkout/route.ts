@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { permitirPeticion, respuesta429 } from '../../../lib/rate-limit';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
@@ -127,6 +128,8 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
 
 // ---------- Handler ----------
 export async function POST(req: Request) {
+  if (!permitirPeticion(req, 'checkout', 5)) return respuesta429();
+
   try {
     const cuerpo = await req.json();
     const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode, refCode } = cuerpo;
