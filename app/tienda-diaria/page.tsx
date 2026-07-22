@@ -125,8 +125,6 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
   const colorRareza = rarityHex[rarityValue.toLowerCase()] || defaultRarityHex;
   const baseUsdPrice = entry.kkUsdPrice ?? entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const regularUsdPrice = entry.kkRegularUsdPrice ?? entry.regularPrice / 100;
-  const regularLocalPrice = (regularUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Precio real en pavos, tal como lo da la API (esto NO es lo que le cobrás al
   // cliente — eso lo sigue definiendo baseUsdPrice de arriba — es solo para que
   // vos como admin sepas cuántos pavos vale el objeto a la hora de entregarlo).
@@ -157,10 +155,14 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
         {/* Sombra inferior para que el nombre se lea, igual que en el juego */}
         <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[#0A0806]/95 via-[#0A0806]/40 to-transparent pointer-events-none"></div>
 
-        {/* Etiqueta de rareza / lote */}
-        <div className={`absolute top-0 left-0 z-10 flex items-center px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
-          <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
-        </div>
+        {/* Insignia de descuento en pavos (solo si Epic aplica descuento real) */}
+        {hasRealDiscount && (
+          <div className="absolute top-0 left-0 z-10 flex items-center gap-1 px-2.5 py-1.5 bg-[#E3A23D] border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://fortnite-api.com/images/vbuck.png" alt="" className="w-3.5 h-3.5" loading="lazy" />
+            <span className="font-display font-black text-[11px] text-[#0A0806]">-{(entry.regularPrice - entry.finalPrice).toLocaleString('en-US')}</span>
+          </div>
+        )}
 
         {/* Puntos del carrusel */}
         {carouselImages.length > 1 && (
@@ -201,9 +203,6 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-5 h-5 shrink-0" loading="lazy" />
           <span className="font-mono font-bold text-sm text-[#F5F1E6]">{vbucksPrice.toLocaleString('en-US')}</span>
-          {hasRealDiscount && (
-            <span className="text-[#5A554A] font-mono text-[11px] line-through" title={`Antes ${activeCurrency.symbol}${regularLocalPrice}`}>{entry.regularPrice.toLocaleString('en-US')}</span>
-          )}
         </div>
         <div className="text-right shrink-0">
           <span className={`text-[#E3A23D] font-mono font-semibold leading-none ${featured ? 'text-xl' : 'text-base'}`}>{activeCurrency.symbol}{localPrice}</span>
@@ -235,7 +234,6 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
   const rarity = rarityMeta[(viendoSubItem ? viendoSubItem.rarityValue : meta.rarityValue).toLowerCase()] || defaultRarity;
   const baseUsdPrice = entry.kkUsdPrice ?? entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const regularLocalPrice = ((entry.kkRegularUsdPrice ?? entry.regularPrice / 100) * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const itemId = entry.offerId || encodeURIComponent(`${meta.name}-${baseUsdPrice}`);
   const itemPayload = { id: itemId, name: meta.name, price: baseUsdPrice, image_url: meta.displayImage, offer_id: entry.offerId || null, vbucks: entry.finalPrice };
 
@@ -264,14 +262,22 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
                 <button onClick={() => { setSubIndex(null); setImgIndex(0); }} className="flex items-center gap-1 text-[#9A9384] hover:text-[#E3A23D] text-xs font-bold mb-3 w-fit">
                   <ChevronLeft size={14} /> Volver al lote
                 </button>
-                <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 ${rarity.className}`}>{viendoSubItem.typeLabel || rarity.label}</span>
+                {viendoSubItem.typeLabel && (
+                  <span className="inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 bg-[#1D1913] border border-[#0A0806] text-[#9A9384]">{viendoSubItem.typeLabel}</span>
+                )}
                 <h2 className="font-display font-extrabold uppercase tracking-wide text-2xl mb-3 leading-tight">{viendoSubItem.name}</h2>
                 {viendoSubItem.description && <p className="text-sm text-[#9A9384] leading-relaxed mb-4">{viendoSubItem.description}</p>}
                 <p className="text-xs text-[#9A9384] bg-[#14110C] border border-[#0A0806] rounded-xl p-3 mb-4">Este objeto es parte del lote — se compra junto con el resto, no por separado.</p>
               </>
             ) : (
               <>
-                <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 ${rarity.className}`}>{meta.isBundle ? 'Lote' : rarity.label}</span>
+                {meta.hasRealDiscount && (
+                  <span className="inline-flex items-center gap-1 w-fit px-2.5 py-1 rounded-lg mb-2 bg-[#E3A23D] border-2 border-[#0A0806]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="https://fortnite-api.com/images/vbuck.png" alt="" className="w-4 h-4" loading="lazy" />
+                    <span className="font-display font-black text-xs text-[#0A0806]">-{(entry.regularPrice - entry.finalPrice).toLocaleString('en-US')} de descuento</span>
+                  </span>
+                )}
                 <h2 className="font-display font-extrabold uppercase tracking-wide text-2xl md:text-3xl mb-3 leading-tight">{meta.name}</h2>
                 {meta.description && <p className="text-sm text-[#9A9384] leading-relaxed mb-4">{meta.description}</p>}
 
@@ -304,7 +310,6 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
                 </div>
               )}
               <div className="flex items-baseline gap-2 mb-1">
-                {meta.hasRealDiscount && <span className="text-[#5A554A] font-mono text-sm line-through">{activeCurrency.symbol}{regularLocalPrice}</span>}
                 <span className="text-[#E3A23D] font-mono font-bold text-3xl">{activeCurrency.symbol}{localPrice}</span>
                 <span className="text-[#9A9384] text-xs font-bold uppercase">{activeCurrency.currency}</span>
               </div>
@@ -312,9 +317,6 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-5 h-5" loading="lazy" />
                 <span className="font-mono font-bold text-sm text-[#F5F1E6]">{entry.finalPrice.toLocaleString('en-US')}</span>
-                {meta.hasRealDiscount && (
-                  <span className="text-[#5A554A] font-mono text-xs line-through">{entry.regularPrice.toLocaleString('en-US')}</span>
-                )}
                 <span className="text-[#9A9384] text-xs font-mono">pavos</span>
               </div>
               <button
