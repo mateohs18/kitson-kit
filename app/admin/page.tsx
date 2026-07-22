@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
-import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign, Gift, Ticket, TrendingUp } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign, Gift, Ticket, TrendingUp, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Producto { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
@@ -30,6 +30,9 @@ export default function AdminPanel() {
   const [procesandoCupon, setProcesandoCupon] = useState<string | null>(null);
   const [refCfg, setRefCfg] = useState<{ recompensaReferidor: string; recompensaReferido: string; compraMinima: string }>({ recompensaReferidor: '', recompensaReferido: '', compraMinima: '' });
   const [guardandoRef, setGuardandoRef] = useState(false);
+  const [bannerTexto, setBannerTexto] = useState('');
+  const [bannerLink, setBannerLink] = useState('');
+  const [guardandoBanner, setGuardandoBanner] = useState(false);
   const [marcandoAmistadEmail, setMarcandoAmistadEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -72,6 +75,7 @@ export default function AdminPanel() {
     fetchMargen();
     fetchCupones();
     fetchConfigReferidos();
+    fetchBanner();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
@@ -215,6 +219,28 @@ export default function AdminPanel() {
     if (!res.ok) alert('❌ ' + data.error);
     else alert(`✅ Margen actualizado: los ítems de la tienda diaria ahora se venden a costo + ${m}%.`);
     setGuardandoMargen(false);
+  }
+
+  async function fetchBanner() {
+    const res = await fetch('/api/banner');
+    if (res.ok) {
+      const d = await res.json();
+      setBannerTexto(d.texto || '');
+      setBannerLink(d.link || '');
+    }
+  }
+
+  async function guardarBanner() {
+    setGuardandoBanner(true);
+    const res = await fetch('/api/banner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto: bannerTexto, link: bannerLink }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert('❌ ' + data.error);
+    else alert(bannerTexto.trim() ? '✅ Barra de anuncios publicada en todo el sitio.' : '✅ Barra de anuncios oculta.');
+    setGuardandoBanner(false);
   }
 
   async function fetchConfigReferidos() {
@@ -502,6 +528,53 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* BARRA DE ANUNCIOS */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-2">
+            <Zap className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Barra de anuncios</h2>
+          </div>
+          <p className="text-[#9A9384] text-sm mb-6">El mensaje aparece en una barra dorada arriba de todo el sitio — ideal para promos ("🎁 Cupón BIENVENIDO10: 10% OFF en tu primera compra"). Dejalo vacío y guardá para ocultarla.</p>
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3 items-end">
+            <div>
+              <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Mensaje (máx. 140 caracteres)</label>
+              <input
+                type="text" maxLength={140} placeholder="🎁 Cupón BIENVENIDO10: 10% OFF en tu primera compra"
+                value={bannerTexto}
+                onChange={(e) => setBannerTexto(e.target.value)}
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E3A23D]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Link al hacer click <span className="font-normal">(opcional)</span></label>
+              <input
+                type="text" placeholder="/tienda-diaria"
+                value={bannerLink}
+                onChange={(e) => setBannerLink(e.target.value)}
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+              />
+            </div>
+            <button
+              onClick={guardarBanner}
+              disabled={guardandoBanner}
+              className="bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-6 py-2.5 rounded-lg font-display font-bold text-sm border-2 border-[#0A0806]"
+            >
+              {guardandoBanner ? '...' : 'Publicar'}
+            </button>
+          </div>
+          {bannerTexto.trim() && (
+            <div className="mt-5">
+              <p className="text-xs font-bold text-[#9A9384] mb-2">Vista previa:</p>
+              <div className="bg-[#E3A23D] border-2 border-[#0A0806] rounded-lg px-10 py-2.5 text-center relative">
+                <span className="font-bold text-xs md:text-sm text-[#0A0806] tracking-wide">
+                  {bannerTexto}{bannerLink.trim() && <span className="underline underline-offset-2 ml-1.5">Ver más →</span>}
+                </span>
+                <X size={14} strokeWidth={3} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#0A0806]" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* MARGEN TIENDA DIARIA */}

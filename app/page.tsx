@@ -193,6 +193,13 @@ export default function Home() {
               Tienda Diaria
             </Link>
           </div>
+
+          <div className="mt-8 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold text-[#9A9384] uppercase tracking-widest mr-1">Pagá con:</span>
+            {['Binance', 'Yape', 'Nequi', 'OXXO', 'Transferencia', 'Saldo Kitson'].map((m) => (
+              <span key={m} className="bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#D9D4C7]">{m}</span>
+            ))}
+          </div>
         </div>
 
         <div className="bg-[#4A93D6] border-[4px] border-[#0A0806] rounded-3xl p-6 relative overflow-hidden">
@@ -222,8 +229,36 @@ export default function Home() {
           </div>
         )}
         <div className="p-5 md:p-6">
-          <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">6</div>
-          <div className="text-xs text-[#9A9384] font-medium">Métodos de pago</div>
+          <div className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D]">24/7</div>
+          <div className="text-xs text-[#9A9384] font-medium">Bots de entrega activos</div>
+        </div>
+      </section>
+
+      <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-20 border-b-4 border-[#0A0806]">
+        <div className="text-center mb-12">
+          <span className="inline-block bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">PROCESO DE COMPRA</span>
+          <h2 className="font-display font-bold text-3xl md:text-4xl">¿Cómo <span className="text-[#E3A23D]">funciona?</span></h2>
+          <p className="text-[#9A9384] mt-3 max-w-2xl mx-auto">De la tienda a tu casillero de Fortnite en 4 pasos. Sin pedirte nunca tu contraseña.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            { n: '01', titulo: 'Agreganos en Fortnite', desc: 'Vinculá tu cuenta con tu nombre de Epic y agregá a nuestro bot como amigo. Solo tu nombre público — jamás tu contraseña.', extra: 'Vincular cuenta →', link: '/vincular-cuenta' },
+            { n: '02', titulo: 'Elegí tus artículos', desc: 'Skins de la tienda del día, packs de pavos, el Club de Fortnite o nuestras ofertas exclusivas. Precios claros en tu moneda.', extra: null, link: null },
+            { n: '03', titulo: 'Pagá como quieras', desc: 'Saldo Kitson para entrega automática al instante, o transferencia local (Binance, Yape, Nequi, OXXO) con verificación en horas.', extra: null, link: null },
+            { n: '04', titulo: 'Recibí tu regalo', desc: 'Nuestro bot te lo envía dentro del juego. Si es tu primera compra, Epic exige 48hs de amistad — después, todo llega en minutos.', extra: null, link: null },
+          ].map((paso, i) => (
+            <div key={paso.n} className="kk-panel rounded-2xl p-6 relative">
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-mono font-bold text-3xl text-[#E3A23D]">{paso.n}</span>
+                {i === 3 && <span className="bg-[#7BC77E]/15 text-[#7BC77E] text-[10px] font-black px-2.5 py-1 rounded-full border border-[#7BC77E]/30">¡GG!</span>}
+              </div>
+              <h3 className="font-display font-bold text-lg mb-2 leading-snug">{paso.titulo}</h3>
+              <p className="text-sm text-[#9A9384] leading-relaxed">{paso.desc}</p>
+              {paso.extra && paso.link && (
+                <Link href={paso.link} className="inline-block mt-3 text-sm font-bold text-[#4A93D6] hover:underline underline-offset-2">{paso.extra}</Link>
+              )}
+            </div>
+          ))}
         </div>
       </section>
 

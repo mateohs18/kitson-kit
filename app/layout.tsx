@@ -4,6 +4,7 @@ import "./globals.css";
 import AuthProvider from "../components/AuthProvider";
 import StructuredData from "../components/StructuredData";
 import RefCatcher from "../components/RefCatcher";
+import AnnouncementBar from "../components/AnnouncementBar";
 
 const baloo = Baloo_2({
   subsets: ["latin"],
@@ -71,6 +72,7 @@ export default function RootLayout({
         <StructuredData />
         <RefCatcher />
         <AuthProvider>
+          <AnnouncementBar />
           {children}
         </AuthProvider>
       </body>
