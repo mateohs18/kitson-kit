@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
-import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign, Gift } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign, Gift, Ticket, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Producto { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
@@ -17,6 +17,17 @@ export default function AdminPanel() {
   const [solicitudesAmistad, setSolicitudesAmistad] = useState<any[]>([]);
   const [tasas, setTasas] = useState<{ MX: string; CO: string; PE: string }>({ MX: '', CO: '', PE: '' });
   const [guardandoTasa, setGuardandoTasa] = useState<string | null>(null);
+  const [margenTienda, setMargenTienda] = useState('');
+  const [guardandoMargen, setGuardandoMargen] = useState(false);
+  const [cupones, setCupones] = useState<any[]>([]);
+  const [cCodigo, setCCodigo] = useState('');
+  const [cTipo, setCTipo] = useState<'porcentaje' | 'fijo'>('porcentaje');
+  const [cValor, setCValor] = useState('');
+  const [cUsosMax, setCUsosMax] = useState('');
+  const [cMinTotal, setCMinTotal] = useState('');
+  const [cExpira, setCExpira] = useState('');
+  const [guardandoCupon, setGuardandoCupon] = useState(false);
+  const [procesandoCupon, setProcesandoCupon] = useState<string | null>(null);
   const [marcandoAmistadEmail, setMarcandoAmistadEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -56,6 +67,8 @@ export default function AdminPanel() {
     fetchResenas();
     fetchSolicitudesAmistad();
     fetchTasas();
+    fetchMargen();
+    fetchCupones();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
@@ -176,6 +189,88 @@ export default function AdminPanel() {
     const data = await res.json();
     if (!res.ok) alert('❌ ' + data.error);
     setGuardandoTasa(null);
+  }
+
+  async function fetchMargen() {
+    const res = await fetch('/api/actualizar-margen');
+    if (res.ok) {
+      const data = await res.json();
+      setMargenTienda(String(data.margen ?? 0));
+    }
+  }
+
+  async function guardarMargen() {
+    const m = Number(margenTienda);
+    if (!Number.isFinite(m) || m < 0 || m > 500) return alert('Ingresá un margen entre 0 y 500 (%).');
+    setGuardandoMargen(true);
+    const res = await fetch('/api/actualizar-margen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ margen: m }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert('❌ ' + data.error);
+    else alert(`✅ Margen actualizado: los ítems de la tienda diaria ahora se venden a costo + ${m}%.`);
+    setGuardandoMargen(false);
+  }
+
+  async function fetchCupones() {
+    const res = await fetch('/api/gestionar-cupon');
+    if (res.ok) {
+      const data = await res.json();
+      setCupones(data.cupones || []);
+    }
+  }
+
+  async function guardarCupon() {
+    if (!cCodigo.trim() || cCodigo.trim().length < 3) return alert('El código necesita al menos 3 caracteres.');
+    const v = Number(cValor);
+    if (!Number.isFinite(v) || v <= 0 || (cTipo === 'porcentaje' && v > 100)) {
+      return alert(cTipo === 'porcentaje' ? 'El porcentaje debe ser entre 1 y 100.' : 'El monto debe ser mayor a 0.');
+    }
+    setGuardandoCupon(true);
+    const res = await fetch('/api/gestionar-cupon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: cCodigo.trim(),
+        tipo: cTipo,
+        valor: v,
+        usos_maximos: cUsosMax.trim() ? Number(cUsosMax) : null,
+        min_total: cMinTotal.trim() ? Number(cMinTotal) : 0,
+        expira_at: cExpira ? new Date(cExpira).toISOString() : null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert('❌ ' + data.error);
+    else {
+      setCCodigo(''); setCValor(''); setCUsosMax(''); setCMinTotal(''); setCExpira('');
+      fetchCupones();
+    }
+    setGuardandoCupon(false);
+  }
+
+  async function alternarCupon(cupon: any) {
+    setProcesandoCupon(cupon.code);
+    await fetch('/api/gestionar-cupon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...cupon, activo: !cupon.activo }),
+    });
+    await fetchCupones();
+    setProcesandoCupon(null);
+  }
+
+  async function borrarCupon(code: string) {
+    if (!confirm(`¿Eliminar el cupón ${code}? Esta acción no se puede deshacer.`)) return;
+    setProcesandoCupon(code);
+    await fetch('/api/gestionar-cupon', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    await fetchCupones();
+    setProcesandoCupon(null);
   }
 
   async function fetchSolicitudesAmistad() {
@@ -372,6 +467,33 @@ export default function AdminPanel() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* MARGEN TIENDA DIARIA */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-2">
+            <TrendingUp className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Margen de la tienda diaria</h2>
+          </div>
+          <p className="text-[#9A9384] text-sm mb-6">Cuánto cobrás por encima del costo (pavos ÷ 100) en los ítems de la Tienda Diaria de Fortnite. Con 0% vendés a costo; con 15%, un ítem de $10 se vende a $11.50. Se aplica al instante en la tienda y en el checkout, sin redesplegar.</p>
+          <div className="flex gap-2 max-w-sm">
+            <div className="relative flex-1">
+              <input
+                type="number" step="1" min="0" max="500" placeholder="0"
+                value={margenTienda}
+                onChange={(e) => setMargenTienda(e.target.value)}
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D] pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9A9384] text-sm font-bold">%</span>
+            </div>
+            <button
+              onClick={guardarMargen}
+              disabled={guardandoMargen}
+              className="bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-4 rounded-lg font-display font-bold text-xs border-2 border-[#0A0806]"
+            >
+              {guardandoMargen ? '...' : 'Guardar'}
+            </button>
           </div>
         </div>
 
@@ -578,6 +700,112 @@ export default function AdminPanel() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* CUPONES DE DESCUENTO */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-2">
+            <Ticket className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Cupones de descuento</h2>
+            <span className="text-[#9A9384] text-sm font-medium">({cupones.length})</span>
+          </div>
+          <p className="text-[#9A9384] text-sm mb-6">Creá códigos para promos en Discord, TikTok o para recuperar clientes. El límite de usos se respeta aunque haya compras simultáneas.</p>
+
+          {/* Formulario de creación */}
+          <div className="bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-5 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Código</label>
+                <input type="text" placeholder="BIENVENIDO10" value={cCodigo}
+                  onChange={(e) => setCCodigo(e.target.value.toUpperCase())}
+                  className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:border-[#E3A23D]" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Tipo de descuento</label>
+                <div className="flex gap-1.5 bg-[#1D1913] p-1 rounded-lg border-2 border-[#0A0806]">
+                  <button onClick={() => setCTipo('porcentaje')} className={`flex-1 py-1.5 rounded-md text-xs font-black transition ${cTipo === 'porcentaje' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}>Porcentaje %</button>
+                  <button onClick={() => setCTipo('fijo')} className={`flex-1 py-1.5 rounded-md text-xs font-black transition ${cTipo === 'fijo' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}>Monto USD</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9A9384] mb-1.5">{cTipo === 'porcentaje' ? 'Descuento (%)' : 'Descuento (USD)'}</label>
+                <input type="number" step="0.01" placeholder={cTipo === 'porcentaje' ? '10' : '2.00'} value={cValor}
+                  onChange={(e) => setCValor(e.target.value)}
+                  className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Límite de usos <span className="font-normal">(vacío = ilimitado)</span></label>
+                <input type="number" step="1" min="1" placeholder="100" value={cUsosMax}
+                  onChange={(e) => setCUsosMax(e.target.value)}
+                  className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Compra mínima USD <span className="font-normal">(vacío = sin mínimo)</span></label>
+                <input type="number" step="0.01" min="0" placeholder="5.00" value={cMinTotal}
+                  onChange={(e) => setCMinTotal(e.target.value)}
+                  className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Vence el <span className="font-normal">(vacío = no vence)</span></label>
+                <input type="date" value={cExpira}
+                  onChange={(e) => setCExpira(e.target.value)}
+                  className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]" />
+              </div>
+            </div>
+            <button
+              onClick={guardarCupon}
+              disabled={guardandoCupon}
+              className="mt-4 bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-6 py-2.5 rounded-lg font-display font-bold text-sm border-2 border-[#0A0806] flex items-center gap-2"
+            >
+              <Plus size={16} /> {guardandoCupon ? 'Guardando...' : 'Crear cupón'}
+            </button>
+          </div>
+
+          {/* Lista de cupones */}
+          {cupones.length === 0 ? (
+            <p className="text-[#9A9384] text-sm">Todavía no creaste ningún cupón.</p>
+          ) : (
+            <div className="space-y-3">
+              {cupones.map((c) => {
+                const vencido = c.expira_at && new Date(c.expira_at) < new Date();
+                const agotado = c.usos_maximos !== null && c.usos >= c.usos_maximos;
+                return (
+                  <div key={c.code} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-mono font-bold text-[#E3A23D]">{c.code}</p>
+                        {!c.activo && <span className="bg-red-500/20 text-red-400 text-[10px] font-black px-2 py-0.5 rounded-full">DESACTIVADO</span>}
+                        {vencido && <span className="bg-[#9A9384]/20 text-[#9A9384] text-[10px] font-black px-2 py-0.5 rounded-full">VENCIDO</span>}
+                        {agotado && <span className="bg-[#9A9384]/20 text-[#9A9384] text-[10px] font-black px-2 py-0.5 rounded-full">AGOTADO</span>}
+                      </div>
+                      <p className="text-sm text-[#9A9384] mt-1">
+                        {c.tipo === 'porcentaje' ? `${c.valor}% de descuento` : `$${Number(c.valor).toFixed(2)} USD de descuento`}
+                        {Number(c.min_total) > 0 && ` · mínimo $${Number(c.min_total).toFixed(2)}`}
+                        {' · '}usos: {c.usos}{c.usos_maximos !== null ? ` / ${c.usos_maximos}` : ' (ilimitado)'}
+                        {c.expira_at && ` · vence ${new Date(c.expira_at).toLocaleDateString('es-AR')}`}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => alternarCupon(c)}
+                        disabled={procesandoCupon === c.code}
+                        className={`px-4 py-2 rounded-lg font-display font-bold text-xs border-2 border-[#0A0806] transition disabled:opacity-40 ${c.activo ? 'bg-[#1D1913] text-[#9A9384] hover:text-[#F5F1E6]' : 'bg-[#7BC77E] text-[#0A0806] hover:opacity-90'}`}
+                      >
+                        {procesandoCupon === c.code ? '...' : c.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        onClick={() => borrarCupon(c.code)}
+                        disabled={procesandoCupon === c.code}
+                        className="bg-red-500/20 hover:bg-red-500/30 disabled:opacity-40 text-red-400 px-3 py-2 rounded-lg border-2 border-[#0A0806]"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
