@@ -5,6 +5,7 @@ import AuthProvider from "../components/AuthProvider";
 import StructuredData from "../components/StructuredData";
 import RefCatcher from "../components/RefCatcher";
 import AnnouncementBar from "../components/AnnouncementBar";
+import FloatingSupport from "../components/FloatingSupport";
 
 const baloo = Baloo_2({
   subsets: ["latin"],
@@ -74,6 +75,7 @@ export default function RootLayout({
         <AuthProvider>
           <AnnouncementBar />
           {children}
+          <FloatingSupport />
         </AuthProvider>
       </body>
     </html>

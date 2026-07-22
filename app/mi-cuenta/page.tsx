@@ -52,13 +52,23 @@ export default function MiCuenta() {
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState<{ balance: number; epicId: string; friendRequestedAt: string | null; pedidosEntregados: number; nivel: { nombre: string; siguiente: string | null; faltan: number } } | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'activos' | 'historial'>('activos');
+  const [activeTab, setActiveTab] = useState<'activos' | 'historial' | 'movimientos'>('activos');
   const [now, setNow] = useState(Date.now());
   const [editingEpicId, setEditingEpicId] = useState(false);
   const [epicIdInput, setEpicIdInput] = useState('');
   const [savingEpicId, setSavingEpicId] = useState(false);
   const [refInfo, setRefInfo] = useState<{ link: string; recompensaReferidor: number; recompensaReferido: number; compraMinima: number } | null>(null);
   const [refCopiado, setRefCopiado] = useState(false);
+  const [movimientos, setMovimientos] = useState<any[]>([]);
+  const [movimientosCargados, setMovimientosCargados] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'movimientos' || movimientosCargados) return;
+    fetch('/api/mis-movimientos')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.movimientos) { setMovimientos(d.movimientos); setMovimientosCargados(true); } })
+      .catch(() => {});
+  }, [activeTab, movimientosCargados]);
 
   useEffect(() => {
     fetch('/api/mi-codigo-referido')
@@ -198,7 +208,7 @@ export default function MiCuenta() {
         imageUrl = uploadData.url;
       }
 
-      const { error } = await supabase.from('reviews').insert([{ user_name: session?.user?.name || 'Gamer', rating, comment, image_url: imageUrl }]);
+      const { error } = await supabase.from('reviews').insert([{ user_name: session?.user?.name || 'Gamer', rating, comment, image_url: imageUrl, verified: true, order_id: reviewOrder?.id || null }]);
       if (!error) {
         setReviewSuccess(true);
         setTimeout(() => {
@@ -410,6 +420,9 @@ export default function MiCuenta() {
             <button onClick={() => setActiveTab('historial')} className={`px-5 py-2 rounded-lg text-sm font-black transition-all ${activeTab === 'historial' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}>
               Historial
             </button>
+            <button onClick={() => setActiveTab('movimientos')} className={`px-5 py-2 rounded-lg text-sm font-black transition-all ${activeTab === 'movimientos' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}>
+              Movimientos
+            </button>
           </div>
 
           {activeTab === 'activos' ? (
@@ -446,16 +459,21 @@ export default function MiCuenta() {
                         <p className="font-bold text-[#F5F1E6]">{itemsSummary(order.items)}</p>
                         <p className="font-mono text-sm text-[#E3A23D]">${Number(order.total_price).toFixed(2)} USD</p>
                       </div>
-                      <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold max-w-sm" style={{ backgroundColor: `${estado.color}18`, color: estado.color }}>
-                        {estado.icon}
-                        <span>{estado.texto}</span>
+                      <div className="flex flex-col sm:items-end gap-2">
+                        <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold max-w-sm" style={{ backgroundColor: `${estado.color}18`, color: estado.color }}>
+                          {estado.icon}
+                          <span>{estado.texto}</span>
+                        </div>
+                        <Link href={`/pedido/${order.id}`} className="text-[#7BC77E] hover:underline text-xs font-bold flex items-center gap-1 w-fit">
+                          <Package size={12} /> Ver seguimiento en vivo →
+                        </Link>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )
-          ) : (
+          ) : activeTab === 'historial' ? (
             orders.length === 0 ? (
               <div className="kk-panel p-10 rounded-3xl text-center">
                 <p className="text-[#D9D4C7] font-bold">Todavía no hiciste ninguna compra.</p>
@@ -472,6 +490,9 @@ export default function MiCuenta() {
                         <span className="text-[#E3A23D] font-semibold w-20 shrink-0">${Number(order.total_price).toFixed(2)}</span>
                         <span className={`text-xs font-bold w-24 shrink-0 ${isDelivered ? 'text-[#7BC77E]' : 'text-[#E3A23D]'}`}>{order.status}</span>
                         <div className="flex gap-3 shrink-0">
+                          <Link href={`/pedido/${order.id}`} className="text-[#7BC77E] hover:underline text-xs font-bold flex items-center gap-1">
+                            <Package size={12} /> Seguir pedido
+                          </Link>
                           <button onClick={() => volverAComprar(order.items)} className="text-[#4A93D6] hover:underline text-xs font-bold flex items-center gap-1">
                             <ShoppingCart size={12} /> Volver a comprar
                           </button>
@@ -484,6 +505,28 @@ export default function MiCuenta() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )
+          ) : (
+            movimientos.length === 0 ? (
+              <div className="kk-panel p-10 rounded-3xl text-center">
+                <Wallet size={36} className="mx-auto text-[#E3A23D] mb-3" />
+                <p className="text-[#D9D4C7] font-bold">Todavía no hay movimientos en tu billetera.</p>
+                <p className="text-[#9A9384] text-sm mt-1">Acá vas a ver cada recarga, compra, reembolso y recompensa, con fecha y monto.</p>
+              </div>
+            ) : (
+              <div className="kk-panel rounded-2xl overflow-hidden font-mono">
+                <div className="divide-y divide-white/5">
+                  {movimientos.map((mov) => (
+                    <div key={mov.id} className="p-4 flex items-center gap-4 text-sm hover:bg-white/5">
+                      <span className="text-[#5A554A] text-xs w-24 shrink-0">{new Date(mov.created_at).toLocaleDateString('es-ES')}</span>
+                      <span className="flex-1 text-[#D9D4C7]">{mov.concepto}</span>
+                      <span className={`font-semibold shrink-0 ${Number(mov.monto) >= 0 ? 'text-[#7BC77E]' : 'text-red-400'}`}>
+                        {Number(mov.monto) >= 0 ? '+' : ''}{Number(mov.monto).toFixed(2)} USD
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )

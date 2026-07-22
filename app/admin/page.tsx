@@ -33,6 +33,9 @@ export default function AdminPanel() {
   const [bannerTexto, setBannerTexto] = useState('');
   const [bannerLink, setBannerLink] = useState('');
   const [guardandoBanner, setGuardandoBanner] = useState(false);
+  const [soporteWhatsapp, setSoporteWhatsapp] = useState('');
+  const [soporteDiscord, setSoporteDiscord] = useState('');
+  const [guardandoSoporte, setGuardandoSoporte] = useState(false);
   const [marcandoAmistadEmail, setMarcandoAmistadEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,6 +79,7 @@ export default function AdminPanel() {
     fetchCupones();
     fetchConfigReferidos();
     fetchBanner();
+    fetchSoporte();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
@@ -135,7 +139,7 @@ export default function AdminPanel() {
     const res = await fetch('/api/agregar-saldo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailSaldo, montoSaldo }),
+      body: JSON.stringify({ email: emailSaldo, monto: montoSaldo }),
     });
     const data = await res.json();
 
@@ -228,6 +232,28 @@ export default function AdminPanel() {
       setBannerTexto(d.texto || '');
       setBannerLink(d.link || '');
     }
+  }
+
+  async function fetchSoporte() {
+    const res = await fetch('/api/soporte');
+    if (res.ok) {
+      const d = await res.json();
+      setSoporteWhatsapp(d.whatsapp || '');
+      setSoporteDiscord(d.discord || '');
+    }
+  }
+
+  async function guardarSoporte() {
+    setGuardandoSoporte(true);
+    const res = await fetch('/api/soporte', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whatsapp: soporteWhatsapp, discord: soporteDiscord }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert('❌ ' + data.error);
+    else alert('✅ Botones de soporte actualizados en todo el sitio.');
+    setGuardandoSoporte(false);
   }
 
   async function guardarBanner() {
@@ -465,6 +491,49 @@ export default function AdminPanel() {
           </div>
         </div>
 
+        {/* DASHBOARD DE MÉTRICAS */}
+        {(() => {
+          const ahora = Date.now();
+          const dia = 24 * 60 * 60 * 1000;
+          const entregadas = orders.filter((o) => String(o.status || '').toUpperCase().includes('ENTREGAD'));
+          const enRango = (lista: any[], dias: number) => lista.filter((o) => ahora - new Date(o.created_at).getTime() < dias * dia);
+          const suma = (lista: any[]) => lista.reduce((acc, o) => acc + Number(o.total_price || 0), 0);
+
+          const ventasHoy = suma(enRango(entregadas, 1));
+          const ventas7 = suma(enRango(entregadas, 7));
+          const ventas30 = suma(enRango(entregadas, 30));
+          const pedidosHoy = enRango(orders, 1).length;
+          const entregadas30 = enRango(entregadas, 30);
+          const ticketPromedio = entregadas30.length > 0 ? suma(entregadas30) / entregadas30.length : 0;
+          const conCupon = enRango(orders, 30).filter((o) => o.coupon_code);
+          const topCupon = (() => {
+            const conteo: Record<string, number> = {};
+            conCupon.forEach((o) => { conteo[o.coupon_code] = (conteo[o.coupon_code] || 0) + 1; });
+            const top = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0];
+            return top ? `${top[0]} (${top[1]})` : '—';
+          })();
+
+          const tarjetas = [
+            { label: 'Ventas hoy', valor: `$${ventasHoy.toFixed(2)}`, sub: `${pedidosHoy} pedido${pedidosHoy === 1 ? '' : 's'} nuevo${pedidosHoy === 1 ? '' : 's'}` },
+            { label: 'Últimos 7 días', valor: `$${ventas7.toFixed(2)}`, sub: 'solo entregados' },
+            { label: 'Últimos 30 días', valor: `$${ventas30.toFixed(2)}`, sub: `${entregadas30.length} entregas` },
+            { label: 'Ticket promedio', valor: `$${ticketPromedio.toFixed(2)}`, sub: 'últimos 30 días' },
+            { label: 'Cupón más usado', valor: topCupon, sub: 'últimos 30 días' },
+          ];
+
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {tarjetas.map((t) => (
+                <div key={t.label} className="kk-panel rounded-2xl p-5">
+                  <p className="text-[10px] font-bold text-[#9A9384] uppercase tracking-widest mb-1.5">{t.label}</p>
+                  <p className="font-mono font-semibold text-xl md:text-2xl text-[#E3A23D] truncate" title={t.valor}>{t.valor}</p>
+                  <p className="text-[11px] text-[#5A554A] font-medium mt-1">{t.sub}</p>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* GESTOR DE BILLETERA */}
         <div className="kk-panel p-8 rounded-2xl">
           <div className="flex items-center gap-3 mb-6">
@@ -575,6 +644,42 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* BOTONES DE SOPORTE FLOTANTES */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-2">
+            <UserPlus className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Botones de soporte</h2>
+          </div>
+          <p className="text-[#9A9384] text-sm mb-6">Un botón flotante de chat abajo a la derecha en todo el sitio, con tus links de WhatsApp y Discord. Dejá un campo vacío para ocultar ese botón (los dos vacíos = sin botón flotante).</p>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+            <div>
+              <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Link de WhatsApp</label>
+              <input
+                type="text" placeholder="https://wa.me/5491122334455"
+                value={soporteWhatsapp}
+                onChange={(e) => setSoporteWhatsapp(e.target.value)}
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[#9A9384] mb-1.5">Link de invitación a Discord</label>
+              <input
+                type="text" placeholder="https://discord.gg/tuserver"
+                value={soporteDiscord}
+                onChange={(e) => setSoporteDiscord(e.target.value)}
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+              />
+            </div>
+            <button
+              onClick={guardarSoporte}
+              disabled={guardandoSoporte}
+              className="bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-6 py-2.5 rounded-lg font-display font-bold text-sm border-2 border-[#0A0806]"
+            >
+              {guardandoSoporte ? '...' : 'Guardar'}
+            </button>
+          </div>
         </div>
 
         {/* MARGEN TIENDA DIARIA */}

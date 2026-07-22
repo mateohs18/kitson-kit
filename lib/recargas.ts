@@ -29,6 +29,8 @@ export async function aprobarRecarga(recargaId: string): Promise<{ ok: boolean; 
     await supabaseAdmin.from('profiles').insert([{ email: recarga.user_email, name: recarga.user_name, balance: nuevoSaldo }]);
   }
 
+  await supabaseAdmin.from('movimientos').insert([{ email: recarga.user_email, concepto: 'Recarga de saldo aprobada', monto: Number(recarga.amount) }]);
+
   await supabaseAdmin.from('recargas').update({ status: 'APROBADA' }).eq('id', recargaId);
 
   return { ok: true, email: recarga.user_email, nuevoSaldo };
