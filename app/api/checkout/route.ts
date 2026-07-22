@@ -128,7 +128,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
 export async function POST(req: Request) {
   try {
     const cuerpo = await req.json();
-    const { email, userName, cart, gamerId, paymentMethod, receiptUrl } = cuerpo;
+    const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode } = cuerpo;
 
     // Validaciones de entrada
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -164,6 +164,34 @@ export async function POST(req: Request) {
       );
     }
 
+    // 1b. CUPÓN (canje atómico: valida y consume el uso en una sola operación)
+    let descuento = 0;
+    let cuponAplicado: string | null = null;
+    if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
+      const { data: desc, error: cuponError } = await supabaseAdmin.rpc('canjear_cupon', {
+        p_code: couponCode.trim().toUpperCase(),
+        p_total: totalVerificado,
+      });
+      if (cuponError) {
+        const msg = cuponError.message || '';
+        const mensajes: Record<string, string> = {
+          CUPON_NO_EXISTE: 'Ese cupón no existe.',
+          CUPON_INACTIVO: 'Ese cupón ya no está activo.',
+          CUPON_VENCIDO: 'Ese cupón ya venció.',
+          CUPON_AGOTADO: 'Ese cupón ya alcanzó su límite de usos.',
+        };
+        const clave = Object.keys(mensajes).find((k) => msg.includes(k));
+        return NextResponse.json(
+          { error: clave ? mensajes[clave] : msg.includes('CUPON_MINIMO') ? 'Ese cupón requiere una compra mínima mayor.' : 'Cupón inválido.' },
+          { status: 400 }
+        );
+      }
+      descuento = Number(desc) || 0;
+      cuponAplicado = couponCode.trim().toUpperCase();
+    }
+
+    const totalFinal = Number(Math.max(totalVerificado - descuento, 0).toFixed(2));
+
     // 2. DESCONTAR SALDO (atómico, sin condición de carrera)
     let nuevoSaldo = 0;
     let emailAutenticado: string | null = null;
@@ -177,10 +205,11 @@ export async function POST(req: Request) {
 
       const { data: saldoResultado, error: saldoError } = await supabaseAdmin.rpc('descontar_saldo', {
         p_email: emailAutenticado,
-        p_monto: totalVerificado,
+        p_monto: totalFinal,
       });
 
       if (saldoError) {
+        if (cuponAplicado) await supabaseAdmin.rpc('liberar_cupon', { p_code: cuponAplicado });
         const msg = saldoError.message || '';
         if (msg.includes('SALDO_INSUFICIENTE')) {
           return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 });
@@ -211,7 +240,9 @@ export async function POST(req: Request) {
           user_name: (userName || 'Usuario').toString().slice(0, 100),
           gamer_id: gamerId.trim().slice(0, 100),
           items: itemsParaOrden,
-          total_price: totalVerificado,
+          total_price: totalFinal,
+          coupon_code: cuponAplicado,
+          discount: descuento,
           status: 'PENDIENTE',
         },
       ])
@@ -223,9 +254,10 @@ export async function POST(req: Request) {
       if (paymentMethod === 'saldo' && emailAutenticado) {
         await supabaseAdmin.rpc('devolver_saldo', {
           p_email: emailAutenticado,
-          p_monto: totalVerificado,
+          p_monto: totalFinal,
         });
       }
+      if (cuponAplicado) await supabaseAdmin.rpc('liberar_cupon', { p_code: cuponAplicado });
       return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
@@ -235,7 +267,7 @@ export async function POST(req: Request) {
       user_email: email.trim(),
       user_name: userName || 'Usuario',
       items: itemsParaOrden,
-      total_price: totalVerificado,
+      total_price: totalFinal,
       paymentMethod,
     }).catch(() => {});
 
@@ -264,7 +296,7 @@ export async function POST(req: Request) {
             embeds: [
               {
                 title: paymentMethod === 'saldo' ? '✅ Nueva Orden (Pagada)' : '⏳ Verificar Transferencia',
-                description: `Se ha procesado una compra.\n**Método:** ${metodoTexto}\n**Total verificado:** $${totalVerificado.toFixed(2)} USD${urlComprobante}`,
+                description: `Se ha procesado una compra.\n**Método:** ${metodoTexto}\n**Total verificado:** $${totalFinal.toFixed(2)} USD${cuponAplicado ? ` (cupón ${cuponAplicado}: -$${descuento.toFixed(2)})` : ''}${urlComprobante}`,
                 color: paymentMethod === 'saldo' ? 5763719 : 16766720,
                 fields: [
                   { name: '👤 Cliente', value: `\`${email}\``, inline: true },
@@ -346,7 +378,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id, totalVerificado });
+    return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id, totalVerificado: totalFinal, descuento });
   } catch (error) {
     console.error('Error en checkout:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });

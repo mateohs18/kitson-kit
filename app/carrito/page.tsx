@@ -26,6 +26,10 @@ export default function CartPage() {
   const [processingFile, setProcessingFile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [coupon, setCoupon] = useState<{ code: string; descuento: number; mensaje: string } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [balance, setBalance] = useState<number>(0);
@@ -52,11 +56,44 @@ export default function CartPage() {
   const gamerIdTrimmed = gamerId.trim();
   const gamerIdValid = gamerIdTrimmed.length >= 3 && !/\s/.test(gamerIdTrimmed);
 
-  const paymentReady = paymentMethod === 'saldo' ? balance >= totalPrice() && totalPrice() > 0 : !!receiptFile;
+  // Si cambia el carrito, el descuento calculado queda viejo: lo limpiamos
+  // para que el cliente vuelva a aplicar el cupón sobre el total nuevo.
+  useEffect(() => {
+    setCoupon(null);
+    setCouponError(null);
+  }, [cart]);
+
+  const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
+
+  const aplicarCupon = async () => {
+    if (!couponInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError(null);
+    try {
+      const res = await fetch('/api/validar-cupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), total: totalPrice() }),
+      });
+      const data = await res.json();
+      if (data.valido) {
+        setCoupon({ code: data.code, descuento: data.descuento, mensaje: data.mensaje });
+      } else {
+        setCoupon(null);
+        setCouponError(data.mensaje || 'Cupón inválido.');
+      }
+    } catch {
+      setCouponError('No se pudo validar el cupón. Probá de nuevo.');
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const paymentReady = paymentMethod === 'saldo' ? balance >= totalConDescuento && totalConDescuento > 0 : !!receiptFile;
 
   const currentStep = !gamerIdValid ? 1 : !paymentReady ? 2 : 3;
 
-  const convertedTotal = (totalPrice() * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const convertedTotal = (totalConDescuento * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -69,7 +106,7 @@ export default function CartPage() {
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     if (!gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
-    if (paymentMethod === 'saldo' && balance < totalPrice()) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
+    if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
 
     setIsProcessing(true);
 
@@ -102,7 +139,8 @@ export default function CartPage() {
           userName: session.user.name || 'Usuario',
           cart: cart,
           gamerId: gamerId.trim(),
-          totalPrice: totalPrice(),
+          totalPrice: totalConDescuento,
+          couponCode: coupon?.code || null,
           paymentMethod: paymentMethod,
           receiptUrl: finalReceiptUrl
         })
@@ -273,8 +311,30 @@ export default function CartPage() {
                     <button onClick={() => setPaymentMethod('manual')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${paymentMethod === 'manual' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Transferencia</button>
                   </div>
 
+                  <div className="mb-4">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
+                        placeholder="¿Tenés un cupón?"
+                        className="flex-1 bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-4 py-2.5 text-sm font-mono text-[#F5F1E6] placeholder-[#9A9384] focus:outline-none focus:border-[#E3A23D] uppercase"
+                      />
+                      {coupon ? (
+                        <button onClick={() => { setCoupon(null); setCouponInput(''); }} className="px-4 py-2.5 rounded-xl text-sm font-black bg-red-500/20 text-red-400 border-2 border-[#0A0806] hover:bg-red-500/30 transition">Quitar</button>
+                      ) : (
+                        <button onClick={aplicarCupon} disabled={validatingCoupon || !couponInput.trim()} className="px-4 py-2.5 rounded-xl text-sm font-black bg-[#E3A23D] text-[#0A0806] border-2 border-[#0A0806] disabled:opacity-50 hover:opacity-90 transition">{validatingCoupon ? '...' : 'Aplicar'}</button>
+                      )}
+                    </div>
+                    {coupon && <p className="text-[#7BC77E] text-xs font-bold mt-2">✓ {coupon.mensaje}</p>}
+                    {couponError && <p className="text-red-400 text-xs font-bold mt-2">{couponError}</p>}
+                  </div>
+
                   <div className="space-y-3 mb-6 bg-[#14110C] p-5 rounded-2xl border-2 border-[#0A0806]">
                     <div className="flex justify-between text-[#9A9384] text-sm font-medium"><span>Total USD</span><span>${totalPrice().toFixed(2)}</span></div>
+                    {coupon && (
+                      <div className="flex justify-between text-[#7BC77E] text-sm font-bold"><span>Cupón {coupon.code}</span><span>-${coupon.descuento.toFixed(2)}</span></div>
+                    )}
                     <div className="flex justify-between items-end pt-3 border-t border-white/10">
                       <span className="text-[#D9D4C7] font-bold">Total a pagar</span>
                       <div className="text-right">
@@ -289,7 +349,7 @@ export default function CartPage() {
                       <div className="bg-[#4A93D6]/20 p-3 rounded-full text-[#4A93D6]"><Wallet size={24}/></div>
                       <div>
                         <p className="text-sm text-[#9A9384]">Tu saldo disponible:</p>
-                        <p className={`font-mono font-semibold text-xl ${balance >= totalPrice() ? 'text-[#7BC77E]' : 'text-red-400'}`}>${balance.toFixed(2)} USD</p>
+                        <p className={`font-mono font-semibold text-xl ${balance >= totalConDescuento ? 'text-[#7BC77E]' : 'text-red-400'}`}>${balance.toFixed(2)} USD</p>
                       </div>
                     </div>
                   ) : (
