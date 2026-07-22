@@ -37,6 +37,14 @@ export default function CartPage() {
 
   useEffect(() => setMounted(true), []);
 
+  // Si cambia el carrito, el descuento calculado queda viejo: lo limpiamos
+  // para que el cliente vuelva a aplicar el cupón sobre el total nuevo.
+  // (IMPORTANTE: los hooks siempre van antes de cualquier "return" condicional.)
+  useEffect(() => {
+    setCoupon(null);
+    setCouponError(null);
+  }, [cart]);
+
   useEffect(() => {
     async function checkBalance() {
       if (session?.user?.email) {
@@ -55,13 +63,6 @@ export default function CartPage() {
   // Validación simple de formato: Epic Games no permite espacios y pide mínimo 3 caracteres.
   const gamerIdTrimmed = gamerId.trim();
   const gamerIdValid = gamerIdTrimmed.length >= 3 && !/\s/.test(gamerIdTrimmed);
-
-  // Si cambia el carrito, el descuento calculado queda viejo: lo limpiamos
-  // para que el cliente vuelva a aplicar el cupón sobre el total nuevo.
-  useEffect(() => {
-    setCoupon(null);
-    setCouponError(null);
-  }, [cart]);
 
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 

@@ -245,12 +245,9 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
       <div className="kk-panel rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-          <div className="relative aspect-[4/5] bg-[#14110C] flex items-center justify-center overflow-hidden">
-            <div
-              className="absolute inset-0 opacity-40 pointer-events-none"
-              style={{ background: `radial-gradient(circle at 50% 55%, ${rarity.className.includes('4A93D6') ? '#4A93D6' : '#E3A23D'}33, transparent 65%)` }}
-            ></div>
-            <img src={imagenesActuales[imgIndex] || meta.displayImage} alt={viendoSubItem ? viendoSubItem.name : meta.name} className="w-full h-full object-contain z-[1]" />
+          <div className="relative aspect-[4/5] overflow-hidden" style={{ background: gradienteOficial(entry, rarityHex[meta.rarityValue.toLowerCase()] || defaultRarityHex) }}>
+            <img src={imagenesActuales[imgIndex] || meta.displayImage} alt={viendoSubItem ? viendoSubItem.name : meta.name} className={`w-full h-full z-[1] transition-transform duration-500 ${viendoSubItem ? 'object-contain p-6' : 'object-cover object-top'}`} />
+            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0A0806]/80 to-transparent pointer-events-none"></div>
             {imagenesActuales.length > 1 && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[2] flex gap-1">
                 {imagenesActuales.map((_: string, i: number) => (
@@ -268,14 +265,14 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
                   <ChevronLeft size={14} /> Volver al lote
                 </button>
                 <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 ${rarity.className}`}>{viendoSubItem.typeLabel || rarity.label}</span>
-                <h2 className="font-display font-bold text-2xl mb-3">{viendoSubItem.name}</h2>
+                <h2 className="font-display font-extrabold uppercase tracking-wide text-2xl mb-3 leading-tight">{viendoSubItem.name}</h2>
                 {viendoSubItem.description && <p className="text-sm text-[#9A9384] leading-relaxed mb-4">{viendoSubItem.description}</p>}
                 <p className="text-xs text-[#9A9384] bg-[#14110C] border border-[#0A0806] rounded-xl p-3 mb-4">Este objeto es parte del lote — se compra junto con el resto, no por separado.</p>
               </>
             ) : (
               <>
                 <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-2 ${rarity.className}`}>{meta.isBundle ? 'Lote' : rarity.label}</span>
-                <h2 className="font-display font-bold text-2xl mb-3">{meta.name}</h2>
+                <h2 className="font-display font-extrabold uppercase tracking-wide text-2xl md:text-3xl mb-3 leading-tight">{meta.name}</h2>
                 {meta.description && <p className="text-sm text-[#9A9384] leading-relaxed mb-4">{meta.description}</p>}
 
                 {meta.isBundle && meta.subItems.length > 0 && (
@@ -286,10 +283,11 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
                         <button
                           key={i}
                           onClick={() => { setSubIndex(i); setImgIndex(0); }}
-                          className="aspect-square bg-[#14110C] border-2 border-[#0A0806] hover:border-[#E3A23D] rounded-lg overflow-hidden transition-colors"
+                          className="aspect-square border-2 border-[#0A0806] hover:border-[#E3A23D] hover:scale-105 rounded-lg overflow-hidden transition-all"
+                          style={{ background: `linear-gradient(180deg, ${(rarityHex[it.rarityValue?.toLowerCase()] || defaultRarityHex)}44 0%, #14110C 100%)` }}
                           title={it.name}
                         >
-                          <img src={it.image} alt={it.name} className="w-full h-full object-contain" />
+                          <img src={it.image} alt={it.name} className="w-full h-full object-contain p-0.5" />
                         </button>
                       ))}
                     </div>
@@ -310,7 +308,15 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
                 <span className="text-[#E3A23D] font-mono font-bold text-3xl">{activeCurrency.symbol}{localPrice}</span>
                 <span className="text-[#9A9384] text-xs font-bold uppercase">{activeCurrency.currency}</span>
               </div>
-              <p className="text-[#9A9384] text-xs font-mono mb-5">🪙 {entry.finalPrice.toLocaleString('en-US')} pavos</p>
+              <div className="flex items-center gap-1.5 mb-5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-5 h-5" loading="lazy" />
+                <span className="font-mono font-bold text-sm text-[#F5F1E6]">{entry.finalPrice.toLocaleString('en-US')}</span>
+                {meta.hasRealDiscount && (
+                  <span className="text-[#5A554A] font-mono text-xs line-through">{entry.regularPrice.toLocaleString('en-US')}</span>
+                )}
+                <span className="text-[#9A9384] text-xs font-mono">pavos</span>
+              </div>
               <button
                 onClick={() => { addToCart(itemPayload); onClose(); }}
                 className="w-full bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] py-4 rounded-xl font-display font-bold text-base border-[3px] border-[#0A0806] transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
