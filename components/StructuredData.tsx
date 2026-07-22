@@ -19,6 +19,16 @@ import { faqs } from '../lib/faqs';
 let ratingCache: { value: object; fetchedAt: number } | null = null;
 
 export default async function StructuredData() {
+  try {
+    return await generarJsonLd();
+  } catch (e) {
+    // Ante cualquier problema (env faltante, DB caída), el sitio carga igual sin JSON-LD
+    console.error('StructuredData falló (no crítico):', e);
+    return null;
+  }
+}
+
+async function generarJsonLd() {
   // Rating real desde la base — cacheado 10 min para no consultar en cada visita.
   // Si algo falla, simplemente no lo incluimos.
   let aggregateRating: object | null = ratingCache && Date.now() - ratingCache.fetchedAt < 10 * 60 * 1000

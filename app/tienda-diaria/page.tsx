@@ -94,6 +94,18 @@ const rarityHex: Record<string, string> = {
 };
 const defaultRarityHex = '#5A554A';
 
+// Gradiente del tile usando los colores OFICIALES que Epic manda para cada
+// entrada de la tienda (los mismos que pinta el juego). Si no vienen, caemos
+// al color de rareza.
+function gradienteOficial(entry: any, colorRareza: string): string {
+  const hex = (v?: string) => (v && /^[0-9a-fA-F]{6,8}$/.test(v) ? `#${v.slice(0, 6)}` : null);
+  const c1 = hex(entry.colors?.color1);
+  const c2 = hex(entry.colors?.color3) || hex(entry.colors?.color2);
+  if (c1 && c2) return `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`;
+  if (c1) return `linear-gradient(180deg, ${c1} 0%, #14110C 100%)`;
+  return `linear-gradient(180deg, ${colorRareza}55 0%, #14110C 90%)`;
+}
+
 const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, onQuickView }: { entry: any, activeCurrency: any, addToCart: any, featured?: boolean, onQuickView: (entry: any) => void }) => {
   const { name, rarityValue, displayImage, isBundle, itemCount, carouselImages, hasRealDiscount, description } = getEntryMeta(entry);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -125,35 +137,42 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
   const itemId = entry.offerId || encodeURIComponent(`${name}-${baseUsdPrice}`);
   const itemPayload = { id: itemId, name, price: baseUsdPrice, image_url: imagenMostrada, offer_id: entry.offerId || null, vbucks: vbucksPrice };
 
+  const gradiente = gradienteOficial(entry, colorRareza);
+
   return (
     <div
-      className={`group kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col ${featured ? 'md:flex-row' : ''}`}
+      className="group kk-panel kk-card-hover rounded-2xl overflow-hidden cursor-pointer flex flex-col"
       onClick={() => onQuickView(entry)}
     >
-      <div className={`relative w-full flex items-center justify-center overflow-hidden bg-[#14110C] ${featured ? 'md:w-1/2 aspect-[4/5] md:aspect-auto' : 'aspect-[4/5]'}`}>
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: featured ? `linear-gradient(160deg, ${colorRareza}55, #14110C 75%)` : `radial-gradient(circle at 50% 55%, ${colorRareza}33, transparent 65%)` }}
-        ></div>
-        {featured && <div className="absolute inset-0 kk-dots opacity-[0.06] pointer-events-none"></div>}
-        <div className={`absolute top-0 left-0 z-10 flex items-center justify-between px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
-          <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
-        </div>
+      {/* ===== IMAGEN estilo juego: gradiente oficial + arte a sangre completa ===== */}
+      <div className={`relative w-full overflow-hidden ${featured ? 'aspect-[16/10]' : 'aspect-[3/4]'}`} style={{ background: gradiente }}>
         <Image
           src={imagenMostrada}
           alt={name}
           fill
           sizes={featured ? "(max-width: 768px) 100vw, 55vw" : "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 22vw"}
-          className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+          className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.06]"
         />
+
+        {/* Sombra inferior para que el nombre se lea, igual que en el juego */}
+        <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[#0A0806]/95 via-[#0A0806]/40 to-transparent pointer-events-none"></div>
+
+        {/* Etiqueta de rareza / lote */}
+        <div className={`absolute top-0 left-0 z-10 flex items-center px-3 py-1.5 border-b-[3px] border-r-[3px] border-[#0A0806] rounded-br-xl ${rarity.className}`}>
+          <span className="font-display font-bold text-[10px] uppercase tracking-wide">{isBundle ? `Lote · ${itemCount} objetos` : rarity.label}</span>
+        </div>
+
+        {/* Puntos del carrusel */}
         {carouselImages.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[2] flex gap-1">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[3] flex gap-1">
             {carouselImages.map((_, i) => (
               <span key={i} className={`h-1.5 rounded-full transition-all ${i === carouselIndex ? 'w-4 bg-[#E3A23D]' : 'w-1.5 bg-white/40'}`}></span>
             ))}
           </div>
         )}
-        <div className="absolute top-2 right-2 z-[2] flex gap-2">
+
+        {/* Botones vista rápida / carrito */}
+        <div className="absolute top-2 right-2 z-[3] flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => { e.stopPropagation(); onQuickView(entry); }}
             className="bg-[#0A0806]/80 hover:bg-[#0A0806] text-[#F5F1E6] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
@@ -162,40 +181,39 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
             <Eye size={16} />
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              addToCart(itemPayload);
-            }}
+            onClick={(e) => { e.stopPropagation(); addToCart(itemPayload); }}
             className="bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-2.5 rounded-full border-2 border-[#0A0806] transition-transform hover:scale-110 flex items-center justify-center"
             title="Añadir al carrito"
           >
             <ShoppingCart size={16} />
           </button>
         </div>
+
+        {/* Nombre sobre la imagen, en mayúsculas como el juego */}
+        <div className="absolute inset-x-0 bottom-0 z-[2] px-3 pb-2.5">
+          <h3 className={`font-display font-extrabold uppercase tracking-wide text-[#F5F1E6] leading-tight [text-shadow:0_2px_0_rgba(0,0,0,0.85)] ${featured ? 'text-2xl md:text-3xl' : 'text-sm md:text-base'} line-clamp-2`}>{name}</h3>
+        </div>
       </div>
 
-      <div className={`p-4 flex flex-col justify-center ${featured ? 'md:w-1/2' : ''}`}>
-        <h3 className={`font-bold text-[#F5F1E6] leading-tight mb-2 ${featured ? 'font-display text-2xl' : 'text-sm truncate'}`}>{name}</h3>
-        {featured && !isBundle && (
-          <span className={`inline-block w-fit text-[10px] font-display font-bold uppercase tracking-wide px-2 py-1 rounded mb-3 ${rarity.className}`}>{rarity.label}</span>
-        )}
-        {featured && description && (
-          <p className="text-sm text-[#9A9384] leading-relaxed mb-3 line-clamp-3">{description}</p>
-        )}
-        {hasRealDiscount && (
-          <span className="text-[#5A554A] font-mono text-xs line-through mr-1">{activeCurrency.symbol}{regularLocalPrice}</span>
-        )}
-        <div className="flex items-baseline gap-1 mb-1">
-          <span className={`text-[#E3A23D] font-mono font-semibold ${featured ? 'text-3xl' : 'text-lg'}`}>{activeCurrency.symbol}{localPrice}</span>
-          <span className="text-[#9A9384] text-[10px] font-bold uppercase">{activeCurrency.currency}</span>
+      {/* ===== BARRA DE PRECIO estilo juego: pavos + tu moneda ===== */}
+      <div className="px-3 py-2.5 bg-[#1D1913] border-t-[3px] border-[#0A0806] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-5 h-5 shrink-0" loading="lazy" />
+          <span className="font-mono font-bold text-sm text-[#F5F1E6]">{vbucksPrice.toLocaleString('en-US')}</span>
+          {hasRealDiscount && (
+            <span className="text-[#5A554A] font-mono text-[11px] line-through" title={`Antes ${activeCurrency.symbol}${regularLocalPrice}`}>{entry.regularPrice.toLocaleString('en-US')}</span>
+          )}
         </div>
-        <div className="flex items-center gap-1 text-[#9A9384] text-[10px] font-mono">
-          <span>🪙</span> {vbucksPrice.toLocaleString('en-US')} pavos
+        <div className="text-right shrink-0">
+          <span className={`text-[#E3A23D] font-mono font-semibold leading-none ${featured ? 'text-xl' : 'text-base'}`}>{activeCurrency.symbol}{localPrice}</span>
+          <span className="text-[#9A9384] text-[9px] font-bold uppercase ml-1">{activeCurrency.currency}</span>
         </div>
-        {featured && entry.offerId && (
-          <p className="text-[9px] font-mono text-[#5A554A] mt-2 truncate" title={entry.offerId}>ID: {entry.offerId}</p>
-        )}
       </div>
+
+      {featured && description && (
+        <p className="px-4 py-3 text-sm text-[#9A9384] bg-[#1D1913] border-t border-white/5 line-clamp-2">{description}</p>
+      )}
     </div>
   );
 };
@@ -350,8 +368,15 @@ export default function TiendaFortnite() {
         const response = await fetch('/api/tienda');
         const data = await response.json();
         if (data.status === 200 && data.data?.entries) {
+          // Mismo orden que el juego: secciones por layout.index y, adentro,
+          // objetos por sortPriority (los destacados primero).
+          const ordenadas = [...data.data.entries].sort(
+            (a: any, b: any) =>
+              (a.layout?.index ?? 999) - (b.layout?.index ?? 999) ||
+              (b.sortPriority ?? 0) - (a.sortPriority ?? 0)
+          );
           const groups: Record<string, any[]> = {};
-          data.data.entries.forEach((entry: any) => {
+          ordenadas.forEach((entry: any) => {
             const sectionName = entry.layout?.name || entry.section?.name || 'Otras Ofertas';
             if (!groups[sectionName]) groups[sectionName] = [];
             groups[sectionName].push(entry);

@@ -6,6 +6,6 @@ import { createClient } from '@supabase/supabase-js';
 // de la base de datos, y si termina en el navegador, cualquiera podría usarla
 // para leer o modificar todo.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ejemplo.supabase.co';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'clave-temporal-de-construccion';
 
 export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
