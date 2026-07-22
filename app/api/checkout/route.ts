@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { getShopEntries, getMargenTienda, precioTiendaUsd, entryName } from '../../../lib/tienda-diaria';
 import { emailPedidoConfirmado, emailPedidoEntregado } from '../../../lib/emails';
+import { atribuirReferido, procesarReferidoTrasEntrega } from '../../../lib/referidos';
 
 // ============================================================================
 // CHECKOUT SEGURO
@@ -128,7 +129,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
 export async function POST(req: Request) {
   try {
     const cuerpo = await req.json();
-    const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode } = cuerpo;
+    const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode, refCode } = cuerpo;
 
     // Validaciones de entrada
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -261,6 +262,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
+    // 3a. 🤝 REFERIDO: si llegó con un link de invitación y es su primera
+    //     compra, lo atribuimos (la recompensa se paga recién al ENTREGAR).
+    if (refCode && typeof refCode === 'string') {
+      await atribuirReferido(email.trim(), refCode);
+    }
+
     // 3b. 📧 EMAIL DE CONFIRMACIÓN AL CLIENTE (si falla, no rompe la compra)
     emailPedidoConfirmado({
       id: orden.id,
@@ -375,6 +382,8 @@ export async function POST(req: Request) {
         await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
         // 📧 Aviso de entrega inmediata (ya no depende del webhook de Supabase)
         await emailPedidoEntregado({ id: orden.id, user_email: email.trim(), user_name: userName || 'Usuario' });
+        // 🤝 Recompensas de referidos (si corresponde)
+        await procesarReferidoTrasEntrega(email.trim(), totalFinal);
       }
     }
 

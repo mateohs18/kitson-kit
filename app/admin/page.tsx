@@ -28,6 +28,8 @@ export default function AdminPanel() {
   const [cExpira, setCExpira] = useState('');
   const [guardandoCupon, setGuardandoCupon] = useState(false);
   const [procesandoCupon, setProcesandoCupon] = useState<string | null>(null);
+  const [refCfg, setRefCfg] = useState<{ recompensaReferidor: string; recompensaReferido: string; compraMinima: string }>({ recompensaReferidor: '', recompensaReferido: '', compraMinima: '' });
+  const [guardandoRef, setGuardandoRef] = useState(false);
   const [marcandoAmistadEmail, setMarcandoAmistadEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,6 +71,7 @@ export default function AdminPanel() {
     fetchTasas();
     fetchMargen();
     fetchCupones();
+    fetchConfigReferidos();
   }, [session, status, router]);
 
   async function fetchTodasLasOrdenes() {
@@ -212,6 +215,37 @@ export default function AdminPanel() {
     if (!res.ok) alert('❌ ' + data.error);
     else alert(`✅ Margen actualizado: los ítems de la tienda diaria ahora se venden a costo + ${m}%.`);
     setGuardandoMargen(false);
+  }
+
+  async function fetchConfigReferidos() {
+    const res = await fetch('/api/config-referidos');
+    if (res.ok) {
+      const d = await res.json();
+      setRefCfg({
+        recompensaReferidor: String(d.recompensaReferidor ?? 0),
+        recompensaReferido: String(d.recompensaReferido ?? 0),
+        compraMinima: String(d.compraMinima ?? 0),
+      });
+    }
+  }
+
+  async function guardarConfigReferidos() {
+    const vals = [refCfg.recompensaReferidor, refCfg.recompensaReferido, refCfg.compraMinima].map(Number);
+    if (vals.some((v) => !Number.isFinite(v) || v < 0)) return alert('Todos los valores deben ser números válidos (0 o más).');
+    setGuardandoRef(true);
+    const res = await fetch('/api/config-referidos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recompensaReferidor: vals[0],
+        recompensaReferido: vals[1],
+        compraMinima: vals[2],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert('❌ ' + data.error);
+    else alert('✅ Programa de referidos actualizado.');
+    setGuardandoRef(false);
   }
 
   async function fetchCupones() {
@@ -495,6 +529,39 @@ export default function AdminPanel() {
               {guardandoMargen ? '...' : 'Guardar'}
             </button>
           </div>
+        </div>
+
+        {/* PROGRAMA DE REFERIDOS */}
+        <div className="kk-panel p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-2">
+            <Gift className="text-[#E3A23D]" size={28} />
+            <h2 className="font-display text-2xl font-bold">Programa de referidos</h2>
+          </div>
+          <p className="text-[#9A9384] text-sm mb-6">Cada cliente tiene su link para invitar (lo ve en Mi Cuenta). Cuando su invitado hace la primera compra y se entrega, ambos reciben crédito en la billetera. Poné ambas recompensas en 0 para desactivar el programa (la tarjeta desaparece de Mi Cuenta).</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {([
+              { key: 'recompensaReferidor' as const, label: '💰 Recompensa al que invita (USD)' },
+              { key: 'recompensaReferido' as const, label: '🎁 Recompensa al invitado (USD)' },
+              { key: 'compraMinima' as const, label: '🛒 Compra mínima del invitado (USD)' },
+            ]).map((f) => (
+              <div key={f.key} className="bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4">
+                <p className="text-sm font-bold text-[#D9D4C7] mb-2">{f.label}</p>
+                <input
+                  type="number" step="0.01" min="0"
+                  value={refCfg[f.key]}
+                  onChange={(e) => setRefCfg((c) => ({ ...c, [f.key]: e.target.value }))}
+                  className="w-full bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#E3A23D]"
+                />
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={guardarConfigReferidos}
+            disabled={guardandoRef}
+            className="mt-4 bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] px-6 py-2.5 rounded-lg font-display font-bold text-sm border-2 border-[#0A0806]"
+          >
+            {guardandoRef ? 'Guardando...' : 'Guardar cambios'}
+          </button>
         </div>
 
         {/* SOLICITUDES DE AMISTAD PENDIENTES */}

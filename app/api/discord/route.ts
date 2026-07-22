@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { aprobarRecarga } from '../../../lib/recargas';
 import { marcarAmistadCuenta } from '../../../lib/amistad';
 import { emailPedidoEntregado } from '../../../lib/emails';
+import { procesarReferidoTrasEntrega } from '../../../lib/referidos';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
           .from('orders')
           .update({ status: 'ENTREGADO' })
           .eq('id', orderId)
-          .select('id, user_email, user_name')
+          .select('id, user_email, user_name, total_price')
           .single();
 
         // 📧 Email al cliente, directo desde acá (ya no depende del webhook de Supabase)
@@ -142,6 +143,8 @@ export async function POST(req: Request) {
             user_email: ordenEntregada.user_email,
             user_name: ordenEntregada.user_name,
           });
+          // 🤝 Recompensas de referidos (si corresponde)
+          await procesarReferidoTrasEntrega(ordenEntregada.user_email, Number(ordenEntregada.total_price) || 0);
         }
         
         // type 7 edita el mensaje, borra la tarjeta y deja la confirmación

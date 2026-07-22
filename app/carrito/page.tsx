@@ -141,6 +141,7 @@ export default function CartPage() {
           gamerId: gamerId.trim(),
           totalPrice: totalConDescuento,
           couponCode: coupon?.code || null,
+          refCode: (() => { try { return localStorage.getItem('kitson_ref'); } catch { return null; } })(),
           paymentMethod: paymentMethod,
           receiptUrl: finalReceiptUrl
         })

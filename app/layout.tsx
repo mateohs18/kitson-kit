@@ -3,6 +3,7 @@ import { Baloo_2, Work_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "../components/AuthProvider";
 import StructuredData from "../components/StructuredData";
+import RefCatcher from "../components/RefCatcher";
 
 const baloo = Baloo_2({
   subsets: ["latin"],
@@ -68,6 +69,7 @@ export default function RootLayout({
     <html lang="es" className="scroll-smooth">
       <body className={`${baloo.variable} ${workSans.variable} ${plexMono.variable} antialiased bg-[#14110C] font-body`}>
         <StructuredData />
+        <RefCatcher />
         <AuthProvider>
           {children}
         </AuthProvider>

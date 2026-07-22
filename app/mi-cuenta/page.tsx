@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import {
   Wallet, Pencil, Check, X, Zap, Gift, Clock, CheckCircle2, AlertTriangle,
   UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Trophy, Package, Gamepad2,
-  Hourglass, ShieldCheck, Camera
+  Hourglass, ShieldCheck, Camera, Users
 } from 'lucide-react';
 
 const PACKAGES = [
@@ -57,6 +57,15 @@ export default function MiCuenta() {
   const [editingEpicId, setEditingEpicId] = useState(false);
   const [epicIdInput, setEpicIdInput] = useState('');
   const [savingEpicId, setSavingEpicId] = useState(false);
+  const [refInfo, setRefInfo] = useState<{ link: string; recompensaReferidor: number; recompensaReferido: number; compraMinima: number } | null>(null);
+  const [refCopiado, setRefCopiado] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/mi-codigo-referido')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.link) setRefInfo(d); })
+      .catch(() => {});
+  }, []);
 
   // Modal de recarga
   const [showRecharge, setShowRecharge] = useState(false);
@@ -360,6 +369,36 @@ export default function MiCuenta() {
               </>
             )}
           </div>
+
+          {/* ===== INVITÁ Y GANÁ ===== */}
+          {refInfo && (refInfo.recompensaReferidor > 0 || refInfo.recompensaReferido > 0) && (
+            <div className="kk-panel rounded-3xl p-6">
+              <h3 className="font-display font-bold text-base mb-2 flex items-center gap-2"><Users size={18} className="text-[#E3A23D]" /> Invitá y ganá</h3>
+              <p className="text-xs text-[#9A9384] leading-relaxed mb-4">
+                Compartí tu link. Cuando un amigo haga su primera compra{refInfo.compraMinima > 0 ? ` (mínimo $${refInfo.compraMinima.toFixed(2)} USD)` : ''} y se entregue,
+                {' '}vos recibís <strong className="text-[#7BC77E]">${refInfo.recompensaReferidor.toFixed(2)} USD</strong>
+                {refInfo.recompensaReferido > 0 && <> y tu amigo <strong className="text-[#7BC77E]">${refInfo.recompensaReferido.toFixed(2)} USD</strong></>} en la billetera.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={refInfo.link}
+                  className="flex-1 min-w-0 bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-3 py-2.5 text-[11px] font-mono text-[#D9D4C7] focus:outline-none"
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(refInfo.link);
+                    setRefCopiado(true);
+                    setTimeout(() => setRefCopiado(false), 2000);
+                  }}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black border-2 border-[#0A0806] transition shrink-0 ${refCopiado ? 'bg-[#7BC77E] text-[#0A0806]' : 'bg-[#E3A23D] text-[#0A0806] hover:opacity-90'}`}
+                >
+                  {refCopiado ? '✓ Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ===== COLUMNA DERECHA ===== */}
