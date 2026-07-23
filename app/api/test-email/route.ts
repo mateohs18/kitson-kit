@@ -9,12 +9,14 @@ import { enviarEmail } from '../../../lib/emails';
 // Envía un email de prueba a tu propio correo de admin y te devuelve la
 // respuesta CRUDA de Brevo. Sirve para diagnosticar en segundos por qué no
 // están saliendo los emails:
-//   - "BREVO_API_KEY no configurada"  -> falta la variable en Railway/Vercel
-//   - "Brevo 401"                     -> la clave es inválida o venció
-//   - "Brevo 400 ... sender"          -> EMAIL_USER no está verificado en Brevo
-//   - "Brevo 402"                     -> te quedaste sin cuota (300/día gratis)
-//   - ok: true                        -> Brevo funciona; el problema era el
-//                                        webhook de Supabase (ya no se usa)
+//   - "POSTMARK_SERVER_TOKEN no configurada" -> falta la variable en Railway
+//   - "Postmark 401"                          -> el token es inválido
+//   - "Postmark 412 ... pending approval"     -> tu cuenta de Postmark
+//     todavía no fue aprobada; mientras tanto solo podés mandar correos a
+//     direcciones @kitson-kit.store (probá con ?to=ventas@kitson-kit.store)
+//   - "Postmark 300 ... signature"            -> EMAIL_USER no está
+//     verificado como Sender Signature/dominio en Postmark
+//   - ok: true                                -> todo funciona
 //
 // Uso: abrí https://kitson-kit.store/api/test-email con tu sesión de admin.
 // ============================================================================
@@ -48,9 +50,9 @@ export async function GET(req: Request) {
     enviado_a: destino,
     diagnostico: resultado.ok
       ? `Enviado a ${destino}. Si es una dirección de mail-tester.com, andá a esa página y mirá tu puntaje.`
-      : 'Brevo falló — el detalle exacto está en "error". Revisá BREVO_API_KEY, que EMAIL_USER esté verificado como remitente en Brevo, y tu cuota diaria.',
+      : 'Postmark falló — el detalle exacto está en "error". Si dice "pending approval", tu cuenta de Postmark todavía se está revisando: mientras tanto solo podés mandar a direcciones @kitson-kit.store.',
     variables: {
-      BREVO_API_KEY: process.env.BREVO_API_KEY ? 'configurada ✅' : 'FALTA ❌',
+      POSTMARK_SERVER_TOKEN: process.env.POSTMARK_SERVER_TOKEN ? 'configurada ✅' : 'FALTA ❌',
       EMAIL_USER: process.env.EMAIL_USER || 'FALTA ❌',
     },
   });
