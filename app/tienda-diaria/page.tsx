@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '../../store/cartStore';
@@ -335,7 +336,7 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
 
 const PAGE_SIZE = 12;
 
-export default function TiendaFortnite() {
+function TiendaFortniteContenido() {
   const addToCart = useCartStore((state) => state.addToCart);
   const totalItemsCount = useCartStore((state) => state.totalItems());
   const { getActiveConfig } = useCurrencyStore();
@@ -345,7 +346,13 @@ export default function TiendaFortnite() {
   const [groupedShop, setGroupedShop] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const q = searchParams.get('buscar');
+    if (q) setSearchTerm(q);
+  }, [searchParams]);
   const [activeType, setActiveType] = useState('all');
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -659,5 +666,13 @@ export default function TiendaFortnite() {
         />
       )}
     </div>
+  );
+}
+
+export default function TiendaFortnite() {
+  return (
+    <Suspense fallback={null}>
+      <TiendaFortniteContenido />
+    </Suspense>
   );
 }

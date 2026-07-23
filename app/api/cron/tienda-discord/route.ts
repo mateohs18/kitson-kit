@@ -56,11 +56,13 @@ export async function GET(req: Request) {
         null;
       return {
         title: `${e.bundle ? '🎁 ' : ''}${entryName(e)}`,
-        // URL única por embed (con un ancla #1, #2...): si todos comparten la
-        // misma URL, Discord los agrupa como galería de fotos de un solo
-        // embed y el resto queda sin título ni precio. Con URL distinta,
-        // cada ítem se muestra como tarjeta independiente y completa.
-        url: `https://kitson-kit.store/tienda-diaria#${e.offerId || i}`,
+        // Cada link abre la tienda diaria con el buscador ya escrito con el
+        // nombre del lote, así el cliente cae directo sobre ese ítem filtrado
+        // (no hay página individual por producto en la tienda diaria).
+        // Además, cada URL es distinta entre sí: si todos los embeds
+        // compartieran la misma URL, Discord los agruparía como galería de
+        // fotos de un solo embed y el resto quedaría sin título ni precio.
+        url: `https://kitson-kit.store/tienda-diaria?buscar=${encodeURIComponent(entryName(e) || String(i))}`,
         description: `🪙 **${e.finalPrice.toLocaleString('en-US')} pavos** · 💵 **$${usd.toFixed(2)} USD** en Kitson`,
         color: 14918205, // dorado #E3A23D
         ...(imagen ? { image: { url: imagen } } : {}),

@@ -63,20 +63,25 @@ export async function GET(req: Request) {
 
     for (const deseo of deseos || []) {
       const info = enTienda.get(deseo.cosmetic_id)!;
+      const linkItem = `https://kitson-kit.store/tienda-diaria?buscar=${encodeURIComponent(info.nombre)}`;
       const resultado = await enviarEmail(
         deseo.email,
-        `🔔 ¡${info.nombre} volvió a la tienda de Fortnite!`,
-        `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #14110C; color: #F5F1E6; padding: 30px; border-radius: 12px; border: 3px solid #0A0806;">
-           <h2 style="color: #E3A23D; text-align: center;">¡Volvió lo que estabas esperando! 🎉</h2>
-           ${info.imagen ? `<div style="text-align:center; margin: 20px 0;"><img src="${info.imagen}" alt="${info.nombre}" width="180" style="border-radius: 12px; border: 3px solid #0A0806;" /></div>` : ''}
-           <p style="text-align:center;"><strong style="font-size: 20px;">${info.nombre}</strong></p>
-           <p style="text-align:center; color: #9A9384;">está HOY en la tienda de Fortnite y podés tenerlo por</p>
-           <p style="text-align:center; font-size: 28px; margin: 8px 0;"><strong style="color:#E3A23D;">$${info.usd.toFixed(2)} USD</strong> <span style="color:#9A9384; font-size: 14px;">(${info.pavos.toLocaleString('en-US')} pavos)</span></p>
-           <p style="text-align:center; color: #9A9384; font-size: 13px;">La tienda rota cada día — si lo querés, no lo dejes pasar.</p>
-           <div style="text-align: center; margin: 30px 0;">
-             <a href="https://kitson-kit.store/tienda-diaria" style="background-color: #E3A23D; color: #0A0806; padding: 14px 28px; text-decoration: none; font-weight: 900; border-radius: 8px; display: inline-block; border: 2px solid #0A0806;">COMPRARLO AHORA</a>
-           </div>
-           <p style="font-size: 12px; color: #5A554A; text-align: center;">Recibís este aviso porque agregaste este ítem a tu lista de deseos en Kitson Kit. Podés quitarlo desde Mi Cuenta.</p>
+        `Disponible hoy: ${info.nombre}`,
+        `<div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; background-color: #ffffff; color: #222222; padding: 24px; border: 1px solid #e2e2e2; border-radius: 8px;">
+           <p style="font-size: 14px; color: #555;">Hola,</p>
+           <p style="font-size: 14px; color: #333; line-height: 1.5;">El artículo que guardaste en tu lista de deseos de Kitson Kit está disponible hoy en la tienda de Fortnite:</p>
+           <table role="presentation" style="width: 100%; margin: 18px 0; border-collapse: collapse;">
+             <tr>
+               ${info.imagen ? `<td style="width: 72px; vertical-align: top;"><img src="${info.imagen}" alt="${info.nombre}" width="64" style="border-radius: 6px; display: block;" /></td>` : ''}
+               <td style="vertical-align: top; padding-left: ${info.imagen ? '12px' : '0'};">
+                 <p style="margin: 0; font-size: 15px; font-weight: 600; color: #111;">${info.nombre}</p>
+                 <p style="margin: 4px 0 0; font-size: 13px; color: #666;">${info.pavos.toLocaleString('en-US')} pavos · $${info.usd.toFixed(2)} USD en Kitson</p>
+               </td>
+             </tr>
+           </table>
+           <p style="font-size: 13px; color: #555;">La tienda del juego cambia todos los días, así que este artículo puede no estar disponible mañana.</p>
+           <p style="font-size: 14px; margin: 16px 0;"><a href="${linkItem}" style="color: #1a5fb4;">Ver este artículo en Kitson Kit →</a></p>
+           <p style="font-size: 12px; color: #999; margin-top: 24px; border-top: 1px solid #eee; padding-top: 12px;">Te llegó este aviso porque agregaste este artículo a tu lista de deseos. Podés administrarla desde Mi Cuenta en kitson-kit.store.</p>
          </div>`
       );
 
