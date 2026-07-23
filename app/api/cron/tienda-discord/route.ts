@@ -59,7 +59,8 @@ export async function GET(req: Request) {
         url: 'https://kitson-kit.store/tienda-diaria',
         description: `🪙 **${e.finalPrice.toLocaleString('en-US')} pavos** · 💵 **$${usd.toFixed(2)} USD** en Kitson`,
         color: 14918205, // dorado #E3A23D
-        ...(imagen ? { thumbnail: { url: imagen } } : {}),
+        // "image" (grande, a lo ancho) se ve mejor que "thumbnail" cuando hay pocos embeds
+        ...(imagen ? { image: { url: imagen } } : {}),
       };
     });
 
