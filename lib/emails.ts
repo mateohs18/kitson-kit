@@ -1,29 +1,42 @@
 // ============================================================================
 // EMAILS TRANSACCIONALES — módulo central
 //
-// Antes, el email de "pedido entregado" dependía de un webhook configurado en
-// el panel de Supabase que llamaba a /api/webhooks/entregas. Si la URL del
-// deploy cambiaba, el secreto no coincidía o Brevo fallaba, el email
-// simplemente no salía y nadie se enteraba.
+// Se envían DIRECTO desde el código en el momento exacto de cada evento
+// (confirmación de pedido, entrega, recordatorio de 48hs, disponibilidad en
+// wishlist), sin depender de webhooks externos. Cada función es una llamada
+// simple: emailPedidoConfirmado(...), emailPedidoEntregado(...), etc.
 //
-// Ahora los emails se envían DIRECTO desde el código, en el momento exacto en
-// que pasa cada evento, con el error logueado si algo falla.
+// Envío vía Postmark (stream "outbound", transaccional puro — sin header de
+// baja forzado ni tracking pixel, a diferencia de Brevo).
 //
-// Variables de entorno necesarias (las mismas que ya tenías):
-//   BREVO_API_KEY  -> tu clave de Brevo
-//   EMAIL_USER     -> el remitente (tiene que estar VERIFICADO en Brevo)
+// Variables de entorno necesarias:
+//   POSTMARK_SERVER_TOKEN  -> token del servidor en Postmark
+//   EMAIL_USER             -> remitente, verificado como Sender Signature/
+//                             dominio en Postmark
 // ============================================================================
 
 const SITE_URL = 'https://kitson-kit.store';
+const LOGO_URL = `${SITE_URL}/logo.jpg`;
 
 interface ResultadoEmail {
   ok: boolean;
   error?: string;
 }
 
-// Genera una versión de texto plano a partir del HTML (mejora la
-// entregabilidad: los filtros anti-spam desconfían de correos que SOLO
-// traen HTML, sin ninguna alternativa de texto).
+// Paleta de marca (misma que el sitio)
+const COLOR = {
+  fondo: '#F4F1EA',
+  tarjeta: '#FFFFFF',
+  oscuro: '#14110C',
+  borde: '#0A0806',
+  dorado: '#E3A23D',
+  crema: '#F5F1E6',
+  texto: '#2B2620',
+  gris: '#7A7365',
+  verde: '#4C9A56',
+};
+
+// ---------- Texto plano a partir del HTML (mejora entregabilidad) ----------
 function htmlATexto(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -40,25 +53,13 @@ function htmlATexto(html: string): string {
 }
 
 // ---------- Envío base (Postmark) ----------
-// Migrado de Brevo a Postmark: Brevo agrega un header "List-Unsubscribe" a
-// TODOS sus correos sin excepción (ni siquiera los transaccionales pueden
-// evitarlo salvo en su plan Enterprise), y ese header es una de las señales
-// más fuertes que usan Gmail/Outlook para clasificar un correo como
-// "promoción" o "masivo" — así el email termine solo o no. El stream
-// "outbound" (transaccional) de Postmark NO agrega ningún manejo de baja
-// automático, y tampoco mete un tracking pixel por defecto.
-//
-// Variable de entorno nueva: POSTMARK_SERVER_TOKEN (token del servidor en
-// Postmark). EMAIL_USER se sigue usando como remitente, pero esa dirección
-// (o el dominio completo) tiene que estar verificada dentro de Postmark
-// como "Sender Signature" o "Sending Domain" antes de poder enviar.
 export async function enviarEmail(destinatario: string, asunto: string, html: string): Promise<ResultadoEmail> {
   if (!process.env.POSTMARK_SERVER_TOKEN) {
-    console.error('📧 POSTMARK_SERVER_TOKEN no está configurada — email no enviado:', asunto);
+    console.error('EMAIL: POSTMARK_SERVER_TOKEN no configurada, no se envio:', asunto);
     return { ok: false, error: 'POSTMARK_SERVER_TOKEN no configurada' };
   }
   if (!process.env.EMAIL_USER) {
-    console.error('📧 EMAIL_USER no está configurada — email no enviado:', asunto);
+    console.error('EMAIL: EMAIL_USER no configurada, no se envio:', asunto);
     return { ok: false, error: 'EMAIL_USER no configurada' };
   }
 
@@ -75,126 +76,252 @@ export async function enviarEmail(destinatario: string, asunto: string, html: st
         To: destinatario,
         Subject: asunto,
         HtmlBody: html,
-        // Versión de texto plano junto al HTML: mejora la entregabilidad
-        // (evita la señal "MIME_HTML_ONLY" de los filtros anti-spam).
         TextBody: htmlATexto(html),
-        MessageStream: 'outbound', // stream transaccional: sin header de baja, sin tracking pixel
+        MessageStream: 'outbound',
       }),
     });
 
     const data = await res.json().catch(() => ({}));
 
-    // Postmark devuelve HTTP 200 incluso con errores propios (ErrorCode != 0)
     if (!res.ok || data.ErrorCode) {
-      console.error(`📧 Postmark rechazó el email "${asunto}" para ${destinatario}:`, res.status, data);
+      console.error(`EMAIL: Postmark rechazo "${asunto}" para ${destinatario}:`, res.status, data);
       return { ok: false, error: `Postmark ${data.ErrorCode || res.status}: ${data.Message || 'error desconocido'}` };
     }
 
     return { ok: true };
   } catch (e: any) {
-    console.error(`📧 Error de red enviando "${asunto}" a ${destinatario}:`, e);
+    console.error(`EMAIL: error de red enviando "${asunto}" a ${destinatario}:`, e);
     return { ok: false, error: e?.message || 'Error de red' };
   }
 }
 
-// ---------- Plantilla base (mismo estilo oscuro que ya usabas) ----------
-function plantilla(titulo: string, cuerpoHtml: string, boton?: { texto: string; url: string }): string {
+// ============================================================================
+// PLANTILLA BASE
+// Estructura de tabla (compatible con todos los clientes de correo, incluido
+// Outlook de escritorio). Header con logo y marca sobre franja oscura,
+// tarjeta blanca de contenido, footer con links.
+// ============================================================================
+function plantilla(opts: {
+  preheader: string;
+  titulo: string;
+  cuerpoHtml: string;
+  boton?: { texto: string; url: string };
+  notaFooter?: string;
+}): string {
+  const { preheader, titulo, cuerpoHtml, boton, notaFooter } = opts;
+
   const botonHtml = boton
-    ? `<div style="text-align: center; margin: 35px 0;">
-         <a href="${boton.url}" style="background-color: #E3A23D; color: #0A0806; padding: 14px 28px; text-decoration: none; font-weight: 900; border-radius: 8px; display: inline-block; border: 2px solid #0A0806;">${boton.texto}</a>
-       </div>`
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin: 28px auto 8px;">
+         <tr><td style="border-radius: 8px; background-color: ${COLOR.dorado};">
+           <a href="${boton.url}" style="display: inline-block; padding: 14px 32px; font-family: Arial, sans-serif; font-size: 15px; font-weight: 700; color: ${COLOR.borde}; text-decoration: none;">${boton.texto}</a>
+         </td></tr>
+       </table>`
     : '';
 
-  return `
-    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #14110C; color: #F5F1E6; padding: 30px; border-radius: 12px; border: 3px solid #0A0806;">
-      <h2 style="color: #E3A23D; text-align: center;">${titulo}</h2>
-      ${cuerpoHtml}
-      ${botonHtml}
-      <p style="font-size: 13px; color: #9A9384; text-align: center; margin-top: 30px;">
-        ¿Dudas? Escribinos por Discord o WhatsApp — te responde una persona, no un bot. ¡Gracias por elegir Kitson Kit!
-      </p>
-    </div>
-  `;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${titulo}</title>
+</head>
+<body style="margin:0; padding:0; background-color:${COLOR.fondo};">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0;">${preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${COLOR.fondo}; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color:${COLOR.tarjeta}; border-radius: 14px; overflow: hidden; border: 1px solid #E4DFD3;">
+
+          <tr>
+            <td style="background-color:${COLOR.oscuro}; padding: 22px 28px;" align="center">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding-right: 10px;">
+                    <img src="${LOGO_URL}" width="34" height="34" alt="Kitson Kit" style="border-radius: 50%; display:block; border: 2px solid ${COLOR.dorado};" />
+                  </td>
+                  <td>
+                    <span style="font-family: Arial, sans-serif; font-size: 17px; font-weight: 800; color: ${COLOR.crema}; letter-spacing: 0.3px;">KITSON KIT</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 30px 32px 6px;">
+              <h1 style="margin:0; font-family: Arial, sans-serif; font-size: 21px; font-weight: 800; color: ${COLOR.texto};">${titulo}</h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 6px 32px 4px; font-family: Arial, sans-serif; font-size: 14.5px; line-height: 1.65; color: ${COLOR.texto};">
+              ${cuerpoHtml}
+            </td>
+          </tr>
+
+          ${boton ? `<tr><td style="padding: 0 32px;" align="center">${botonHtml}</td></tr>` : ''}
+
+          <tr><td style="padding: 24px 32px 0;"><div style="border-top: 1px solid #ECE7DA;"></div></td></tr>
+
+          <tr>
+            <td style="padding: 18px 32px 28px; font-family: Arial, sans-serif; font-size: 12.5px; line-height: 1.6; color: ${COLOR.gris};" align="center">
+              ${notaFooter ? `<p style="margin: 0 0 10px;">${notaFooter}</p>` : ''}
+              <p style="margin: 0 0 6px;">¿Necesitás ayuda? Escribinos por Discord o WhatsApp, te responde una persona real.</p>
+              <p style="margin: 0;"><a href="${SITE_URL}" style="color: ${COLOR.gris}; text-decoration: underline;">kitson-kit.store</a></p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
-// ---------- 1) Confirmación al crear el pedido ----------
+// ---------- Tabla de artículos (recibo) ----------
+function tablaArticulos(items: { name: string; quantity?: number; price: number }[]): string {
+  const filas = items
+    .map(
+      (i) => `
+      <tr>
+        <td style="padding: 9px 0; border-bottom: 1px solid #F0ECE0; font-size: 14px; color: ${COLOR.texto};">
+          ${i.name}${(i.quantity || 1) > 1 ? ` <span style="color:${COLOR.gris};">x ${i.quantity}</span>` : ''}
+        </td>
+        <td style="padding: 9px 0; border-bottom: 1px solid #F0ECE0; font-size: 14px; color: ${COLOR.texto}; text-align: right; white-space: nowrap;">
+          $${(i.price * (i.quantity || 1)).toFixed(2)}
+        </td>
+      </tr>`
+    )
+    .join('');
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 14px 0;">${filas}</table>`;
+}
+
+function formatearFecha(fecha: Date = new Date()): string {
+  return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ============================================================================
+// 1) Confirmación al crear el pedido
+// ============================================================================
 export async function emailPedidoConfirmado(order: {
   id: string | number;
   user_email: string;
   user_name?: string | null;
-  items?: any[];
+  items?: { name: string; quantity?: number; price: number }[];
   total_price?: number;
   paymentMethod?: string;
+  couponCode?: string | null;
+  discount?: number;
 }): Promise<ResultadoEmail> {
-  const lista = (order.items || [])
-    .map((i: any) => `<li>${i.name} (x${i.quantity || 1})</li>`)
-    .join('');
-  const esperaTransferencia =
+  const items = order.items || [];
+  const nombre = order.user_name || 'Gamer';
+  const idCorto = String(order.id).slice(0, 8);
+
+  const filaDescuento =
+    order.discount && order.discount > 0
+      ? `<tr><td style="padding: 6px 0; font-size: 13.5px; color: ${COLOR.verde};">Cupón ${order.couponCode || ''}</td>
+           <td style="padding: 6px 0; font-size: 13.5px; color: ${COLOR.verde}; text-align: right;">-$${order.discount.toFixed(2)}</td></tr>`
+      : '';
+
+  const estadoPago =
     order.paymentMethod === 'saldo'
-      ? '<p>Tu pago con saldo ya quedó confirmado y estamos preparando la entrega. 🚀</p>'
-      : '<p>Apenas verifiquemos tu comprobante de pago, procesamos la entrega. Te volvemos a escribir cuando esté lista.</p>';
+      ? `<p style="margin: 16px 0 0;">Tu pago con saldo Kitson ya fue confirmado. Estamos preparando la entrega y te avisamos apenas esté lista.</p>`
+      : `<p style="margin: 16px 0 0;">Estamos revisando tu comprobante de pago. En cuanto quede verificado, procesamos la entrega y te escribimos de nuevo.</p>`;
+
+  const cuerpo = `
+    <p style="margin: 0 0 4px;">Hola ${nombre},</p>
+    <p style="margin: 0 0 4px;">Recibimos tu pedido <strong>#${idCorto}</strong> el ${formatearFecha()}. Este es el detalle:</p>
+
+    ${tablaArticulos(items)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${filaDescuento}
+      <tr>
+        <td style="padding-top: 8px; border-top: 1px solid #E4DFD3; font-size: 15.5px; font-weight: 700; color: ${COLOR.texto};">Total</td>
+        <td style="padding-top: 8px; border-top: 1px solid #E4DFD3; font-size: 15.5px; font-weight: 700; color: ${COLOR.texto}; text-align: right;">$${Number(order.total_price || 0).toFixed(2)} USD</td>
+      </tr>
+    </table>
+
+    ${estadoPago}
+  `;
 
   return enviarEmail(
     order.user_email,
-    `🧾 Recibimos tu pedido #${order.id}`,
-    plantilla(
-      '¡Pedido recibido! 📦',
-      `<p>Hola <strong>${order.user_name || 'Gamer'}</strong>,</p>
-       <p>Registramos tu pedido <strong>#${order.id}</strong> con estos artículos:</p>
-       <ul>${lista}</ul>
-       <p><strong>Total: $${Number(order.total_price || 0).toFixed(2)} USD</strong></p>
-       ${esperaTransferencia}`,
-      { texto: 'VER MI PEDIDO', url: `${SITE_URL}/mis-pedidos` }
-    )
+    `Confirmación de tu pedido #${idCorto} — Kitson Kit`,
+    plantilla({
+      preheader: `Recibimos tu pedido #${idCorto} por $${Number(order.total_price || 0).toFixed(2)} USD.`,
+      titulo: 'Recibimos tu pedido',
+      cuerpoHtml: cuerpo,
+      boton: { texto: 'Ver estado del pedido', url: `${SITE_URL}/pedido/${order.id}` },
+      notaFooter: 'Te enviamos este correo porque realizaste una compra en Kitson Kit.',
+    })
   );
 }
 
-// ---------- 2) Pedido entregado (el que dejó de funcionar) ----------
+// ============================================================================
+// 2) Pedido entregado
+// ============================================================================
 export async function emailPedidoEntregado(order: {
   id: string | number;
   user_email: string;
   user_name?: string | null;
 }): Promise<ResultadoEmail> {
+  const nombre = order.user_name || 'Gamer';
+  const idCorto = String(order.id).slice(0, 8);
   const reviewLink = `${SITE_URL}/mi-cuenta?reviewOrder=${order.id}`;
+
+  const cuerpo = `
+    <p style="margin: 0 0 4px;">Hola ${nombre},</p>
+    <p style="margin: 0 0 4px;">Tu pedido <strong>#${idCorto}</strong> fue entregado con éxito. Los artículos ya están acreditados en tu cuenta de Fortnite, listos para usar.</p>
+    <p style="margin: 16px 0 0;">Si te gustó tu compra, nos ayuda mucho que dejes una reseña, le sirve a otros jugadores a decidirse.</p>
+  `;
 
   return enviarEmail(
     order.user_email,
-    `✅ Actualización de tu pedido #${order.id}: ¡Entrega completada!`,
-    plantilla(
-      '¡Misión Cumplida! 🎮',
-      `<p>Hola <strong>${order.user_name || 'Gamer'}</strong>,</p>
-       <p>Te contamos que tu pedido <strong>#${order.id}</strong> fue procesado y entregado con éxito. Los artículos ya están acreditados y listos para usar en tu cuenta.</p>
-       <p>Si tenés alguna duda o necesitás ayuda, nuestro equipo de soporte está siempre disponible.</p>`,
-      { texto: 'CALIFICAR MI COMPRA', url: reviewLink }
-    )
+    `Tu pedido #${idCorto} fue entregado — Kitson Kit`,
+    plantilla({
+      preheader: `Tu pedido #${idCorto} ya está en tu cuenta de Fortnite.`,
+      titulo: 'Pedido entregado',
+      cuerpoHtml: cuerpo,
+      boton: { texto: 'Dejar una reseña', url: reviewLink },
+      notaFooter: 'Te enviamos este correo porque tu pedido en Kitson Kit cambió de estado.',
+    })
   );
 }
 
-// ---------- 3) Recordatorio: pasaron las 48hs de amistad ----------
+// ============================================================================
+// 3) Recordatorio: pasaron las 48hs de amistad
+// ============================================================================
 export async function emailAmistadLista(perfil: {
   email: string;
   nombre?: string | null;
 }): Promise<ResultadoEmail> {
+  const nombre = perfil.nombre || 'Gamer';
+
+  const cuerpo = `
+    <p style="margin: 0 0 4px;">Hola ${nombre},</p>
+    <p style="margin: 0 0 4px;">Epic Games exige 48 horas de amistad antes de poder enviarte regalos dentro de Fortnite, y ese plazo ya se cumplió en tu cuenta.</p>
+    <p style="margin: 16px 0 0;">Si tenías un pedido esperando, ya lo estamos procesando. Y si querés comprar algo nuevo, a partir de ahora la entrega es inmediata.</p>
+  `;
+
   return enviarEmail(
     perfil.email,
-    '🎁 ¡Ya pasaron las 48 horas! Tu regalo está listo para enviarse',
-    plantilla(
-      '¡Se terminó la espera! ⏰',
-      `<p>Hola <strong>${perfil.nombre || 'Gamer'}</strong>,</p>
-       <p>Epic Games exige 48 horas de amistad antes de poder enviar regalos entre cuentas — y ese plazo <strong>ya se cumplió</strong>. 🎉</p>
-       <p>Si tenías un pedido esperando, lo estamos procesando ahora. Y si querías comprar algo nuevo, ya no hay espera: tus próximos regalos llegan al toque.</p>`,
-      { texto: 'IR A LA TIENDA', url: SITE_URL }
-    )
+    'Ya podés recibir regalos en Fortnite — Kitson Kit',
+    plantilla({
+      preheader: 'Se cumplieron las 48 horas de amistad que exige Epic Games.',
+      titulo: 'Ya podés recibir tu regalo',
+      cuerpoHtml: cuerpo,
+      boton: { texto: 'Ir a la tienda', url: SITE_URL },
+      notaFooter: 'Te enviamos este correo porque vinculaste tu cuenta de Epic Games en Kitson Kit.',
+    })
   );
 }
 
-// ---------- 4) Disponible en la tienda (lista de deseos) ----------
-// A propósito, esta plantilla es la más discreta de todas las que manda el
-// sitio: sin precio grande, sin botón de "comprar", sin colores llamativos.
-// Un aviso de "está disponible" con estilo de oferta es exactamente el
-// patrón que los clasificadores de Gmail/Outlook reconocen como promoción y
-// mandan a la carpeta de Promociones. Esta versión se lee como una
-// notificación de cuenta, no como una publicidad.
+// ============================================================================
+// 4) Disponible en la tienda (lista de deseos)
+// ============================================================================
 export async function emailWishlistDisponible(datos: {
   email: string;
   nombre: string;
@@ -203,19 +330,36 @@ export async function emailWishlistDisponible(datos: {
   pavos: number;
   link: string;
 }): Promise<ResultadoEmail> {
+  const imagenHtml = datos.imagen
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin: 14px 0;">
+         <tr>
+           <td style="width: 56px; vertical-align: top; padding-right: 12px;">
+             <img src="${datos.imagen}" width="48" height="48" alt="${datos.nombre}" style="border-radius: 8px; display: block; border: 1px solid #E4DFD3;" />
+           </td>
+           <td style="vertical-align: middle;">
+             <p style="margin:0; font-size: 15px; font-weight: 700; color: ${COLOR.texto};">${datos.nombre}</p>
+             <p style="margin: 3px 0 0; font-size: 13px; color: ${COLOR.gris};">${datos.pavos.toLocaleString('en-US')} pavos · $${datos.usd.toFixed(2)} USD</p>
+           </td>
+         </tr>
+       </table>`
+    : `<p style="margin: 14px 0;"><strong>${datos.nombre}</strong><br/><span style="color:${COLOR.gris}; font-size: 13px;">${datos.pavos.toLocaleString('en-US')} pavos · $${datos.usd.toFixed(2)} USD</span></p>`;
+
+  const cuerpo = `
+    <p style="margin: 0 0 4px;">Hola,</p>
+    <p style="margin: 0 0 4px;">Un artículo de tu lista de deseos está disponible hoy en la tienda de Fortnite:</p>
+    ${imagenHtml}
+    <p style="margin: 16px 0 0;">La tienda del juego cambia todos los días, así que este artículo puede no estar mañana.</p>
+  `;
+
   return enviarEmail(
     datos.email,
-    `Novedad en tu lista de deseos de Kitson Kit`,
-    `<div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #333333; padding: 24px;">
-       <p style="font-size: 14px; line-height: 1.6;">Hola,</p>
-       <p style="font-size: 14px; line-height: 1.6;">Te escribimos porque un artículo de tu lista de deseos apareció hoy en la tienda de Fortnite.</p>
-       <p style="font-size: 14px; line-height: 1.6; margin: 20px 0;">
-         <strong>${datos.nombre}</strong><br/>
-         <span style="color: #666;">${datos.pavos.toLocaleString('en-US')} pavos (equivalente a $${datos.usd.toFixed(2)} en nuestro catálogo)</span>
-       </p>
-       <p style="font-size: 14px; line-height: 1.6;">La tienda del juego cambia todos los días, así que puede que este artículo no esté disponible mañana.</p>
-       <p style="font-size: 14px; line-height: 1.6;"><a href="${datos.link}" style="color: #4A93D6;">${datos.link}</a></p>
-       <p style="font-size: 12px; color: #999; margin-top: 30px;">Recibís este correo porque agregaste este artículo a tu lista de deseos en Kitson Kit. Podés administrarla desde tu cuenta.</p>
-     </div>`
+    `${datos.nombre} está disponible hoy — Kitson Kit`,
+    plantilla({
+      preheader: `${datos.nombre} apareció hoy en la tienda de Fortnite.`,
+      titulo: 'Novedad en tu lista de deseos',
+      cuerpoHtml: cuerpo,
+      boton: { texto: 'Ver en la tienda', url: datos.link },
+      notaFooter: 'Te enviamos este correo porque agregaste este artículo a tu lista de deseos en Kitson Kit. Podés administrarla desde tu cuenta.',
+    })
   );
 }

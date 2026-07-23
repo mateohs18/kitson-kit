@@ -279,6 +279,8 @@ export async function POST(req: Request) {
       items: itemsParaOrden,
       total_price: totalFinal,
       paymentMethod,
+      couponCode: cuponAplicado,
+      discount: descuento,
     }).catch(() => {});
 
     // 4. ALERTA A DISCORD (igual que antes, pero con el total verificado)
