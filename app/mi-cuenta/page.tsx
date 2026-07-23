@@ -66,6 +66,7 @@ export default function MiCuenta() {
   const [wishResultados, setWishResultados] = useState<any[]>([]);
   const [wishBuscando, setWishBuscando] = useState(false);
   const [wishMsg, setWishMsg] = useState<string | null>(null);
+  const [wishBuscado, setWishBuscado] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'movimientos' || movimientosCargados) return;
@@ -83,15 +84,17 @@ export default function MiCuenta() {
   }, []);
 
   useEffect(() => {
-    if (wishBusqueda.trim().length < 3) { setWishResultados([]); return; }
+    if (wishBusqueda.trim().length < 3) { setWishResultados([]); setWishBuscado(false); return; }
     const t = setTimeout(async () => {
       setWishBuscando(true);
+      setWishBuscado(false);
       try {
         const res = await fetch(`/api/buscar-cosmetico?q=${encodeURIComponent(wishBusqueda.trim())}`);
-        const d = await res.json();
+        const d = res.ok ? await res.json() : { resultados: [] };
         setWishResultados(d.resultados || []);
       } catch { setWishResultados([]); }
       setWishBuscando(false);
+      setWishBuscado(true);
     }, 450);
     return () => clearTimeout(t);
   }, [wishBusqueda]);
@@ -105,10 +108,11 @@ export default function MiCuenta() {
     });
     const d = await res.json();
     if (!res.ok) { setWishMsg(d.error || 'No se pudo agregar.'); return; }
+    // NO cerramos los resultados: así se pueden agregar varios seguidos.
     setWishlist((prev) => [{ cosmetic_id: c.id, cosmetic_name: c.name, cosmetic_image: c.image }, ...prev.filter((w) => w.cosmetic_id !== c.id)]);
-    setWishBusqueda('');
-    setWishResultados([]);
   };
+
+  const yaEnLista = (id: string) => wishlist.some((w) => w.cosmetic_id === id);
 
   const quitarDeseo = async (id: string) => {
     setWishlist((prev) => prev.filter((w) => w.cosmetic_id !== id));
@@ -472,29 +476,49 @@ export default function MiCuenta() {
                 placeholder="Buscar un cosmético... (mín. 3 letras)"
                 className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-3 py-2.5 text-sm text-[#F5F1E6] placeholder-[#9A9384] focus:outline-none focus:border-[#E3A23D]"
               />
-              {(wishBuscando || wishResultados.length > 0) && (
-                <div className="absolute inset-x-0 top-full mt-1 z-20 bg-[#1D1913] border-2 border-[#0A0806] rounded-xl overflow-hidden max-h-64 overflow-y-auto shadow-xl">
-                  {wishBuscando ? (
-                    <p className="p-3 text-xs text-[#9A9384] font-bold">Buscando...</p>
-                  ) : (
-                    wishResultados.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => agregarDeseo(c)}
-                        className="w-full flex items-center gap-3 p-2.5 hover:bg-white/5 transition text-left"
-                      >
-                        {c.image ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={c.image} alt="" className="w-10 h-10 rounded-lg border-2 border-[#0A0806] bg-[#14110C] object-contain shrink-0" loading="lazy" />
-                        ) : <span className="w-10 h-10 rounded-lg border-2 border-[#0A0806] bg-[#14110C] shrink-0"></span>}
-                        <span className="min-w-0">
-                          <span className="block text-sm font-bold text-[#F5F1E6] truncate">{c.name}</span>
-                          <span className="block text-[10px] text-[#9A9384]">{c.type}{c.rarity ? ` · ${c.rarity}` : ''}</span>
-                        </span>
-                        <span className="ml-auto text-[#E3A23D] font-black text-lg shrink-0">+</span>
-                      </button>
-                    ))
-                  )}
+              {(wishBuscando || wishBuscado) && (
+                <div className="absolute inset-x-0 top-full mt-1 z-20 bg-[#1D1913] border-2 border-[#0A0806] rounded-xl overflow-hidden shadow-xl">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+                    <span className="text-[10px] font-black text-[#9A9384] uppercase tracking-widest">
+                      {wishBuscando ? 'Buscando...' : `${wishResultados.length} resultado${wishResultados.length === 1 ? '' : 's'}`}
+                    </span>
+                    <button onClick={() => { setWishBusqueda(''); setWishResultados([]); setWishBuscado(false); }} className="text-[#9A9384] hover:text-[#F5F1E6] text-xs font-bold transition">
+                      Cerrar ✕
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {wishBuscando ? (
+                      <p className="p-4 text-xs text-[#9A9384] font-bold">Revisando el catálogo completo de Fortnite...</p>
+                    ) : wishResultados.length === 0 ? (
+                      <div className="p-4">
+                        <p className="text-sm font-bold text-[#D9D4C7]">No encontramos nada con &quot;{wishBusqueda}&quot;.</p>
+                        <p className="text-xs text-[#9A9384] mt-1">Probá con otra parte del nombre, o con el nombre en inglés (ej: &quot;Renegade&quot;).</p>
+                      </div>
+                    ) : (
+                      wishResultados.map((c) => {
+                        const agregado = yaEnLista(c.id);
+                        return (
+                          <div key={c.id} className="flex items-center gap-3 p-2.5 hover:bg-white/5 transition border-b border-white/5 last:border-b-0">
+                            {c.image ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={c.image} alt={c.name} className="w-14 h-14 rounded-xl border-2 border-[#0A0806] bg-[#14110C] object-contain shrink-0" loading="lazy" />
+                            ) : <span className="w-14 h-14 rounded-xl border-2 border-[#0A0806] bg-[#14110C] shrink-0"></span>}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-bold text-[#F5F1E6] truncate">{c.name}</p>
+                              <p className="text-[10px] text-[#9A9384]">{c.type}{c.rarity ? ` · ${c.rarity}` : ''}</p>
+                            </div>
+                            <button
+                              onClick={() => !agregado && agregarDeseo(c)}
+                              disabled={agregado}
+                              className={`shrink-0 px-3 py-2 rounded-lg text-xs font-black border-2 border-[#0A0806] transition ${agregado ? 'bg-[#7BC77E]/20 text-[#7BC77E] cursor-default' : 'bg-[#E3A23D] text-[#0A0806] hover:opacity-90'}`}
+                            >
+                              {agregado ? '✓ En tu lista' : '+ Agregar'}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               )}
             </div>
