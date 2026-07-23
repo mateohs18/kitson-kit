@@ -19,7 +19,7 @@ import { enviarEmail } from '../../../lib/emails';
 // Uso: abrí https://kitson-kit.store/api/test-email con tu sesión de admin.
 // ============================================================================
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const adminEmail = process.env.ADMIN_EMAIL;
 
@@ -27,8 +27,14 @@ export async function GET() {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }
 
+  // Por defecto se manda a tu propio correo de admin. Pasando ?to=direccion@donde-sea.com
+  // podés mandarlo a cualquier casilla — por ejemplo, la dirección temporal que te da
+  // mail-tester.com, para medir tu puntaje real de entregabilidad (SPF/DKIM/DMARC,
+  // contenido, formato). Sigue protegido: solo el admin puede dispararlo.
+  const destino = new URL(req.url).searchParams.get('to')?.trim() || adminEmail;
+
   const resultado = await enviarEmail(
-    adminEmail,
+    destino,
     '🧪 Prueba de emails — Kitson Kit',
     `<div style="font-family: sans-serif; padding: 20px;">
        <h2>✅ Los emails funcionan</h2>
@@ -39,8 +45,9 @@ export async function GET() {
 
   return NextResponse.json({
     ...resultado,
+    enviado_a: destino,
     diagnostico: resultado.ok
-      ? 'Brevo funciona correctamente. Revisá tu casilla (y spam).'
+      ? `Enviado a ${destino}. Si es una dirección de mail-tester.com, andá a esa página y mirá tu puntaje.`
       : 'Brevo falló — el detalle exacto está en "error". Revisá BREVO_API_KEY, que EMAIL_USER esté verificado como remitente en Brevo, y tu cuota diaria.',
     variables: {
       BREVO_API_KEY: process.env.BREVO_API_KEY ? 'configurada ✅' : 'FALTA ❌',
