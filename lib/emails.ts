@@ -39,11 +39,23 @@ function htmlATexto(html: string): string {
     .trim();
 }
 
-// ---------- Envío base ----------
+// ---------- Envío base (Postmark) ----------
+// Migrado de Brevo a Postmark: Brevo agrega un header "List-Unsubscribe" a
+// TODOS sus correos sin excepción (ni siquiera los transaccionales pueden
+// evitarlo salvo en su plan Enterprise), y ese header es una de las señales
+// más fuertes que usan Gmail/Outlook para clasificar un correo como
+// "promoción" o "masivo" — así el email termine solo o no. El stream
+// "outbound" (transaccional) de Postmark NO agrega ningún manejo de baja
+// automático, y tampoco mete un tracking pixel por defecto.
+//
+// Variable de entorno nueva: POSTMARK_SERVER_TOKEN (token del servidor en
+// Postmark). EMAIL_USER se sigue usando como remitente, pero esa dirección
+// (o el dominio completo) tiene que estar verificada dentro de Postmark
+// como "Sender Signature" o "Sending Domain" antes de poder enviar.
 export async function enviarEmail(destinatario: string, asunto: string, html: string): Promise<ResultadoEmail> {
-  if (!process.env.BREVO_API_KEY) {
-    console.error('📧 BREVO_API_KEY no está configurada — email no enviado:', asunto);
-    return { ok: false, error: 'BREVO_API_KEY no configurada' };
+  if (!process.env.POSTMARK_SERVER_TOKEN) {
+    console.error('📧 POSTMARK_SERVER_TOKEN no está configurada — email no enviado:', asunto);
+    return { ok: false, error: 'POSTMARK_SERVER_TOKEN no configurada' };
   }
   if (!process.env.EMAIL_USER) {
     console.error('📧 EMAIL_USER no está configurada — email no enviado:', asunto);
@@ -51,28 +63,31 @@ export async function enviarEmail(destinatario: string, asunto: string, html: st
   }
 
   try {
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    const res = await fetch('https://api.postmarkapp.com/email', {
       method: 'POST',
       headers: {
         accept: 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
         'content-type': 'application/json',
+        'X-Postmark-Server-Token': process.env.POSTMARK_SERVER_TOKEN,
       },
       body: JSON.stringify({
-        sender: { name: 'Kitson Kit', email: process.env.EMAIL_USER },
-        to: [{ email: destinatario }],
-        subject: asunto,
-        htmlContent: html,
+        From: `Kitson Kit <${process.env.EMAIL_USER}>`,
+        To: destinatario,
+        Subject: asunto,
+        HtmlBody: html,
         // Versión de texto plano junto al HTML: mejora la entregabilidad
         // (evita la señal "MIME_HTML_ONLY" de los filtros anti-spam).
-        textContent: htmlATexto(html),
+        TextBody: htmlATexto(html),
+        MessageStream: 'outbound', // stream transaccional: sin header de baja, sin tracking pixel
       }),
     });
 
-    if (!res.ok) {
-      const detalle = await res.text();
-      console.error(`📧 Brevo rechazó el email "${asunto}" para ${destinatario}:`, res.status, detalle);
-      return { ok: false, error: `Brevo ${res.status}: ${detalle}` };
+    const data = await res.json().catch(() => ({}));
+
+    // Postmark devuelve HTTP 200 incluso con errores propios (ErrorCode != 0)
+    if (!res.ok || data.ErrorCode) {
+      console.error(`📧 Postmark rechazó el email "${asunto}" para ${destinatario}:`, res.status, data);
+      return { ok: false, error: `Postmark ${data.ErrorCode || res.status}: ${data.Message || 'error desconocido'}` };
     }
 
     return { ok: true };

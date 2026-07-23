@@ -11,7 +11,7 @@ Tienda de recargas de pavos, cosméticos y suscripciones de **Fortnite** con ent
 - 🤖 **Entrega automática**: los pagos con saldo disparan un bot que envía los regalos dentro del juego.
 - 🎟️ **Cupones de descuento** con límite de usos, mínimo de compra y vencimiento.
 - 🤝 **Programa de referidos**: link único por cliente, crédito para ambos al concretarse la primera compra.
-- 📧 **Emails transaccionales** (confirmación, entrega, recordatorio de 48hs de amistad) vía Brevo.
+- 📧 **Emails transaccionales** (confirmación, entrega, recordatorio de 48hs de amistad) vía Postmark, sin header de baja forzado — mejor entregabilidad a la bandeja principal.
 - 🔔 **Alertas a Discord** con botón de "Marcar como Entregado" para el equipo.
 - ⚡ **Tiempo real** con Supabase Realtime (toast de compras en vivo sin polling).
 - 🌎 **Multi-moneda** (MXN, COP, PEN, USD) con tasas editables desde el panel.
@@ -48,7 +48,7 @@ npm run dev
 | `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | Login con Discord |
 | `DISCORD_BOT_TOKEN` / `DISCORD_CHANNEL_ID` / `DISCORD_ADMIN_IDS` / `DISCORD_PUBLIC_KEY` | Alertas y botones en Discord |
 | `ADMIN_EMAIL` | Correo con acceso al panel /admin |
-| `BREVO_API_KEY` / `EMAIL_USER` | Envío de emails (remitente verificado en Brevo) |
+| `POSTMARK_SERVER_TOKEN` / `EMAIL_USER` | Envío de emails vía Postmark (remitente verificado como Sender Signature/domain en Postmark) |
 | `BOT_DELIVERY_URL` / `BOT_DELIVERY_SECRET` | Bot de entregas automáticas |
 | `CRON_SECRET` | Protege los endpoints de tareas programadas |
 | `DISCORD_TIENDA_CHANNEL_ID` | Canal donde se publica la tienda diaria |
