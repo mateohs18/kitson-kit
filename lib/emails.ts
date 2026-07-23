@@ -21,6 +21,24 @@ interface ResultadoEmail {
   error?: string;
 }
 
+// Genera una versión de texto plano a partir del HTML (mejora la
+// entregabilidad: los filtros anti-spam desconfían de correos que SOLO
+// traen HTML, sin ninguna alternativa de texto).
+function htmlATexto(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h1|h2|h3|li|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&aacute;/g, 'á').replace(/&eacute;/g, 'é').replace(/&iacute;/g, 'í')
+    .replace(/&oacute;/g, 'ó').replace(/&uacute;/g, 'ú').replace(/&ntilde;/g, 'ñ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // ---------- Envío base ----------
 export async function enviarEmail(destinatario: string, asunto: string, html: string): Promise<ResultadoEmail> {
   if (!process.env.BREVO_API_KEY) {
@@ -45,6 +63,9 @@ export async function enviarEmail(destinatario: string, asunto: string, html: st
         to: [{ email: destinatario }],
         subject: asunto,
         htmlContent: html,
+        // Versión de texto plano junto al HTML: mejora la entregabilidad
+        // (evita la señal "MIME_HTML_ONLY" de los filtros anti-spam).
+        textContent: htmlATexto(html),
       }),
     });
 
