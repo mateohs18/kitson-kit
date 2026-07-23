@@ -174,6 +174,12 @@ export async function emailAmistadLista(perfil: {
 }
 
 // ---------- 4) Disponible en la tienda (lista de deseos) ----------
+// A propósito, esta plantilla es la más discreta de todas las que manda el
+// sitio: sin precio grande, sin botón de "comprar", sin colores llamativos.
+// Un aviso de "está disponible" con estilo de oferta es exactamente el
+// patrón que los clasificadores de Gmail/Outlook reconocen como promoción y
+// mandan a la carpeta de Promociones. Esta versión se lee como una
+// notificación de cuenta, no como una publicidad.
 export async function emailWishlistDisponible(datos: {
   email: string;
   nombre: string;
@@ -184,16 +190,17 @@ export async function emailWishlistDisponible(datos: {
 }): Promise<ResultadoEmail> {
   return enviarEmail(
     datos.email,
-    `🔔 ¡${datos.nombre} volvió a la tienda de Fortnite!`,
-    plantilla(
-      '¡Volvió lo que estabas esperando! 🎉',
-      `<p>Hola,</p>
-       <p>El artículo que guardaste en tu lista de deseos está <strong>hoy</strong> en la tienda de Fortnite:</p>
-       ${datos.imagen ? `<div style="text-align:center; margin: 20px 0;"><img src="${datos.imagen}" alt="${datos.nombre}" width="160" style="border-radius: 12px; border: 3px solid #0A0806;" /></div>` : ''}
-       <p style="text-align:center;"><strong style="font-size: 18px;">${datos.nombre}</strong></p>
-       <p style="text-align:center; font-size: 24px; margin: 8px 0;"><strong style="color:#E3A23D;">$${datos.usd.toFixed(2)} USD</strong> <span style="color:#9A9384; font-size: 14px;">(${datos.pavos.toLocaleString('en-US')} pavos)</span></p>
-       <p>La tienda del juego rota todos los días, así que este artículo puede no estar disponible mañana.</p>`,
-      { texto: 'VER EN LA TIENDA', url: datos.link }
-    )
+    `Novedad en tu lista de deseos de Kitson Kit`,
+    `<div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #333333; padding: 24px;">
+       <p style="font-size: 14px; line-height: 1.6;">Hola,</p>
+       <p style="font-size: 14px; line-height: 1.6;">Te escribimos porque un artículo de tu lista de deseos apareció hoy en la tienda de Fortnite.</p>
+       <p style="font-size: 14px; line-height: 1.6; margin: 20px 0;">
+         <strong>${datos.nombre}</strong><br/>
+         <span style="color: #666;">${datos.pavos.toLocaleString('en-US')} pavos (equivalente a $${datos.usd.toFixed(2)} en nuestro catálogo)</span>
+       </p>
+       <p style="font-size: 14px; line-height: 1.6;">La tienda del juego cambia todos los días, así que puede que este artículo no esté disponible mañana.</p>
+       <p style="font-size: 14px; line-height: 1.6;"><a href="${datos.link}" style="color: #4A93D6;">${datos.link}</a></p>
+       <p style="font-size: 12px; color: #999; margin-top: 30px;">Recibís este correo porque agregaste este artículo a tu lista de deseos en Kitson Kit. Podés administrarla desde tu cuenta.</p>
+     </div>`
   );
 }
