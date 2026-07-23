@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 
     const fecha = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
 
-    const embeds = destacados.map((e) => {
+    const embeds = destacados.map((e, i) => {
       const usd = precioTiendaUsd(e.finalPrice, margen);
       const imagen =
         e.newDisplayAsset?.renderImages?.[0]?.image ||
@@ -56,10 +56,13 @@ export async function GET(req: Request) {
         null;
       return {
         title: `${e.bundle ? '🎁 ' : ''}${entryName(e)}`,
-        url: 'https://kitson-kit.store/tienda-diaria',
+        // URL única por embed (con un ancla #1, #2...): si todos comparten la
+        // misma URL, Discord los agrupa como galería de fotos de un solo
+        // embed y el resto queda sin título ni precio. Con URL distinta,
+        // cada ítem se muestra como tarjeta independiente y completa.
+        url: `https://kitson-kit.store/tienda-diaria#${e.offerId || i}`,
         description: `🪙 **${e.finalPrice.toLocaleString('en-US')} pavos** · 💵 **$${usd.toFixed(2)} USD** en Kitson`,
         color: 14918205, // dorado #E3A23D
-        // "image" (grande, a lo ancho) se ve mejor que "thumbnail" cuando hay pocos embeds
         ...(imagen ? { image: { url: imagen } } : {}),
       };
     });
