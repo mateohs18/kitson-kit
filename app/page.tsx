@@ -262,55 +262,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== PACKS DE PAVOS (protagonistas) ===== */}
-      {!loading && products.some((p) => p.delivery_type === 'recarga') && (
-        <section id="pavos" className="max-w-7xl mx-auto px-6 py-20 border-b-4 border-[#0A0806]">
-          <div className="text-center mb-10">
-            <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">
-              ⚡ RECARGA DIRECTA A TU CUENTA
-            </span>
-            <h2 className="font-display font-bold text-3xl md:text-5xl">Packs de <span className="text-[#E3A23D]">Pavos</span></h2>
-            <p className="text-[#9A9384] mt-3 max-w-2xl mx-auto">Los V-Bucks se acreditan directo en tu cuenta en minutos, sin espera de amistad. El precio final, en tu moneda.</p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {products.filter((p) => p.delivery_type === 'recarga').map((p) => {
-              const precioFijoPais = activeCurrency.id === 'MX' ? p.price_mx : activeCurrency.id === 'CO' ? p.price_co : activeCurrency.id === 'PE' ? p.price_pe : null;
-              const localPrice = (precioFijoPais ?? (p.price * activeCurrency.rate)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              const tieneDescuento = !!p.compare_at_price && p.compare_at_price > p.price;
-              const porcentajeOff = tieneDescuento ? Math.round((1 - p.price / p.compare_at_price!) * 100) : 0;
-              return (
-                <div key={p.id} className="group kk-panel kk-card-hover rounded-2xl overflow-hidden relative">
-                  {tieneDescuento && (
-                    <span className="absolute top-3 right-3 z-10 bg-red-500 text-white text-[10px] font-display font-black px-2.5 py-1 rounded-full border-2 border-[#0A0806]">-{porcentajeOff}%</span>
-                  )}
-                  <div className="relative aspect-square bg-gradient-to-b from-[#4A93D6]/20 to-[#14110C] flex items-center justify-center overflow-hidden border-b-[3px] border-[#0A0806]">
-                    {p.image_url ? (
-                      <Image src={p.image_url} alt={p.name} width={400} height={400} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    ) : (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src="https://fortnite-api.com/images/vbuck.png" alt="V-Bucks" className="w-2/5 h-2/5 object-contain drop-shadow-[0_6px_0_rgba(0,0,0,0.4)] transition-transform duration-500 group-hover:scale-110" loading="lazy" />
-                    )}
-                  </div>
-                  <div className="p-4 md:p-5 text-center">
-                    <h3 className="font-display font-extrabold uppercase text-base md:text-lg text-[#F5F1E6] leading-tight mb-2">{p.name}</h3>
-                    <p className="text-[#E3A23D] font-mono font-semibold text-xl md:text-2xl mb-3">{activeCurrency.symbol}{localPrice} <span className="text-[#9A9384] text-[10px] font-bold uppercase">{activeCurrency.currency}</span></p>
-                    <button
-                      onClick={() => {
-                        const precioParaCarrito = precioFijoPais ? precioFijoPais / activeCurrency.rate : p.price;
-                        addToCart({ ...p, price: precioParaCarrito });
-                      }}
-                      className="w-full bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] py-3 rounded-xl font-display font-bold text-sm transition border-[3px] border-[#0A0806] flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCart size={16} /> Recargar ahora
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       <section id="catalogo" className="max-w-7xl mx-auto px-6 py-20">
         <div className="flex items-center gap-3 mb-10">
           <PackageSearch className="text-[#E3A23D]" size={28} />
@@ -327,7 +278,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.filter((p) => p.delivery_type !== 'recarga').map((p) => {
+            {products.map((p) => {
               const precioFijoPais = activeCurrency.id === 'MX' ? p.price_mx : activeCurrency.id === 'CO' ? p.price_co : activeCurrency.id === 'PE' ? p.price_pe : null;
               const localPrice = (precioFijoPais ?? (p.price * activeCurrency.rate)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               const esRecarga = p.delivery_type === 'recarga';
