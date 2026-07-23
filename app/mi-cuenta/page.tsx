@@ -99,15 +99,19 @@ export default function MiCuenta() {
     return () => clearTimeout(t);
   }, [wishBusqueda]);
 
+  const [wishGuardando, setWishGuardando] = useState<string | null>(null);
+
   const agregarDeseo = async (c: any) => {
     setWishMsg(null);
+    setWishGuardando(c.id);
     const res = await fetch('/api/mi-wishlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: c.id, name: c.name, image: c.image }),
     });
-    const d = await res.json();
-    if (!res.ok) { setWishMsg(d.error || 'No se pudo agregar.'); return; }
+    const d = await res.json().catch(() => ({}));
+    setWishGuardando(null);
+    if (!res.ok) { setWishMsg(d.error || `No se pudo agregar (error ${res.status}). Si dice que la tabla no existe, falta correr wishlist.sql en Supabase.`); return; }
     // NO cerramos los resultados: así se pueden agregar varios seguidos.
     setWishlist((prev) => [{ cosmetic_id: c.id, cosmetic_name: c.name, cosmetic_image: c.image }, ...prev.filter((w) => w.cosmetic_id !== c.id)]);
   };
@@ -486,6 +490,11 @@ export default function MiCuenta() {
                       Cerrar ✕
                     </button>
                   </div>
+                  {wishMsg && (
+                    <div className="px-3 py-2.5 bg-red-500/15 border-b-2 border-[#0A0806]">
+                      <p className="text-red-400 text-xs font-bold">⚠️ {wishMsg}</p>
+                    </div>
+                  )}
                   <div className="max-h-80 overflow-y-auto">
                     {wishBuscando ? (
                       <p className="p-4 text-xs text-[#9A9384] font-bold">Revisando el catálogo completo de Fortnite...</p>
@@ -509,10 +518,10 @@ export default function MiCuenta() {
                             </div>
                             <button
                               onClick={() => !agregado && agregarDeseo(c)}
-                              disabled={agregado}
-                              className={`shrink-0 px-3 py-2 rounded-lg text-xs font-black border-2 border-[#0A0806] transition ${agregado ? 'bg-[#7BC77E]/20 text-[#7BC77E] cursor-default' : 'bg-[#E3A23D] text-[#0A0806] hover:opacity-90'}`}
+                              disabled={agregado || wishGuardando === c.id}
+                              className={`shrink-0 px-3 py-2 rounded-lg text-xs font-black border-2 border-[#0A0806] transition ${agregado ? 'bg-[#7BC77E]/20 text-[#7BC77E] cursor-default' : 'bg-[#E3A23D] text-[#0A0806] hover:opacity-90 disabled:opacity-60'}`}
                             >
-                              {agregado ? '✓ En tu lista' : '+ Agregar'}
+                              {agregado ? '✓ En tu lista' : wishGuardando === c.id ? '...' : '+ Agregar'}
                             </button>
                           </div>
                         );
