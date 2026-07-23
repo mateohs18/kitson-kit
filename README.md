@@ -51,6 +51,7 @@ npm run dev
 | `BREVO_API_KEY` / `EMAIL_USER` | Envío de emails (remitente verificado en Brevo) |
 | `BOT_DELIVERY_URL` / `BOT_DELIVERY_SECRET` | Bot de entregas automáticas |
 | `CRON_SECRET` | Protege los endpoints de tareas programadas |
+| `DISCORD_TIENDA_CHANNEL_ID` | Canal donde se publica la tienda diaria |
 
 ## Base de datos
 
@@ -62,10 +63,22 @@ Los scripts SQL para crear tablas, funciones y triggers están en la carpeta [`s
 4. `aviso_amistad.sql` — recordatorio de 48hs
 5. `cupones.sql` — sistema de cupones
 6. `referidos.sql` — programa de referidos
+7. `mejoras.sql` — reseñas verificadas + historial de movimientos
+8. `wishlist.sql` — lista de deseos
 
 ## Tareas programadas
 
-`GET /api/cron/amistades` (cada hora, con header `Authorization: Bearer CRON_SECRET`): avisa por email a los clientes cuyas 48 horas de amistad de Epic ya se cumplieron. Se puede programar gratis con [cron-job.org](https://cron-job.org).
+Todas con header `Authorization: Bearer CRON_SECRET`, programables gratis en [cron-job.org](https://cron-job.org):
+
+| Endpoint | Frecuencia | Qué hace |
+|---|---|---|
+| `/api/cron/amistades` | cada hora | Email de "ya pasaron las 48hs de amistad" |
+| `/api/cron/wishlist` | diario, 00:05 UTC | Avisa "¡volvió tu skin!" a las listas de deseos |
+| `/api/cron/tienda-discord` | diario, 00:10 UTC | Publica la tienda del día en Discord |
+
+## Diagnóstico
+
+Tras cada deploy, entrar con sesión de admin a `/api/salud`: chequea variables de entorno, tablas y funciones de Supabase, y marca con ❌ lo que falte. `/api/test-email` verifica el envío de emails con Brevo.
 
 ## CI
 
