@@ -119,9 +119,6 @@ export default function Home() {
         <nav className="hidden lg:flex flex-1 justify-center gap-8 font-semibold text-sm text-[#0A0806]">
           <Link href="/" className="relative py-1 group">Inicio<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
           <Link href="#catalogo" className="relative py-1 group">Catálogo<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
-          <Link href="#como-funciona" className="relative py-1 group">Cómo funciona<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
-          <Link href="#reseñas" className="relative py-1 group">Reseñas<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
-          <Link href="#faq" className="relative py-1 group">FAQ<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
           <Link href="/tienda-diaria" className="relative py-1 group flex items-center gap-1.5">
             Tienda Fortnite
             <span className="bg-[#0A0806]/10 text-[#0A0806] text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Hourglass size={9} />{hoursLeft}h</span>

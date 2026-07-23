@@ -644,7 +644,7 @@ export default function TiendaFortnite() {
 
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className={`fixed bottom-6 right-6 z-[110] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-3.5 rounded-full border-[3px] border-[#0A0806] shadow-lg transition-all duration-300 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+        className={`fixed bottom-24 right-6 z-[110] bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] p-3.5 rounded-full border-[3px] border-[#0A0806] shadow-lg transition-all duration-300 ${showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
         title="Volver arriba"
       >
         <ArrowUp size={22} />

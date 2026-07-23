@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import {
   Wallet, Pencil, Check, X, Zap, Gift, Clock, CheckCircle2, AlertTriangle,
   UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Trophy, Package, Gamepad2,
-  Hourglass, ShieldCheck, Camera, Users
+  Hourglass, ShieldCheck, Camera, Users, ChevronDown
 } from 'lucide-react';
 
 const PACKAGES = [
@@ -67,6 +67,8 @@ export default function MiCuenta() {
   const [wishBuscando, setWishBuscando] = useState(false);
   const [wishMsg, setWishMsg] = useState<string | null>(null);
   const [wishBuscado, setWishBuscado] = useState(false);
+  const [wishAbierta, setWishAbierta] = useState(true);
+  const [refAbierta, setRefAbierta] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'movimientos' || movimientosCargados) return;
@@ -440,8 +442,12 @@ export default function MiCuenta() {
           {/* ===== INVITÁ Y GANÁ ===== */}
           {refInfo && (refInfo.recompensaReferidor > 0 || refInfo.recompensaReferido > 0) && (
             <div className="kk-panel rounded-3xl p-6">
-              <h3 className="font-display font-bold text-base mb-2 flex items-center gap-2"><Users size={18} className="text-[#E3A23D]" /> Invitá y ganá</h3>
-              <p className="text-xs text-[#9A9384] leading-relaxed mb-4">
+              <button onClick={() => setRefAbierta(!refAbierta)} className="w-full flex items-center justify-between text-left">
+                <h3 className="font-display font-bold text-base flex items-center gap-2"><Users size={18} className="text-[#E3A23D]" /> Invitá y ganá</h3>
+                <ChevronDown size={18} className={`text-[#9A9384] transition-transform duration-300 ${refAbierta ? 'rotate-180' : ''}`} />
+              </button>
+              {refAbierta && (<>
+              <p className="text-xs text-[#9A9384] leading-relaxed mb-4 mt-2">
                 Compartí tu link. Cuando un amigo haga su primera compra{refInfo.compraMinima > 0 ? ` (mínimo $${refInfo.compraMinima.toFixed(2)} USD)` : ''} y se entregue,
                 {' '}vos recibís <strong className="text-[#7BC77E]">${refInfo.recompensaReferidor.toFixed(2)} USD</strong>
                 {refInfo.recompensaReferido > 0 && <> y tu amigo <strong className="text-[#7BC77E]">${refInfo.recompensaReferido.toFixed(2)} USD</strong></>} en la billetera.
@@ -464,13 +470,18 @@ export default function MiCuenta() {
                   {refCopiado ? '✓ Copiado' : 'Copiar'}
                 </button>
               </div>
+              </>)}
             </div>
           )}
 
           {/* ===== LISTA DE DESEOS ===== */}
           <div className="kk-panel rounded-3xl p-6">
-            <h3 className="font-display font-bold text-base mb-2 flex items-center gap-2"><Star size={18} className="text-[#E3A23D]" /> Lista de deseos</h3>
-            <p className="text-xs text-[#9A9384] leading-relaxed mb-3">Buscá cualquier skin, gesto o pico de Fortnite — hasta los que no rotan hace años. Cuando vuelva a la tienda, te avisamos por email al instante.</p>
+            <button onClick={() => setWishAbierta(!wishAbierta)} className="w-full flex items-center justify-between text-left">
+              <h3 className="font-display font-bold text-base flex items-center gap-2"><Star size={18} className="text-[#E3A23D]" /> Lista de deseos {wishlist.length > 0 && <span className="bg-[#E3A23D]/15 text-[#E3A23D] text-[10px] font-black px-2 py-0.5 rounded-full">{wishlist.length}</span>}</h3>
+              <ChevronDown size={18} className={`text-[#9A9384] transition-transform duration-300 ${wishAbierta ? 'rotate-180' : ''}`} />
+            </button>
+            {wishAbierta && (<>
+            <p className="text-xs text-[#9A9384] leading-relaxed mb-3 mt-2">Buscá cualquier skin, gesto o pico de Fortnite — hasta los que no rotan hace años. Cuando vuelva a la tienda, te avisamos por email al instante.</p>
 
             <div className="relative">
               <input
@@ -550,6 +561,7 @@ export default function MiCuenta() {
                 <p className="text-[10px] text-[#5A554A] font-medium">{wishlist.length}/20 · Te avisamos por email cuando alguno vuelva a la tienda.</p>
               </div>
             )}
+            </>)}
           </div>
         </div>
 
