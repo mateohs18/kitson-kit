@@ -36,6 +36,7 @@ export default function AdminPanel() {
   const [soporteWhatsapp, setSoporteWhatsapp] = useState('');
   const [soporteDiscord, setSoporteDiscord] = useState('');
   const [guardandoSoporte, setGuardandoSoporte] = useState(false);
+  const [seccionActiva, setSeccionActiva] = useState<'resumen' | 'pedidos' | 'catalogo' | 'marketing' | 'config'>('resumen');
   const [marcandoAmistadEmail, setMarcandoAmistadEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -491,8 +492,27 @@ export default function AdminPanel() {
           </div>
         </div>
 
+        {/* BARRA DE PESTAÑAS */}
+        <div className="flex flex-wrap gap-2 bg-[#1D1913] p-2 rounded-2xl border-2 border-[#0A0806] sticky top-4 z-[90]">
+          {([
+            { id: 'resumen' as const, label: '📊 Resumen' },
+            { id: 'pedidos' as const, label: '📦 Pedidos' },
+            { id: 'catalogo' as const, label: '🛍️ Catálogo' },
+            { id: 'marketing' as const, label: '🎟️ Marketing' },
+            { id: 'config' as const, label: '⚙️ Configuración' },
+          ]).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSeccionActiva(t.id)}
+              className={`px-4 md:px-5 py-2.5 rounded-xl text-sm font-display font-bold transition-all ${seccionActiva === t.id ? 'bg-[#E3A23D] text-[#0A0806] border-2 border-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6] border-2 border-transparent'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {/* DASHBOARD DE MÉTRICAS */}
-        {(() => {
+        {seccionActiva === 'resumen' && (() => {
           const ahora = Date.now();
           const dia = 24 * 60 * 60 * 1000;
           const entregadas = orders.filter((o) => String(o.status || '').toUpperCase().includes('ENTREGAD'));
@@ -535,7 +555,7 @@ export default function AdminPanel() {
         })()}
 
         {/* GESTOR DE BILLETERA */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'pedidos' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-6">
             <Wallet className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Recargar billetera</h2>
@@ -565,7 +585,7 @@ export default function AdminPanel() {
         </div>
 
         {/* TASAS DE CAMBIO */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'config' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-2">
             <DollarSign className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Tasas de cambio</h2>
@@ -600,7 +620,7 @@ export default function AdminPanel() {
         </div>
 
         {/* BARRA DE ANUNCIOS */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'marketing' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-2">
             <Zap className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Barra de anuncios</h2>
@@ -647,7 +667,7 @@ export default function AdminPanel() {
         </div>
 
         {/* BOTONES DE SOPORTE FLOTANTES */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'config' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-2">
             <UserPlus className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Botones de soporte</h2>
@@ -683,7 +703,7 @@ export default function AdminPanel() {
         </div>
 
         {/* MARGEN TIENDA DIARIA */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'catalogo' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Margen de la tienda diaria</h2>
@@ -710,7 +730,7 @@ export default function AdminPanel() {
         </div>
 
         {/* PROGRAMA DE REFERIDOS */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'marketing' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-2">
             <Gift className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Programa de referidos</h2>
@@ -743,7 +763,7 @@ export default function AdminPanel() {
         </div>
 
         {/* SOLICITUDES DE AMISTAD PENDIENTES */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'pedidos' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-6">
             <UserPlus className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Solicitudes de amistad pendientes</h2>
@@ -775,7 +795,7 @@ export default function AdminPanel() {
         </div>
 
         {/* RECARGAS PENDIENTES (automatizadas desde /billetera) */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'pedidos' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-6">
             <Inbox className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Recargas pendientes</h2>
@@ -814,7 +834,7 @@ export default function AdminPanel() {
         </div>
 
         {/* CATÁLOGO DE PRODUCTOS */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'catalogo' ? '' : 'hidden'}`}>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <ShoppingBag className="text-[#E3A23D]" size={28} />
@@ -950,7 +970,7 @@ export default function AdminPanel() {
         </div>
 
         {/* CUPONES DE DESCUENTO */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'marketing' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-2">
             <Ticket className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Cupones de descuento</h2>
@@ -1056,7 +1076,7 @@ export default function AdminPanel() {
         </div>
 
         {/* MODERACIÓN DE RESEÑAS */}
-        <div className="kk-panel p-8 rounded-2xl">
+        <div className={`kk-panel p-8 rounded-2xl ${seccionActiva === 'marketing' ? '' : 'hidden'}`}>
           <div className="flex items-center gap-3 mb-6">
             <Star className="text-[#E3A23D]" size={28} />
             <h2 className="font-display text-2xl font-bold">Reseñas publicadas</h2>
@@ -1092,7 +1112,7 @@ export default function AdminPanel() {
         </div>
 
         {/* PEDIDOS */}
-        <div className="kk-panel rounded-2xl overflow-hidden">
+        <div className={`kk-panel rounded-2xl overflow-hidden ${seccionActiva === 'pedidos' ? '' : 'hidden'}`}>
           <div className="p-5 border-b-2 border-[#0A0806]">
             <input
               type="text" placeholder="Buscar por correo del cliente o estado..."

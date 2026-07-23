@@ -119,6 +119,9 @@ export default function Home() {
         <nav className="hidden lg:flex flex-1 justify-center gap-8 font-semibold text-sm text-[#0A0806]">
           <Link href="/" className="relative py-1 group">Inicio<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
           <Link href="#catalogo" className="relative py-1 group">Catálogo<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
+          <Link href="#como-funciona" className="relative py-1 group">Cómo funciona<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
+          <Link href="#reseñas" className="relative py-1 group">Reseñas<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
+          <Link href="#faq" className="relative py-1 group">FAQ<span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-[#0A0806] transition-all duration-300 group-hover:w-full"></span></Link>
           <Link href="/tienda-diaria" className="relative py-1 group flex items-center gap-1.5">
             Tienda Fortnite
             <span className="bg-[#0A0806]/10 text-[#0A0806] text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Hourglass size={9} />{hoursLeft}h</span>
@@ -263,9 +266,10 @@ export default function Home() {
       </section>
 
       <section id="catalogo" className="max-w-7xl mx-auto px-6 py-20">
-        <div className="flex items-center gap-3 mb-10">
-          <PackageSearch className="text-[#E3A23D]" size={28} />
-          <h2 className="font-display font-bold text-3xl md:text-4xl">Ofertas Exclusivas</h2>
+        <div className="text-center mb-10">
+          <span className="inline-block bg-[#E3A23D] text-[#0A0806] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">NUESTRO CATÁLOGO</span>
+          <h2 className="font-display font-bold text-3xl md:text-4xl">Ofertas <span className="text-[#E3A23D]">Exclusivas</span></h2>
+          <p className="text-[#9A9384] mt-3 max-w-2xl mx-auto">Packs de pavos, suscripciones y cosméticos seleccionados, con entrega garantizada.</p>
         </div>
         {loading ? (
           <div className="flex justify-center p-20"><Gamepad2 size={48} className="animate-spin text-[#E3A23D]" /></div>
@@ -337,9 +341,10 @@ export default function Home() {
 
       <section id="reseñas" className="px-6 py-24 border-t-4 border-[#0A0806]">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-12 border-l-[6px] border-[#E3A23D] pl-6">
-            <h2 className="font-display font-bold text-3xl md:text-5xl leading-tight">Nuestra Squad <br/><span className="text-[#E3A23D]">de Leyendas</span></h2>
-            <p className="text-[#9A9384] mt-4 max-w-xl font-medium">Lee las opiniones reales de los gamers que ya aseguraron su cuenta con nosotros.</p>
+          <div className="text-center mb-12">
+            <span className="inline-block bg-[#7BC77E] text-[#0A2810] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">RESEÑAS VERIFICADAS</span>
+            <h2 className="font-display font-bold text-3xl md:text-5xl leading-tight">Nuestra Squad <span className="text-[#E3A23D]">de Leyendas</span></h2>
+            <p className="text-[#9A9384] mt-3 max-w-xl mx-auto font-medium">Opiniones reales de gamers que ya compraron con nosotros.</p>
           </div>
           {stats.totalReviews === 0 ? (
             <div className="kk-panel p-12 rounded-3xl text-center max-w-xl mx-auto">
@@ -430,11 +435,12 @@ export default function Home() {
 
       <section id="faq" className="max-w-4xl mx-auto px-6 py-24 border-t-4 border-[#0A0806]">
         <div className="text-center mb-12">
-          <h2 className="font-display font-bold text-3xl md:text-4xl mb-4">Preguntas Frecuentes</h2>
-          <p className="text-[#9A9384]">Todo lo que necesitas saber sobre cómo funciona Kitson Kit.</p>
+          <span className="inline-block bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-4">¿DUDAS?</span>
+          <h2 className="font-display font-bold text-3xl md:text-4xl">Preguntas <span className="text-[#E3A23D]">Frecuentes</span></h2>
+          <p className="text-[#9A9384] mt-3">Lo esencial para comprar tranquilo. La lista completa está en su propia página.</p>
         </div>
         <div className="space-y-4">
-          {faqs.map((faq, idx) => (
+          {faqs.slice(0, 4).map((faq, idx) => (
             <div key={idx} className="kk-panel rounded-2xl overflow-hidden">
               <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 text-left focus:outline-none hover:bg-white/5 transition-colors">
                 <span className="font-bold text-lg text-[#F5F1E6]">{faq.q}</span>
@@ -446,7 +452,12 @@ export default function Home() {
             </div>
           ))}
         </div>
-      </section>
+              <div className="text-center mt-8">
+          <Link href="/faq" className="inline-block bg-[#1D1913] hover:bg-[#E3A23D] hover:text-[#0A0806] text-[#F5F1E6] px-8 py-3.5 rounded-xl font-display font-bold border-[3px] border-[#0A0806] transition-colors">
+            Ver todas las preguntas →
+          </Link>
+        </div>
+</section>
 
       <footer className="border-t-4 border-[#0A0806] bg-[#0A0806] pt-20 pb-8 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-14">
