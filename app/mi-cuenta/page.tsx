@@ -61,6 +61,11 @@ export default function MiCuenta() {
   const [refCopiado, setRefCopiado] = useState(false);
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [movimientosCargados, setMovimientosCargados] = useState(false);
+  const [wishlist, setWishlist] = useState<any[]>([]);
+  const [wishBusqueda, setWishBusqueda] = useState('');
+  const [wishResultados, setWishResultados] = useState<any[]>([]);
+  const [wishBuscando, setWishBuscando] = useState(false);
+  const [wishMsg, setWishMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab !== 'movimientos' || movimientosCargados) return;
@@ -69,6 +74,50 @@ export default function MiCuenta() {
       .then((d) => { if (d?.movimientos) { setMovimientos(d.movimientos); setMovimientosCargados(true); } })
       .catch(() => {});
   }, [activeTab, movimientosCargados]);
+
+  useEffect(() => {
+    fetch('/api/mi-wishlist')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.wishlist) setWishlist(d.wishlist); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (wishBusqueda.trim().length < 3) { setWishResultados([]); return; }
+    const t = setTimeout(async () => {
+      setWishBuscando(true);
+      try {
+        const res = await fetch(`/api/buscar-cosmetico?q=${encodeURIComponent(wishBusqueda.trim())}`);
+        const d = await res.json();
+        setWishResultados(d.resultados || []);
+      } catch { setWishResultados([]); }
+      setWishBuscando(false);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [wishBusqueda]);
+
+  const agregarDeseo = async (c: any) => {
+    setWishMsg(null);
+    const res = await fetch('/api/mi-wishlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: c.id, name: c.name, image: c.image }),
+    });
+    const d = await res.json();
+    if (!res.ok) { setWishMsg(d.error || 'No se pudo agregar.'); return; }
+    setWishlist((prev) => [{ cosmetic_id: c.id, cosmetic_name: c.name, cosmetic_image: c.image }, ...prev.filter((w) => w.cosmetic_id !== c.id)]);
+    setWishBusqueda('');
+    setWishResultados([]);
+  };
+
+  const quitarDeseo = async (id: string) => {
+    setWishlist((prev) => prev.filter((w) => w.cosmetic_id !== id));
+    await fetch('/api/mi-wishlist', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  };
 
   useEffect(() => {
     fetch('/api/mi-codigo-referido')
@@ -409,6 +458,66 @@ export default function MiCuenta() {
               </div>
             </div>
           )}
+
+          {/* ===== LISTA DE DESEOS ===== */}
+          <div className="kk-panel rounded-3xl p-6">
+            <h3 className="font-display font-bold text-base mb-2 flex items-center gap-2"><Star size={18} className="text-[#E3A23D]" /> Lista de deseos</h3>
+            <p className="text-xs text-[#9A9384] leading-relaxed mb-3">Buscá cualquier skin, gesto o pico de Fortnite — hasta los que no rotan hace años. Cuando vuelva a la tienda, te avisamos por email al instante.</p>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={wishBusqueda}
+                onChange={(e) => setWishBusqueda(e.target.value)}
+                placeholder="Buscar un cosmético... (mín. 3 letras)"
+                className="w-full bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-3 py-2.5 text-sm text-[#F5F1E6] placeholder-[#9A9384] focus:outline-none focus:border-[#E3A23D]"
+              />
+              {(wishBuscando || wishResultados.length > 0) && (
+                <div className="absolute inset-x-0 top-full mt-1 z-20 bg-[#1D1913] border-2 border-[#0A0806] rounded-xl overflow-hidden max-h-64 overflow-y-auto shadow-xl">
+                  {wishBuscando ? (
+                    <p className="p-3 text-xs text-[#9A9384] font-bold">Buscando...</p>
+                  ) : (
+                    wishResultados.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => agregarDeseo(c)}
+                        className="w-full flex items-center gap-3 p-2.5 hover:bg-white/5 transition text-left"
+                      >
+                        {c.image ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={c.image} alt="" className="w-10 h-10 rounded-lg border-2 border-[#0A0806] bg-[#14110C] object-contain shrink-0" loading="lazy" />
+                        ) : <span className="w-10 h-10 rounded-lg border-2 border-[#0A0806] bg-[#14110C] shrink-0"></span>}
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-[#F5F1E6] truncate">{c.name}</span>
+                          <span className="block text-[10px] text-[#9A9384]">{c.type}{c.rarity ? ` · ${c.rarity}` : ''}</span>
+                        </span>
+                        <span className="ml-auto text-[#E3A23D] font-black text-lg shrink-0">+</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            {wishMsg && <p className="text-red-400 text-xs font-bold mt-2">{wishMsg}</p>}
+
+            {wishlist.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {wishlist.map((w) => (
+                  <div key={w.cosmetic_id} className="flex items-center gap-3 bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-2">
+                    {w.cosmetic_image ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={w.cosmetic_image} alt="" className="w-9 h-9 rounded-lg object-contain shrink-0" loading="lazy" />
+                    ) : <span className="w-9 h-9 shrink-0"></span>}
+                    <span className="flex-1 text-sm font-bold text-[#D9D4C7] truncate">{w.cosmetic_name}</span>
+                    <button onClick={() => quitarDeseo(w.cosmetic_id)} className="text-[#9A9384] hover:text-red-400 transition p-1" title="Quitar">
+                      <X size={15} />
+                    </button>
+                  </div>
+                ))}
+                <p className="text-[10px] text-[#5A554A] font-medium">{wishlist.length}/20 · Te avisamos por email cuando alguno vuelva a la tienda.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ===== COLUMNA DERECHA ===== */}
