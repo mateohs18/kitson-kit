@@ -172,3 +172,28 @@ export async function emailAmistadLista(perfil: {
     )
   );
 }
+
+// ---------- 4) Disponible en la tienda (lista de deseos) ----------
+export async function emailWishlistDisponible(datos: {
+  email: string;
+  nombre: string;
+  imagen?: string | null;
+  usd: number;
+  pavos: number;
+  link: string;
+}): Promise<ResultadoEmail> {
+  return enviarEmail(
+    datos.email,
+    `🔔 ¡${datos.nombre} volvió a la tienda de Fortnite!`,
+    plantilla(
+      '¡Volvió lo que estabas esperando! 🎉',
+      `<p>Hola,</p>
+       <p>El artículo que guardaste en tu lista de deseos está <strong>hoy</strong> en la tienda de Fortnite:</p>
+       ${datos.imagen ? `<div style="text-align:center; margin: 20px 0;"><img src="${datos.imagen}" alt="${datos.nombre}" width="160" style="border-radius: 12px; border: 3px solid #0A0806;" /></div>` : ''}
+       <p style="text-align:center;"><strong style="font-size: 18px;">${datos.nombre}</strong></p>
+       <p style="text-align:center; font-size: 24px; margin: 8px 0;"><strong style="color:#E3A23D;">$${datos.usd.toFixed(2)} USD</strong> <span style="color:#9A9384; font-size: 14px;">(${datos.pavos.toLocaleString('en-US')} pavos)</span></p>
+       <p>La tienda del juego rota todos los días, así que este artículo puede no estar disponible mañana.</p>`,
+      { texto: 'VER EN LA TIENDA', url: datos.link }
+    )
+  );
+}
