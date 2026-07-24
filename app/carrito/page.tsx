@@ -141,7 +141,7 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA SHEETDB ---
       try {
-        const sheetDbUrl = 'PEGA_AQUI_LA_URL_CORTITA_DE_SHEETDB'; // Ej: https://sheetdb.io/api/v1/tucodigo
+        const sheetDbUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; // Ej: https://sheetdb.io/api/v1/tucodigo
         
         await fetch(sheetDbUrl, {
           method: 'POST',
