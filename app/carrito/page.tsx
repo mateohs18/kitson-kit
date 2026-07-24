@@ -141,24 +141,21 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS A GOOGLE SHEETS ---
       try {
-        // REEMPLAZA ESTA URL POR LA QUE TE DÉ GOOGLE APPS SCRIPT
         const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzS9Zm1gKS-YogDPFx0qG_d5F6k1UkH0KmgnMARYUmKs0C_-Y5wbkBSviWLugJ_RozT/exec'; 
         
-        if (googleScriptUrl !== 'TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI') {
-          await fetch(googleScriptUrl, {
-            method: 'POST',
-            mode: 'no-cors', // <--- ESTO ES LO NUEVO. Obliga al navegador a enviar los datos.
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              fecha: new Date().toLocaleString(),
-              cliente_email: session.user.email,
-              tipo_recarga: rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)',
-              id_epic: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
-              correo_xbox: rechargeType === 'directa' ? xboxEmail.trim() : 'N/A',
-              password_xbox: rechargeType === 'directa' ? xboxPassword.trim() : 'N/A'
-            })
-          });
-        }
+        await fetch(googleScriptUrl, {
+          method: 'POST',
+          mode: 'no-cors', // Obliga al navegador a enviar los datos.
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            fecha: new Date().toLocaleString(),
+            cliente_email: session.user.email,
+            tipo_recarga: rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)',
+            id_epic: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
+            correo_xbox: rechargeType === 'directa' ? xboxEmail.trim() : 'N/A',
+            password_xbox: rechargeType === 'directa' ? xboxPassword.trim() : 'N/A'
+          })
+        });
       } catch (sheetError) {
         console.error("No se pudo guardar en Google Sheets:", sheetError);
         // No detenemos el checkout si falla el Excel
@@ -174,9 +171,9 @@ export default function CartPage() {
           userName: session.user.name || 'Usuario',
           cart: cart,
           gamerId: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
-          rechargeType: rechargeType, // Añadimos esto por si tu backend lo necesita
-          xboxEmail: rechargeType === 'directa' ? xboxEmail.trim() : null, // Añadimos esto por si tu backend lo necesita
-          xboxPassword: rechargeType === 'directa' ? xboxPassword.trim() : null, // Añadimos esto por si tu backend lo necesita
+          rechargeType: rechargeType, 
+          xboxEmail: rechargeType === 'directa' ? xboxEmail.trim() : null, 
+          xboxPassword: rechargeType === 'directa' ? xboxPassword.trim() : null, 
           totalPrice: totalConDescuento,
           couponCode: coupon?.code || null,
           refCode: (() => { try { return localStorage.getItem('kitson_ref'); } catch { return null; } })(),
