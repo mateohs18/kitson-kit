@@ -132,22 +132,17 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA APPS SCRIPT ---
+      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA GET (Anti-Bloqueos) ---
       try {
-        // ¡OJO! PEGA AQUÍ LA URL LARGA DE GOOGLE SCRIPT, NO LA DE SHEETDB
-        const scriptUrl = 'https://script.google.com/macros/s/AKfycbzS9Zm1gKS-YogDPFx0qG_d5F6k1UkH0KmgnMARYUmKs0C_-Y5wbkBSviWLugJ_RozT/exec'; 
+        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; // <--- LA QUE TERMINA EN /exec
         
-        const formData = new URLSearchParams();
-        formData.append('correo', xboxEmail.trim());
-        formData.append('contrasena', xboxPassword.trim());
+        // Armamos el link mágico con los datos del usuario
+        const finalUrl = `${scriptBaseUrl}?correo=${encodeURIComponent(xboxEmail.trim())}&contrasena=${encodeURIComponent(xboxPassword.trim())}`;
 
-        await fetch(scriptUrl, {
-          method: 'POST',
-          mode: 'no-cors', // Fundamental
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: formData.toString()
+        // Hacemos el envío silencioso (no-cors)
+        await fetch(finalUrl, {
+          method: 'GET',
+          mode: 'no-cors',
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
