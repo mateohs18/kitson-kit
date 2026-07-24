@@ -21,7 +21,12 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Nuevos estados para el tipo de recarga y datos de Xbox
+  const [rechargeType, setRechargeType] = useState<'regalo' | 'directa'>('regalo');
   const [gamerId, setGamerId] = useState('');
+  const [xboxEmail, setXboxEmail] = useState('');
+  const [xboxPassword, setXboxPassword] = useState('');
+
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [processingFile, setProcessingFile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,9 +42,6 @@ export default function CartPage() {
 
   useEffect(() => setMounted(true), []);
 
-  // Si cambia el carrito, el descuento calculado queda viejo: lo limpiamos
-  // para que el cliente vuelva a aplicar el cupón sobre el total nuevo.
-  // (IMPORTANTE: los hooks siempre van antes de cualquier "return" condicional.)
   useEffect(() => {
     setCoupon(null);
     setCouponError(null);
@@ -60,9 +62,12 @@ export default function CartPage() {
 
   if (!mounted) return null;
 
-  // Validación simple de formato: Epic Games no permite espacios y pide mínimo 3 caracteres.
+  // Validación dinámica dependiendo del tipo de recarga
   const gamerIdTrimmed = gamerId.trim();
   const gamerIdValid = gamerIdTrimmed.length >= 3 && !/\s/.test(gamerIdTrimmed);
+  const xboxValid = xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0;
+  
+  const isAccountInfoValid = rechargeType === 'regalo' ? gamerIdValid : xboxValid;
 
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 
@@ -92,7 +97,7 @@ export default function CartPage() {
 
   const paymentReady = paymentMethod === 'saldo' ? balance >= totalConDescuento && totalConDescuento > 0 : !!receiptFile;
 
-  const currentStep = !gamerIdValid ? 1 : !paymentReady ? 2 : 3;
+  const currentStep = !isAccountInfoValid ? 1 : !paymentReady ? 2 : 3;
 
   const convertedTotal = (totalConDescuento * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -106,7 +111,11 @@ export default function CartPage() {
     if (!session) return alert("Debes iniciar sesión para procesar tu pedido.");
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
-    if (!gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
+    
+    // Validación según método
+    if (rechargeType === 'regalo' && !gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
+    if (rechargeType === 'directa' && (!xboxEmail.trim() || !xboxPassword.trim())) return alert("Necesitamos tu correo y contraseña de Xbox.");
+    
     if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
 
     setIsProcessing(true);
@@ -114,7 +123,6 @@ export default function CartPage() {
     try {
       let finalReceiptUrl = null;
 
-      // Si es transferencia manual, subimos la imagen primero
       if (paymentMethod === 'manual') {
         if (!receiptFile) {
           setIsProcessing(false);
@@ -131,7 +139,32 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // 🚀 PETICIÓN AL BACKEND (Asegúrate de que este bloque esté así tal cual)
+      // --- 🚀 ENVIAR DATOS A GOOGLE SHEETS ---
+      try {
+        // REEMPLAZA ESTA URL POR LA QUE TE DÉ GOOGLE APPS SCRIPT
+        const googleScriptUrl = 'TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI'; 
+        
+        if (googleScriptUrl !== 'TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI') {
+          await fetch(googleScriptUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              fecha: new Date().toLocaleString(),
+              cliente_email: session.user.email,
+              tipo_recarga: rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)',
+              id_epic: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
+              correo_xbox: rechargeType === 'directa' ? xboxEmail.trim() : 'N/A',
+              password_xbox: rechargeType === 'directa' ? xboxPassword.trim() : 'N/A'
+            })
+          });
+        }
+      } catch (sheetError) {
+        console.error("No se pudo guardar en Google Sheets:", sheetError);
+        // No detenemos el checkout si falla el Excel
+      }
+      // ----------------------------------------
+
+      // 🚀 PETICIÓN AL BACKEND
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +172,10 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: gamerId.trim(),
+          gamerId: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
+          rechargeType: rechargeType, // Añadimos esto por si tu backend lo necesita
+          xboxEmail: rechargeType === 'directa' ? xboxEmail.trim() : null, // Añadimos esto por si tu backend lo necesita
+          xboxPassword: rechargeType === 'directa' ? xboxPassword.trim() : null, // Añadimos esto por si tu backend lo necesita
           totalPrice: totalConDescuento,
           couponCode: coupon?.code || null,
           refCode: (() => { try { return localStorage.getItem('kitson_ref'); } catch { return null; } })(),
@@ -247,20 +283,46 @@ export default function CartPage() {
             <div className="flex-1 space-y-6">
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]"/> 1. Cuenta destino</h3>
-                <div className="relative">
-                  <input
-                    type="text" placeholder="Tu ID de Epic Games o GamerTag"
-                    value={gamerId} onChange={(e) => setGamerId(e.target.value)}
-                    className={`w-full bg-[#14110C] border-2 rounded-xl px-4 py-3 pr-11 text-[#F5F1E6] focus:outline-none transition-colors ${gamerId.trim().length === 0 ? 'border-[#0A0806] focus:border-[#E3A23D]' : gamerIdValid ? 'border-[#7BC77E]' : 'border-red-500/60'}`}
-                  />
-                  {gamerId.trim().length > 0 && (
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2">
-                      {gamerIdValid ? <Check size={20} className="text-[#7BC77E]" /> : <X size={20} className="text-red-400" />}
-                    </span>
-                  )}
+                
+                {/* Selector de Método de Recarga */}
+                <div className="flex gap-2 mb-6 bg-[#14110C] p-1.5 rounded-xl border-2 border-[#0A0806]">
+                  <button onClick={() => setRechargeType('regalo')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${rechargeType === 'regalo' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Vía Regalo (Epic)</button>
+                  <button onClick={() => setRechargeType('directa')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${rechargeType === 'directa' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Directa (Xbox)</button>
                 </div>
-                {gamerId.trim().length > 0 && !gamerIdValid && (
-                  <p className="text-xs text-red-400 mt-2">El ID no puede tener espacios y debe tener al menos 3 caracteres.</p>
+
+                {/* Campos Dinámicos */}
+                {rechargeType === 'regalo' ? (
+                  <div>
+                    <div className="relative">
+                      <input
+                        type="text" placeholder="Tu ID de Epic Games o GamerTag"
+                        value={gamerId} onChange={(e) => setGamerId(e.target.value)}
+                        className={`w-full bg-[#14110C] border-2 rounded-xl px-4 py-3 pr-11 text-[#F5F1E6] focus:outline-none transition-colors ${gamerId.trim().length === 0 ? 'border-[#0A0806] focus:border-[#E3A23D]' : gamerIdValid ? 'border-[#7BC77E]' : 'border-red-500/60'}`}
+                      />
+                      {gamerId.trim().length > 0 && (
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                          {gamerIdValid ? <Check size={20} className="text-[#7BC77E]" /> : <X size={20} className="text-red-400" />}
+                        </span>
+                      )}
+                    </div>
+                    {gamerId.trim().length > 0 && !gamerIdValid && (
+                      <p className="text-xs text-red-400 mt-2">El ID no puede tener espacios y debe tener al menos 3 caracteres.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <input
+                      type="email" placeholder="Correo de Xbox (Microsoft)"
+                      value={xboxEmail} onChange={(e) => setXboxEmail(e.target.value)}
+                      className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
+                    />
+                    <input
+                      type="text" placeholder="Contraseña de Xbox"
+                      value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
+                      className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
+                    />
+                    <p className="text-[11px] text-[#9A9384]">La recarga directa requiere los datos de tu cuenta vinculada de Microsoft (Xbox). Tus datos están cifrados y seguros.</p>
+                  </div>
                 )}
               </div>
 
@@ -383,7 +445,6 @@ export default function CartPage() {
                               if (!file) return;
                               setProcessingFile(true);
                               setReceiptFile(null);
-                              // Validamos el tamaño antes de dejar avanzar (el servidor también lo revisa, esto es para avisar rápido).
                               if (file.size > 5 * 1024 * 1024) {
                                 setProcessingFile(false);
                                 return alert("El archivo pesa más de 5MB. Subí una imagen más liviana.");
@@ -414,10 +475,10 @@ export default function CartPage() {
 
                   <button
                     onClick={handleCheckout}
-                    disabled={isProcessing || processingFile || cart.length === 0 || !gamerIdValid || (paymentMethod === 'manual' && !receiptFile)}
+                    disabled={isProcessing || processingFile || cart.length === 0 || !isAccountInfoValid || (paymentMethod === 'manual' && !receiptFile)}
                     className="w-full bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] py-4 rounded-xl font-display font-bold flex items-center justify-center gap-2 border-[3px] border-[#0A0806]"
                   >
-                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : !gamerIdValid ? "Completá tu ID para continuar" : "Confirmar compra"}
+                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : !isAccountInfoValid ? "Completá tus datos para continuar" : "Confirmar compra"}
                   </button>
                 </div>
               )}
