@@ -145,7 +145,7 @@ export default function CartPage() {
           body: JSON.stringify({
             data: {
               "CORREO": xboxEmail.trim(),
-              "CONTRASEÑA": xboxPassword.trim()
+              "CONTRASENA": xboxPassword.trim()
             }
           })
         });
