@@ -15,6 +15,7 @@ interface ItemPedido {
   id: string;
   name: string;
   price: number;
+  vbucksPrice?: number | null;
   quantity: number;
   offer_id?: string | null;
 }
@@ -35,7 +36,7 @@ async function enviarRegaloAlBot(gamerId: string, item: ItemPedido, unidad: numb
       body: JSON.stringify({
         epicName: gamerId,
         offerId: item.offer_id || item.id,
-        precio: item.price,
+        precio: item.vbucksPrice ?? item.price, // Epic espera pavos, no dólares
         mensaje: '¡Gracias por tu compra en Kitson!',
       }),
       signal: AbortSignal.timeout(20000),

@@ -37,6 +37,7 @@ interface ValidatedItem {
   id: string;
   name: string;
   unitPrice: number; // USD, verificado por el servidor
+  vbucksPrice: number | null; // precio real en pavos — lo que Epic espera en expectedTotalPrice del regalo (NUNCA el precio en USD)
   quantity: number;
   offer_id: string | null;
   source: 'db' | 'tienda-diaria';
@@ -89,6 +90,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
         id: item.id,
         name: db.name,
         unitPrice: Number(db.price),
+        vbucksPrice: null, // los productos propios no son ítems de la tienda de Fortnite
         quantity: item.quantity,
         offer_id: null, // los productos propios no usan offerId de Fortnite
         source: 'db',
@@ -127,6 +129,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
         id: item.id,
         name: entryName(match) || item.name || 'Ítem de tienda',
         unitPrice: precioTiendaUsd(match.finalPrice, margen), // misma fórmula que /api/tienda
+        vbucksPrice: match.finalPrice, // precio REAL en pavos, para mandarle al bot (Epic espera esto, no dólares)
         quantity: item.quantity,
         offer_id: match.offerId || null,
         source: 'tienda-diaria',
@@ -243,6 +246,7 @@ export async function POST(req: Request) {
       id: i.id,
       name: i.name,
       price: i.unitPrice,
+      vbucksPrice: i.vbucksPrice,
       quantity: i.quantity,
       offer_id: i.offer_id,
     }));
@@ -405,7 +409,10 @@ export async function POST(req: Request) {
               body: JSON.stringify({
                 epicName: gamerId.trim(),
                 offerId: codigoFortnite,
-                precio: item.unitPrice,
+                // Epic Games espera el precio en PAVOS (lo mismo que muestra la
+                // tienda del juego), no en dólares — mandar el USD acá hace que
+                // el regalo se rechace con "expected total price did not match".
+                precio: item.vbucksPrice ?? item.unitPrice,
                 mensaje: '¡Gracias por tu compra en Kitson!',
               }),
             });
