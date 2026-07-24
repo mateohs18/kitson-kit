@@ -67,8 +67,7 @@ export default function MiCuenta() {
   const [wishBuscando, setWishBuscando] = useState(false);
   const [wishMsg, setWishMsg] = useState<string | null>(null);
   const [wishBuscado, setWishBuscado] = useState(false);
-  const [wishAbierta, setWishAbierta] = useState(true);
-  const [refAbierta, setRefAbierta] = useState(false);
+  const [panelExtra, setPanelExtra] = useState<'referidos' | 'deseos'>('deseos');
 
   useEffect(() => {
     if (activeTab !== 'movimientos' || movimientosCargados) return;
@@ -439,49 +438,58 @@ export default function MiCuenta() {
             )}
           </div>
 
-          {/* ===== INVITÁ Y GANÁ ===== */}
-          {refInfo && (refInfo.recompensaReferidor > 0 || refInfo.recompensaReferido > 0) && (
-            <div className="kk-panel rounded-3xl p-6">
-              <button onClick={() => setRefAbierta(!refAbierta)} className="w-full flex items-center justify-between text-left">
-                <h3 className="font-display font-bold text-base flex items-center gap-2"><Users size={18} className="text-[#E3A23D]" /> Invitá y ganá</h3>
-                <ChevronDown size={18} className={`text-[#9A9384] transition-transform duration-300 ${refAbierta ? 'rotate-180' : ''}`} />
-              </button>
-              {refAbierta && (<>
-              <p className="text-xs text-[#9A9384] leading-relaxed mb-4 mt-2">
-                Compartí tu link. Cuando un amigo haga su primera compra{refInfo.compraMinima > 0 ? ` (mínimo $${refInfo.compraMinima.toFixed(2)} USD)` : ''} y se entregue,
-                {' '}vos recibís <strong className="text-[#7BC77E]">${refInfo.recompensaReferidor.toFixed(2)} USD</strong>
-                {refInfo.recompensaReferido > 0 && <> y tu amigo <strong className="text-[#7BC77E]">${refInfo.recompensaReferido.toFixed(2)} USD</strong></>} en la billetera.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={refInfo.link}
-                  className="flex-1 min-w-0 bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-3 py-2.5 text-[11px] font-mono text-[#D9D4C7] focus:outline-none"
-                  onFocus={(e) => e.target.select()}
-                />
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(refInfo.link);
-                    setRefCopiado(true);
-                    setTimeout(() => setRefCopiado(false), 2000);
-                  }}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-black border-2 border-[#0A0806] transition shrink-0 ${refCopiado ? 'bg-[#7BC77E] text-[#0A0806]' : 'bg-[#E3A23D] text-[#0A0806] hover:opacity-90'}`}
-                >
-                  {refCopiado ? '✓ Copiado' : 'Copiar'}
-                </button>
-              </div>
-              </>)}
-            </div>
-          )}
+          {/* ===== PANEL COMBINADO: INVITÁ Y GANÁ + LISTA DE DESEOS ===== */}
+          {(() => {
+            const hayReferidos = !!(refInfo && (refInfo.recompensaReferidor > 0 || refInfo.recompensaReferido > 0));
+            return (
+              <div className="kk-panel rounded-3xl p-6">
+                <div className="flex gap-1.5 bg-[#14110C] p-1 rounded-xl border border-[#3A3527] mb-4">
+                  {hayReferidos && (
+                    <button
+                      onClick={() => setPanelExtra('referidos')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${panelExtra === 'referidos' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}
+                    >
+                      <Users size={14} /> Invitar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setPanelExtra('deseos')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${panelExtra === 'deseos' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384]'}`}
+                  >
+                    <Star size={14} /> Deseos {wishlist.length > 0 && <span className="bg-black/20 px-1.5 rounded-full">{wishlist.length}</span>}
+                  </button>
+                </div>
 
-          {/* ===== LISTA DE DESEOS ===== */}
-          <div className="kk-panel rounded-3xl p-6">
-            <button onClick={() => setWishAbierta(!wishAbierta)} className="w-full flex items-center justify-between text-left">
-              <h3 className="font-display font-bold text-base flex items-center gap-2"><Star size={18} className="text-[#E3A23D]" /> Lista de deseos {wishlist.length > 0 && <span className="bg-[#E3A23D]/15 text-[#E3A23D] text-[10px] font-black px-2 py-0.5 rounded-full">{wishlist.length}</span>}</h3>
-              <ChevronDown size={18} className={`text-[#9A9384] transition-transform duration-300 ${wishAbierta ? 'rotate-180' : ''}`} />
-            </button>
-            {wishAbierta && (<>
-            <p className="text-xs text-[#9A9384] leading-relaxed mb-3 mt-2">Buscá cualquier skin, gesto o pico de Fortnite — hasta los que no rotan hace años. Cuando vuelva a la tienda, te avisamos por email al instante.</p>
+                {panelExtra === 'referidos' && hayReferidos && refInfo && (
+                  <div>
+                    <p className="text-xs text-[#9A9384] leading-relaxed mb-4">
+                      Compartí tu link. Cuando un amigo haga su primera compra{refInfo.compraMinima > 0 ? ` (mínimo $${refInfo.compraMinima.toFixed(2)} USD)` : ''} y se entregue,
+                      {' '}vos recibís <strong className="text-[#7BC77E]">${refInfo.recompensaReferidor.toFixed(2)} USD</strong>
+                      {refInfo.recompensaReferido > 0 && <> y tu amigo <strong className="text-[#7BC77E]">${refInfo.recompensaReferido.toFixed(2)} USD</strong></>} en la billetera.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={refInfo.link}
+                        className="flex-1 min-w-0 bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-3 py-2.5 text-[11px] font-mono text-[#D9D4C7] focus:outline-none"
+                        onFocus={(e) => e.target.select()}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(refInfo.link);
+                          setRefCopiado(true);
+                          setTimeout(() => setRefCopiado(false), 2000);
+                        }}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-black border-2 border-[#0A0806] transition shrink-0 ${refCopiado ? 'bg-[#7BC77E] text-[#0A0806]' : 'bg-[#E3A23D] text-[#0A0806] hover:opacity-90'}`}
+                      >
+                        {refCopiado ? '✓ Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {panelExtra === 'deseos' && (<>
+            <p className="text-xs text-[#9A9384] leading-relaxed mb-3">Buscá cualquier skin, gesto o pico de Fortnite — hasta los que no rotan hace años. Cuando vuelva a la tienda, te avisamos por email al instante.</p>
 
             <div className="relative">
               <input
@@ -561,8 +569,10 @@ export default function MiCuenta() {
                 <p className="text-[10px] text-[#5A554A] font-medium">{wishlist.length}/20 · Te avisamos por email cuando alguno vuelva a la tienda.</p>
               </div>
             )}
-            </>)}
-          </div>
+                </>)}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ===== COLUMNA DERECHA ===== */}
