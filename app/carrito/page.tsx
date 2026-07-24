@@ -144,9 +144,10 @@ export default function CartPage() {
         // REEMPLAZA ESTA URL POR LA QUE TE DÉ GOOGLE APPS SCRIPT
         const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzS9Zm1gKS-YogDPFx0qG_d5F6k1UkH0KmgnMARYUmKs0C_-Y5wbkBSviWLugJ_RozT/exec'; 
         
-        if (googleScriptUrl !== 'https://script.google.com/macros/s/AKfycbzS9Zm1gKS-YogDPFx0qG_d5F6k1UkH0KmgnMARYUmKs0C_-Y5wbkBSviWLugJ_RozT/exec') {
+        if (googleScriptUrl !== 'TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI') {
           await fetch(googleScriptUrl, {
             method: 'POST',
+            mode: 'no-cors', // <--- ESTO ES LO NUEVO. Obliga al navegador a enviar los datos.
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               fecha: new Date().toLocaleString(),
