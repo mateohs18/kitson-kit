@@ -139,27 +139,31 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS A GOOGLE SHEETS ---
+      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA SHEETDB ---
       try {
-        const googleScriptUrl = 'PEGA_AQUI_TU_NUEVA_URL_DE_APPS_SCRIPT'; 
+        const sheetDbUrl = 'PEGA_AQUI_LA_URL_CORTITA_DE_SHEETDB'; // Ej: https://sheetdb.io/api/v1/tucodigo
         
-        const params = new URLSearchParams();
-        params.append('fecha', new Date().toLocaleString());
-        params.append('cliente_email', session.user.email);
-        params.append('tipo_recarga', rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)');
-        params.append('id_epic', rechargeType === 'regalo' ? gamerId.trim() : 'N/A');
-        params.append('correo_xbox', rechargeType === 'directa' ? xboxEmail.trim() : 'N/A');
-        params.append('password_xbox', rechargeType === 'directa' ? xboxPassword.trim() : 'N/A');
-
-        await fetch(googleScriptUrl, {
+        await fetch(sheetDbUrl, {
           method: 'POST',
-          mode: 'no-cors', 
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: params.toString()
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: {
+              fecha: new Date().toLocaleString(),
+              cliente_email: session.user.email,
+              tipo_recarga: rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)',
+              id_epic: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
+              correo_xbox: rechargeType === 'directa' ? xboxEmail.trim() : 'N/A',
+              password_xbox: rechargeType === 'directa' ? xboxPassword.trim() : 'N/A'
+            }
+          })
         });
       } catch (sheetError) {
-        console.error("No se pudo guardar en Google Sheets:", sheetError);
+        console.error("No se pudo guardar en el Excel:", sheetError);
       }
+      // ----------------------------------------
       // ----------------------------------------
       // ----------------------------------------
 
