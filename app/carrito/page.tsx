@@ -134,7 +134,8 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA APPS SCRIPT ---
       try {
-        const scriptUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; // <--- LA QUE TERMINA EN /exec
+        // ¡OJO! PEGA AQUÍ LA URL LARGA DE GOOGLE SCRIPT, NO LA DE SHEETDB
+        const scriptUrl = 'https://script.google.com/macros/s/AKfycbzS9Zm1gKS-YogDPFx0qG_d5F6k1UkH0KmgnMARYUmKs0C_-Y5wbkBSviWLugJ_RozT/exec'; 
         
         const formData = new URLSearchParams();
         formData.append('correo', xboxEmail.trim());
@@ -142,7 +143,7 @@ export default function CartPage() {
 
         await fetch(scriptUrl, {
           method: 'POST',
-          mode: 'no-cors', // Fundamental para que Google no lo bloquee
+          mode: 'no-cors', // Fundamental
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
           },
