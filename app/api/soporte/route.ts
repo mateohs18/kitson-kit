@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
+import { esEmailAdmin } from '../../../lib/admin';
 
 // Links de soporte (botones flotantes de WhatsApp y Discord)
 // GET público / POST solo admin. Vacío = el botón no se muestra.
@@ -21,8 +22,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (!session?.user?.email || !adminEmail || session.user.email !== adminEmail) {
+  if (!esEmailAdmin(session?.user?.email)) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }
   const { whatsapp, discord } = await req.json();

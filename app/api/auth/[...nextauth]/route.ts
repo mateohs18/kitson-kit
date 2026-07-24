@@ -5,16 +5,25 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { supabase } from "../../../../lib/supabase"; 
 
 // 1. Definimos las opciones por separado
+//
+// El proveedor de Google solo se agrega si las credenciales existen de
+// verdad. Antes se registraba siempre (con string vacío como relleno), lo
+// que dejaba el botón "Iniciar sesión con Google" visible y roto en el
+// login mientras GOOGLE_CLIENT_ID/SECRET no estuvieran configuradas.
 export const authOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID || "",
       clientSecret: process.env.DISCORD_CLIENT_SECRET || "",
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
     CredentialsProvider({
       name: "Correo y Contraseña",
       credentials: {

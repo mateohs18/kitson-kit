@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { enviarEmail } from '../../../lib/emails';
+import { esEmailAdmin } from '../../../lib/admin';
 
 // ============================================================================
 // GET /api/test-email  (solo admin)
@@ -23,9 +24,8 @@ import { enviarEmail } from '../../../lib/emails';
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  const adminEmail = process.env.ADMIN_EMAIL;
 
-  if (!session?.user?.email || !adminEmail || session.user.email !== adminEmail) {
+  if (!esEmailAdmin(session?.user?.email)) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }
 
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   // podés mandarlo a cualquier casilla — por ejemplo, la dirección temporal que te da
   // mail-tester.com, para medir tu puntaje real de entregabilidad (SPF/DKIM/DMARC,
   // contenido, formato). Sigue protegido: solo el admin puede dispararlo.
-  const destino = new URL(req.url).searchParams.get('to')?.trim() || adminEmail;
+  const destino = new URL(req.url).searchParams.get('to')?.trim() || session!.user!.email!;
 
   const resultado = await enviarEmail(
     destino,

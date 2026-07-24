@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { emailPedidoEntregado } from '../../../lib/emails';
 import { procesarReferidoTrasEntrega } from '../../../lib/referidos';
+import { esEmailAdmin } from '../../../lib/admin';
 
 export async function POST(req: Request) {
 // ... resto del código
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
     const adminEmail = process.env.ADMIN_EMAIL;
 
-    if (!session?.user?.email || !adminEmail || session.user.email !== adminEmail) {
+    if (!esEmailAdmin(session?.user?.email)) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
     }
 

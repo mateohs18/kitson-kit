@@ -102,6 +102,10 @@ export default function Home() {
   const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
   reviews.forEach(r => { if(ratingCounts[r.rating as keyof typeof ratingCounts] !== undefined) ratingCounts[r.rating as keyof typeof ratingCounts]++; });
   const filteredReviews = reviews.filter(r => r.comment.toLowerCase().includes(searchReview.toLowerCase()) || r.user_name.toLowerCase().includes(searchReview.toLowerCase()));
+  const [reviewsVisibles, setReviewsVisibles] = useState(6);
+  // Si el usuario busca algo, mostramos todos los resultados de una (son pocos);
+  // si no está buscando, paginamos de a 6 para no cargar 200 reseñas de golpe.
+  const reviewsAMostrar = searchReview ? filteredReviews : filteredReviews.slice(0, reviewsVisibles);
 
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body selection:bg-[#E3A23D] selection:text-[#0A0806]">
@@ -393,7 +397,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="space-y-4">
-                {filteredReviews.length > 0 ? filteredReviews.map((r, idx) => (
+                {reviewsAMostrar.length > 0 ? reviewsAMostrar.map((r, idx) => (
                   <div key={idx} className="kk-panel p-6 rounded-2xl relative overflow-hidden">
                     <div className="flex items-start justify-between mb-4 relative z-10">
                       <div className="flex items-center gap-3">
@@ -513,6 +517,7 @@ export default function Home() {
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Términos del Servicio</Link></li>
               <li><Link href="/terminos" className="hover:text-[#E3A23D] transition">Política de Reembolsos</Link></li>
               <li><Link href="/privacidad" className="hover:text-[#E3A23D] transition">Política de Privacidad</Link></li>
+              <li><Link href="/nosotros" className="hover:text-[#E3A23D] transition">Quiénes somos</Link></li>
               <li><a href="https://wa.me/573156098437" target="_blank" rel="noopener noreferrer" className="hover:text-[#25D366] transition flex items-center gap-2">WhatsApp</a></li>
               <li><a href="https://discord.gg/gPumDeNvp6" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition flex items-center gap-2">Soporte en Discord</a></li>
               <li><a href="mailto:soporte@kitson-kit.store" className="hover:text-[#E3A23D] transition">soporte@kitson-kit.store</a></li>

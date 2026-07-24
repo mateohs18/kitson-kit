@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../../lib/supabase-admin';
+import { esEmailAdmin } from '../../../../lib/admin';
 
 // Estado de un pedido, solo visible para su dueño (o el admin).
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (error || !orden) return NextResponse.json({ error: 'Pedido no encontrado.' }, { status: 404 });
 
   const esDueno = orden.user_email === session.user.email;
-  const esAdmin = process.env.ADMIN_EMAIL && session.user.email === process.env.ADMIN_EMAIL;
+  const esAdmin = process.env.ADMIN_EMAIL && esEmailAdmin(session.user.email);
   if (!esDueno && !esAdmin) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }

@@ -10,5 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/vincular-cuenta`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/terminos`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.3 },
     { url: `${base}/privacidad`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${base}/nosotros`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
   ];
 }

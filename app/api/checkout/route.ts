@@ -5,6 +5,7 @@ import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { getShopEntries, getMargenTienda, precioTiendaUsd, entryName } from '../../../lib/tienda-diaria';
 import { emailPedidoConfirmado, emailPedidoEntregado } from '../../../lib/emails';
+import { reportarError } from '../../../lib/sentry';
 import { atribuirReferido, procesarReferidoTrasEntrega } from '../../../lib/referidos';
 
 // ============================================================================
@@ -394,7 +395,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id, totalVerificado: totalFinal, descuento });
   } catch (error) {
-    console.error('Error en checkout:', error);
+    reportarError(error, 'checkout');
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }

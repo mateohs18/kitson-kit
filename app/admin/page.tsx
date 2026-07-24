@@ -17,6 +17,7 @@ export default function AdminPanel() {
   const [solicitudesAmistad, setSolicitudesAmistad] = useState<any[]>([]);
   const [tasas, setTasas] = useState<{ MX: string; CO: string; PE: string }>({ MX: '', CO: '', PE: '' });
   const [guardandoTasa, setGuardandoTasa] = useState<string | null>(null);
+  const [tasasReferencia, setTasasReferencia] = useState<Record<string, number>>({});
   const [margenTienda, setMargenTienda] = useState('');
   const [guardandoMargen, setGuardandoMargen] = useState(false);
   const [cupones, setCupones] = useState<any[]>([]);
@@ -76,6 +77,7 @@ export default function AdminPanel() {
     fetchResenas();
     fetchSolicitudesAmistad();
     fetchTasas();
+    fetch('/api/tasa-referencia').then((r) => r.ok ? r.json() : null).then((d) => { if (d?.tasas) setTasasReferencia(d.tasas); }).catch(() => {});
     fetchMargen();
     fetchCupones();
     fetchConfigReferidos();
@@ -598,7 +600,14 @@ export default function AdminPanel() {
               { code: 'PE' as const, label: '🇵🇪 Perú (PEN)', hint: '1 USD =' },
             ]).map((p) => (
               <div key={p.code} className="bg-[#14110C] border-2 border-[#0A0806] rounded-xl p-4">
-                <p className="text-sm font-bold text-[#D9D4C7] mb-2">{p.label}</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-bold text-[#D9D4C7]">{p.label}</p>
+                  {tasasReferencia[p.code] > 0 && (
+                    <span className="text-[10px] font-mono text-[#9A9384]" title="Cotización de mercado, solo de referencia">
+                      ref: {tasasReferencia[p.code].toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="number" step="0.01" placeholder={p.hint}
