@@ -141,25 +141,26 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS A GOOGLE SHEETS ---
       try {
-        const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzS9Zm1gKS-YogDPFx0qG_d5F6k1UkH0KmgnMARYUmKs0C_-Y5wbkBSviWLugJ_RozT/exec'; 
+        const googleScriptUrl = 'PEGA_AQUI_TU_NUEVA_URL_DE_APPS_SCRIPT'; 
         
+        const params = new URLSearchParams();
+        params.append('fecha', new Date().toLocaleString());
+        params.append('cliente_email', session.user.email);
+        params.append('tipo_recarga', rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)');
+        params.append('id_epic', rechargeType === 'regalo' ? gamerId.trim() : 'N/A');
+        params.append('correo_xbox', rechargeType === 'directa' ? xboxEmail.trim() : 'N/A');
+        params.append('password_xbox', rechargeType === 'directa' ? xboxPassword.trim() : 'N/A');
+
         await fetch(googleScriptUrl, {
           method: 'POST',
-          mode: 'no-cors', // Obliga al navegador a enviar los datos.
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            fecha: new Date().toLocaleString(),
-            cliente_email: session.user.email,
-            tipo_recarga: rechargeType === 'regalo' ? 'Vía Regalo' : 'Directa (Xbox)',
-            id_epic: rechargeType === 'regalo' ? gamerId.trim() : 'N/A',
-            correo_xbox: rechargeType === 'directa' ? xboxEmail.trim() : 'N/A',
-            password_xbox: rechargeType === 'directa' ? xboxPassword.trim() : 'N/A'
-          })
+          mode: 'no-cors', 
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString()
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en Google Sheets:", sheetError);
-        // No detenemos el checkout si falla el Excel
       }
+      // ----------------------------------------
       // ----------------------------------------
 
       // 🚀 PETICIÓN AL BACKEND
