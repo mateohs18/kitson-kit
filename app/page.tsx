@@ -1,5 +1,12 @@
 "use client";
 
+// Esta página usa useSession() (sabe si estás logueado o no), así que su
+// contenido real depende del navegador de cada visitante — no tiene sentido
+// "pre-generarla" de antemano en el build. Sin esta línea, Next.js intenta
+// generarla como página estática igual y el build explota con
+// "Cannot destructure property 'data' of useSession(...) as it is undefined".
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -14,7 +21,8 @@ import {
   ShoppingCart, Gamepad2,
   PackageSearch, Menu, X, Star, BellRing,
   Search, ChevronDown, CheckCircle2, MessageSquare,
-  Send, MessageCircle, Hourglass, Gift
+  Send, MessageCircle, Hourglass, Gift,
+  Bitcoin, Smartphone, Store, Landmark, Wallet
 } from 'lucide-react';
 
 interface Product { id: string; name: string; price: number; compare_at_price?: number | null; image_url?: string; delivery_type?: 'regalo' | 'recarga'; price_mx?: number | null; price_co?: number | null; price_pe?: number | null; }
@@ -201,8 +209,21 @@ export default function Home() {
 
           <div className="mt-8 flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-bold text-[#9A9384] uppercase tracking-widest mr-1">Pagá con:</span>
-            {['Binance', 'Yape', 'Nequi', 'OXXO', 'Transferencia', 'Saldo Kitson'].map((m) => (
-              <span key={m} className="bg-[#1D1913]/60 border border-[#3A3527] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#D9D4C7]">{m}</span>
+            {[
+              { nombre: 'Binance', icono: <Bitcoin size={14} />, color: '#F0B90B' },
+              { nombre: 'Yape', icono: <Smartphone size={14} />, color: '#752AA6' },
+              { nombre: 'Nequi', icono: <Smartphone size={14} />, color: '#FF2079' },
+              { nombre: 'OXXO', icono: <Store size={14} />, color: '#E4032E' },
+              { nombre: 'Transferencia', icono: <Landmark size={14} />, color: '#4A93D6' },
+              { nombre: 'Saldo Kitson', icono: <Wallet size={14} />, color: '#E3A23D' },
+            ].map((m) => (
+              <span
+                key={m.nombre}
+                className="inline-flex items-center gap-1.5 bg-[#1D1913]/60 border border-[#3A3527] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#D9D4C7]"
+              >
+                <span style={{ color: m.color }}>{m.icono}</span>
+                {m.nombre}
+              </span>
             ))}
             <EstadoBots />
           </div>
