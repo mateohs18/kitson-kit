@@ -350,7 +350,7 @@ export default function CartPage() {
                       <input
                         type="text" value={couponInput}
                         onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
-                        placeholder="¿Tenés un cupón?"
+                        placeholder="¿Tienes un cupón?"
                         className="flex-1 bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-4 py-2.5 text-sm font-mono text-[#F5F1E6] placeholder-[#9A9384] focus:outline-none focus:border-[#E3A23D] uppercase"
                       />
                       {coupon ? (
