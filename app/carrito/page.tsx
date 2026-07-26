@@ -21,7 +21,7 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Solo estados para Correo y Contraseña de Xbox
+  // Estados para Correo y Contraseña de Xbox
   const [xboxEmail, setXboxEmail] = useState('');
   const [xboxPassword, setXboxPassword] = useState('');
 
@@ -66,7 +66,7 @@ export default function CartPage() {
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 
   // ============================================================================
-  // PRECIO EN MONEDA LOCAL — ítem por ítem, no un multiplicador global
+  // PRECIO EN MONEDA LOCAL
   // ============================================================================
   function precioLocalUnitario(item: any): number {
     const fijo =
@@ -107,6 +107,7 @@ export default function CartPage() {
 
   const paymentReady = paymentMethod === 'saldo' ? balance >= totalConDescuento && totalConDescuento > 0 : !!receiptFile;
 
+  // Paso actual dependiendo de si completaron la info
   const currentStep = !isAccountInfoValid ? 1 : !paymentReady ? 2 : 3;
 
   const handleCopy = (text: string) => {
@@ -120,7 +121,7 @@ export default function CartPage() {
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     
-    // Validación de Xbox
+    // Validación de Xbox extra antes de enviar
     if (!xboxEmail.trim() || !xboxPassword.trim()) return alert("Necesitamos tu correo y contraseña de Xbox.");
     
     if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
