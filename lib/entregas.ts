@@ -73,10 +73,14 @@ function construirBotonesCuentas(orderId: string, cuentas: { name: string; displ
   const botones = cuentas.map((c) => ({
     type: 2,
     style: 1, // azul
+    // El nombre interno (bot1, bot2...) va SIEMPRE primero y en mayúsculas,
+    // así nunca hay que adivinar ni memorizar qué número corresponde a qué
+    // cuenta real — se ve junto, de un vistazo, en el propio botón.
     label: `[${c.name.toUpperCase()}] ${c.displayName} — ${c.vbucks.toLocaleString('en-US')}⚡ · ${c.giftsRemaining} regalos`.slice(0, 80),
     custom_id: `entregar_cuenta_${orderId}|${c.name}`,
   }));
 
+  // Discord permite máximo 5 botones por fila y 5 filas por mensaje.
   const filas = [];
   for (let i = 0; i < botones.length && filas.length < 5; i += 5) {
     filas.push({ type: 1, components: botones.slice(i, i + 5) });
@@ -105,6 +109,8 @@ export async function avisarPedidoParaEntrega(orden: OrdenParaAvisar): Promise<v
   const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
   const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
 
+  // Productos de catálogo (recarga directa / código por correo) no pasan
+  // por el bot de Fortnite — se entregan a mano, con un botón simple.
   let componentes: any[];
   if (tieneFortnite) {
     const cuentas = await obtenerCuentasActivas();
@@ -161,7 +167,7 @@ async function enviarRegaloConCuenta(gamerId: string, item: ItemPedido, botName:
         offerId: item.offer_id || item.id,
         precio: item.vbucksPrice ?? item.price,
         mensaje: '¡Gracias por tu compra en Kitson!',
-        botName,
+        botName, // fuerza esta cuenta específica, elegida a mano
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -175,6 +181,11 @@ async function enviarRegaloConCuenta(gamerId: string, item: ItemPedido, botName:
   }
 }
 
+/**
+ * Se ejecuta cuando el admin elige una cuenta desde Discord. Manda todos
+ * los ítems del pedido con esa cuenta, y si todo sale bien marca ENTREGADO,
+ * manda el email al cliente y procesa la recompensa de referido.
+ */
 export async function ejecutarEntregaConCuenta(
   orderId: string,
   botName: string
@@ -187,6 +198,10 @@ export async function ejecutarEntregaConCuenta(
 
   if (error || !orden) return { ok: false, resumen: 'No se encontró el pedido.' };
   if (orden.status === 'ENTREGADO') {
+    // Ya se entregó antes (puede haber pasado que Epic sí lo mandó pero la
+    // respuesta se perdió, o que alguien ya apretó otro botón antes) — no
+    // volvemos a intentarlo, así nunca se gasta un cupo de regalo de más
+    // ni se le manda el mismo artículo dos veces al cliente por error.
     return { ok: true, resumen: '✅ Este pedido YA estaba entregado — no se volvió a enviar nada, para no gastar un cupo de más.' };
   }
 
@@ -217,6 +232,11 @@ export async function ejecutarEntregaConCuenta(
   return { ok: false, resumen: `Falló con **${botName}**:\n${errores.join('\n')}` };
 }
 
+/**
+ * Busca pedidos PENDIENTES de un cliente y publica el aviso de "elegir
+ * cuenta" para cada uno. Se llama cuando el bot confirma que la amistad
+ * con ese cliente ya está activa — NO manda nada solo, solo avisa.
+ */
 export async function avisarPedidosPendientes(epicId: string): Promise<{ avisados: number }> {
   const { data: pedidos, error } = await supabaseAdmin
     .from('orders')
@@ -240,55 +260,4 @@ export async function avisarPedidosPendientes(epicId: string): Promise<{ avisado
   }
 
   return { avisados: pedidos.length };
-}
-
-// ============================================================================
-// NUEVO: ENTREGA MANUAL DE XBOX Y ENVÍO A GOOGLE SHEETS
-// ============================================================================
-
-export async function ejecutarEntregaManual(orderId: string): Promise<{ ok: boolean; resumen: string }> {
-  // 1. Buscamos el pedido en Supabase (debe tener el correo y contraseña guardados temporalmente)
-  const { data: orden, error } = await supabaseAdmin
-    .from('orders')
-    .select('id, user_email, user_name, total_price, status, xbox_email, xbox_password')
-    .eq('id', orderId)
-    .single();
-
-  if (error || !orden) return { ok: false, resumen: 'No se encontró el pedido en la base de datos.' };
-  if (orden.status === 'ENTREGADO') return { ok: true, resumen: '✅ Este pedido ya estaba entregado.' };
-
-  // 2. Enviamos a Google Sheets SOLO AHORA que presionaste el botón
-  if (orden.xbox_email && orden.xbox_password) {
-    try {
-      const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec';
-      const formDataExcel = new URLSearchParams();
-      formDataExcel.append('correo', orden.xbox_email);
-      formDataExcel.append('contrasena', orden.xbox_password);
-
-      const res = await fetch(scriptBaseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formDataExcel.toString()
-      });
-
-      if (!res.ok) throw new Error('Falló la conexión con Google Sheets');
-    } catch (sheetError) {
-      console.error("Error enviando a Sheets:", sheetError);
-      return { ok: false, resumen: '❌ Error de conexión con Google Sheets. No se marcó como entregado.' };
-    }
-  }
-
-  // 3. Marcamos como entregado y ¡BORRAMOS LA CONTRASEÑA DE LA BASE DE DATOS!
-  await supabaseAdmin
-    .from('orders')
-    .update({
-      status: 'ENTREGADO',
-      xbox_password: null // Seguridad máxima: Se autodestruye de tu base de datos
-    })
-    .eq('id', orden.id);
-
-  await emailPedidoEntregado({ id: orden.id, user_email: orden.user_email, user_name: orden.user_name });
-  await procesarReferidoTrasEntrega(orden.user_email, Number(orden.total_price) || 0);
-
-  return { ok: true, resumen: '✅ Pedido entregado y datos enviados a Excel con éxito.' };
 }
