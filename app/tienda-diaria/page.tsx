@@ -11,7 +11,7 @@ import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useFortniteCartStore } from '../../store/fortniteCartStore';
+import { useCartStore } from '../../store/cartStore';
 import { useCurrencyStore } from '../../store/currencyStore';
 import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, useSession } from 'next-auth/react';
@@ -344,8 +344,8 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
 const PAGE_SIZE = 12;
 
 function TiendaFortniteContenido() {
-  const addToCart = useFortniteCartStore((state) => state.addToCart);
-  const totalItemsCount = useFortniteCartStore((state) => state.totalItems());
+  const addToCart = useCartStore((state) => state.addToCart);
+  const totalItemsCount = useCartStore((state) => state.totalItems());
   const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
   const { data: session } = useSession();
@@ -471,7 +471,7 @@ function TiendaFortniteContenido() {
         <div className="flex-1 flex items-center justify-end gap-3">
           <div className="hidden sm:block"><CurrencySelector /></div>
 
-          <Link href="/carrito-fortnite" className="flex items-center gap-2 bg-[#0A0806] text-[#E3A23D] py-2 px-4 rounded-lg font-bold hover:opacity-90 transition">
+          <Link href="/carrito" className="flex items-center gap-2 bg-[#0A0806] text-[#E3A23D] py-2 px-4 rounded-lg font-bold hover:opacity-90 transition">
             <ShoppingCart size={18} />
             <span className="text-xs font-black">{totalItemsCount}</span>
           </Link>
