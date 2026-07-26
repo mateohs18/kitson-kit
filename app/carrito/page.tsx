@@ -12,7 +12,7 @@ import { signIn, useSession } from 'next-auth/react';
 import {
   ShoppingCart, Trash2, Gamepad2, Menu, X,
   Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Check,
-  ShieldCheck, Hourglass, Pencil, AlertTriangle,
+  ShieldCheck, Hourglass, Pencil, AlertTriangle, Eye, EyeOff,
 } from 'lucide-react';
 
 function formatoRestante(ms: number) {
@@ -46,6 +46,7 @@ export default function CartPage() {
 
   const [xboxEmail, setXboxEmail] = useState('');
   const [xboxPassword, setXboxPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
   const [epicId, setEpicId] = useState('');
   const [epicIdGuardado, setEpicIdGuardado] = useState('');
@@ -388,11 +389,21 @@ export default function CartPage() {
                         value={xboxEmail} onChange={(e) => setXboxEmail(e.target.value)}
                         className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
                       />
-                      <input
-                        type="password" placeholder="Contraseña de Xbox"
-                        value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
-                        className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
-                      />
+                      <div className="relative">
+                        <input
+                          type={mostrarPassword ? 'text' : 'password'} placeholder="Contraseña de Xbox"
+                          value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
+                          className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 pr-11 text-[#F5F1E6] focus:outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMostrarPassword((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9A9384] hover:text-[#E3A23D] transition"
+                          aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                       <p className="text-[11px] text-[#9A9384]">La recarga requiere los datos de tu cuenta vinculada de Microsoft (Xbox).</p>
                     </div>
                   </div>
@@ -449,35 +460,37 @@ export default function CartPage() {
                           </h4>
                         </div>
 
-                        {item.origen === 'catalogo' ? (
-                          // Selector de cantidad — solo para productos propios.
-                          // Los artículos de la tienda diaria rotan cada día, no
-                          // tiene sentido pedir "varias unidades" de la skin
-                          // puntual de hoy — esos quedan fijos en x1.
-                          <div className="flex items-center gap-2 bg-[#0A0806] border-2 border-[#0A0806] rounded-lg shrink-0">
-                            <button
-                              onClick={() => setQuantity(item.id, item.quantity - 1)}
-                              className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-l-lg transition font-black"
-                              aria-label="Quitar una unidad"
-                            >
-                              −
-                            </button>
-                            <span className="w-6 text-center text-sm font-bold text-[#F5F1E6]">{item.quantity}</span>
-                            <button
-                              onClick={() => setQuantity(item.id, item.quantity + 1)}
-                              disabled={item.quantity >= 10}
-                              className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-r-lg transition font-black disabled:opacity-30"
-                              aria-label="Agregar una unidad"
-                            >
-                              +
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[#9A9384] text-xs font-bold px-1 shrink-0">x{item.quantity}</span>
-                        )}
+                        <div className="w-[92px] flex justify-center shrink-0">
+                          {item.origen === 'catalogo' ? (
+                            // Selector de cantidad — solo para productos propios.
+                            // Los artículos de la tienda diaria rotan cada día, no
+                            // tiene sentido pedir "varias unidades" de la skin
+                            // puntual de hoy — esos quedan fijos en x1.
+                            <div className="flex items-center gap-1 bg-[#0A0806] border-2 border-[#0A0806] rounded-lg">
+                              <button
+                                onClick={() => setQuantity(item.id, item.quantity - 1)}
+                                className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-l-lg transition font-black"
+                                aria-label="Quitar una unidad"
+                              >
+                                −
+                              </button>
+                              <span className="w-5 text-center text-sm font-bold text-[#F5F1E6]">{item.quantity}</span>
+                              <button
+                                onClick={() => setQuantity(item.id, item.quantity + 1)}
+                                disabled={item.quantity >= 10}
+                                className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-r-lg transition font-black disabled:opacity-30"
+                                aria-label="Agregar una unidad"
+                              >
+                                +
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[#9A9384] text-xs font-bold">x{item.quantity}</span>
+                          )}
+                        </div>
 
-                        <p className="font-mono font-semibold text-[#E3A23D] shrink-0 w-24 text-right">
-                          {activeCurrency.symbol}{(precioLocalUnitario(item) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeCurrency.currency}
+                        <p className="font-mono font-semibold text-[#E3A23D] shrink-0 whitespace-nowrap text-right min-w-[104px]">
+                          {activeCurrency.symbol}{(precioLocalUnitario(item) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs">{activeCurrency.currency}</span>
                         </p>
                         <button onClick={() => removeFromCart(item.id)} className="text-red-500/60 hover:text-red-400 p-2 transition-colors shrink-0"><Trash2 size={16} /></button>
                       </div>
