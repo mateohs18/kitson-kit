@@ -198,11 +198,8 @@ export default function Home() {
             Adquiere cosméticos exclusivos, recargas y suscripciones de forma automatizada, segura y sin riesgo de ban.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link href="#catalogo" className="bg-[#E3A23D] text-[#0A0806] px-8 py-4 rounded-xl font-display font-bold text-lg border-[3px] border-[#0A0806] transition-transform hover:-translate-y-0.5">
-              Ver tienda de hoy
-            </Link>
-            <Link href="/tienda-diaria" className="bg-transparent border-[3px] border-[#F5F1E6] text-[#F5F1E6] px-8 py-4 rounded-xl font-bold text-lg transition-transform hover:-translate-y-0.5 hidden sm:block">
-              Tienda Diaria
+            <Link href="/tienda-diaria" className="bg-[#E3A23D] text-[#0A0806] px-10 py-4 rounded-xl font-display font-bold text-lg border-[3px] border-[#0A0806] transition-transform hover:-translate-y-0.5">
+              Tienda Fortnite
             </Link>
           </div>
 

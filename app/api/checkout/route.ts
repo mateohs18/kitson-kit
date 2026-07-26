@@ -37,6 +37,7 @@ interface ValidatedItem {
   id: string;
   name: string;
   unitPrice: number; // USD, verificado por el servidor
+  vbucksPrice: number | null; // precio real en pavos — lo que Epic espera en expectedTotalPrice del regalo (NUNCA el precio en USD)
   quantity: number;
   offer_id: string | null;
   source: 'db' | 'tienda-diaria';
@@ -58,12 +59,22 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
     return { id: item.id.slice(0, 300), quantity: qty, name: item.name, offer_id: item.offer_id || null };
   });
 
-  // 1) Buscar todos los IDs en la tabla `products`
-  const ids = cleaned.map((i) => i.id);
-  const { data: dbProducts, error } = await supabaseAdmin
-    .from('products')
-    .select('id, name, price, delivery_type')
-    .in('id', ids);
+  // 1) Buscar en la tabla `products` — pero SOLO los IDs con forma de UUID.
+  //    Los productos propios siempre tienen un id UUID (generado por
+  //    Supabase); los ítems de la tienda diaria de Fortnite usan sus propios
+  //    IDs alfanuméricos, que NO tienen forma de UUID. Si le mandamos esos
+  //    IDs a `.in('id', ...)` sobre una columna de tipo uuid, Postgres
+  //    rechaza la consulta ENTERA con un error de tipo — rompiendo el
+  //    checkout de cualquier carrito que mezcle productos propios con
+  //    artículos de la tienda diaria (o que tenga solo artículos de la
+  //    tienda diaria). Filtrando acá evitamos mandarle basura a Postgres.
+  const esUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  const idsParaDB = cleaned.map((i) => i.id).filter(esUUID);
+
+  const { data: dbProducts, error } =
+    idsParaDB.length > 0
+      ? await supabaseAdmin.from('products').select('id, name, price, delivery_type').in('id', idsParaDB)
+      : { data: [], error: null };
   if (error) throw new Error('Error consultando productos');
 
   const dbById = new Map((dbProducts || []).map((p: any) => [String(p.id), p]));
@@ -79,6 +90,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
         id: item.id,
         name: db.name,
         unitPrice: Number(db.price),
+        vbucksPrice: null, // los productos propios no son ítems de la tienda de Fortnite
         quantity: item.quantity,
         offer_id: null, // los productos propios no usan offerId de Fortnite
         source: 'db',
@@ -117,6 +129,7 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
         id: item.id,
         name: entryName(match) || item.name || 'Ítem de tienda',
         unitPrice: precioTiendaUsd(match.finalPrice, margen), // misma fórmula que /api/tienda
+        vbucksPrice: match.finalPrice, // precio REAL en pavos, para mandarle al bot (Epic espera esto, no dólares)
         quantity: item.quantity,
         offer_id: match.offerId || null,
         source: 'tienda-diaria',
@@ -233,6 +246,7 @@ export async function POST(req: Request) {
       id: i.id,
       name: i.name,
       price: i.unitPrice,
+      vbucksPrice: i.vbucksPrice,
       quantity: i.quantity,
       offer_id: i.offer_id,
     }));
@@ -270,6 +284,36 @@ export async function POST(req: Request) {
     //     compra, lo atribuimos (la recompensa se paga recién al ENTREGAR).
     if (refCode && typeof refCode === 'string') {
       await atribuirReferido(email.trim(), refCode);
+    }
+
+    // 3a2. 🤝 SOLICITUD DE AMISTAD AUTOMÁTICA
+    // Cada vez que alguien compra, le pedimos al bot que le mande (o
+    // confirme) la solicitud de amistad — sin esperar a que haya pasado
+    // antes por "Vincular cuenta". Si ya son amigos o ya se la habíamos
+    // mandado, el bot devuelve un aviso informativo, no un error real; no
+    // bloqueamos ni afectamos el resultado de la compra por esto.
+    if (process.env.BOT_DELIVERY_URL) {
+      fetch(`${process.env.BOT_DELIVERY_URL}/api/bot/agregar-amigo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          ...(process.env.BOT_DELIVERY_SECRET ? { 'x-bot-secret': process.env.BOT_DELIVERY_SECRET } : {}),
+        },
+        body: JSON.stringify({ epicName: gamerId.trim() }),
+        signal: AbortSignal.timeout(15000),
+      })
+        .then(async (r) => {
+          if (r.ok) {
+            // Arrancamos (o confirmamos) el contador de 48hs para este email.
+            await supabaseAdmin
+              .from('profiles')
+              .update({ friend_requested_at: new Date().toISOString() })
+              .eq('email', email.trim())
+              .is('friend_requested_at', null); // no pisar si ya tenía uno de antes
+          }
+        })
+        .catch((e) => console.warn('No se pudo contactar al bot para la solicitud de amistad:', e));
     }
 
     // 3b. 📧 EMAIL DE CONFIRMACIÓN AL CLIENTE (si falla, no rompe la compra)
@@ -365,7 +409,10 @@ export async function POST(req: Request) {
               body: JSON.stringify({
                 epicName: gamerId.trim(),
                 offerId: codigoFortnite,
-                precio: item.unitPrice,
+                // Epic Games espera el precio en PAVOS (lo mismo que muestra la
+                // tienda del juego), no en dólares — mandar el USD acá hace que
+                // el regalo se rechace con "expected total price did not match".
+                precio: item.vbucksPrice ?? item.unitPrice,
                 mensaje: '¡Gracias por tu compra en Kitson!',
               }),
             });

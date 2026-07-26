@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Copy, Check, Gamepad2 } from 'lucide-react';
+import { Copy, Check, Gamepad2, Gift } from 'lucide-react';
 
 // ============================================================================
 // CUENTAS DE FORTNITE PARA AGREGAR
@@ -64,10 +64,10 @@ export default function EstadoBots() {
                 <span className="font-mono text-xs font-bold text-[#E3A23D]">{c.vbucks.toLocaleString('en-US')}</span>
               </span>
               <span
-                className={`font-mono text-xs font-bold ${c.regalosRestantes > 0 ? 'text-[#7BC77E]' : 'text-[#5A554A]'}`}
+                className={`inline-flex items-center gap-1 font-mono text-xs font-bold ${c.regalosRestantes > 0 ? 'text-[#7BC77E]' : 'text-[#5A554A]'}`}
                 title="Regalos disponibles hoy — cada uno se renueva 24hs después de usarse"
               >
-                🎁 {c.regalosRestantes}/{c.regalosTotales}
+                <Gift size={12} /> {c.regalosRestantes}/{c.regalosTotales}
               </span>
               <button
                 onClick={() => copiar(c.nombre)}
