@@ -21,7 +21,7 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Estados para Correo y Contraseña de Xbox
+  // Estados EXCLUSIVOS para Correo y Contraseña de Xbox
   const [xboxEmail, setXboxEmail] = useState('');
   const [xboxPassword, setXboxPassword] = useState('');
 
@@ -112,11 +112,11 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!session) return alert("Debes iniciar sesión para procesar tu pedido.");
-    if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
+    if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     
     if (!xboxEmail.trim() || !xboxPassword.trim()) return alert("Necesitamos tu correo y contraseña de Xbox.");
-    if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
+    if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente.");
 
     setIsProcessing(true);
 
@@ -166,7 +166,7 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: 'N/A',
+          gamerId: 'N/A', // Sin cuenta de Epic
           xboxEmail: xboxEmail.trim(), 
           xboxPassword: xboxPassword.trim(), 
           totalPrice: totalConDescuento,
