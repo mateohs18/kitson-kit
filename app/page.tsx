@@ -286,6 +286,10 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((p) => {
+              // Precio a MOSTRAR en la tarjeta: si el admin cargó un precio fijo
+              // para el país activo, se usa TAL CUAL (sin ninguna cuenta con la
+              // tasa de cambio). Si no cargó uno, recién ahí se usa la tasa como
+              // respaldo automático.
               const precioFijoPais = activeCurrency.id === 'MX' ? p.price_mx : activeCurrency.id === 'CO' ? p.price_co : activeCurrency.id === 'PE' ? p.price_pe : null;
               const localPrice = (precioFijoPais ?? (p.price * activeCurrency.rate)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               const esRecarga = p.delivery_type === 'recarga';
@@ -323,12 +327,15 @@ export default function Home() {
                     )}
                     <button
                       onClick={() => {
-                        // Si hay un precio fijo para el país activo, lo convertimos a un
-                        // "USD equivalente" para que el resto del sistema (carrito, checkout,
-                        // pedidos) siga funcionando igual sin tocar nada más — al mostrarlo
-                        // de nuevo con la tasa de este país, va a dar exactamente ese precio fijo.
-                        const precioParaCarrito = precioFijoPais ? precioFijoPais / activeCurrency.rate : p.price;
-                        addToCart({ ...p, price: precioParaCarrito });
+                        // Guardamos SIEMPRE el precio real en USD (p.price, sin
+                        // tocar) — nunca "adivinado" al revés desde el precio
+                        // fijo ÷ tasa. Esa cuenta inversa rompía apenas la tasa
+                        // guardada en el admin no coincidía con la que se usó
+                        // mentalmente al cargar el precio fijo en pesos/soles.
+                        // Los precios fijos (price_mx/co/pe) viajan intactos
+                        // junto al producto, para que el carrito los use tal
+                        // cual al mostrar el total — sin ninguna conversión.
+                        addToCart(p);
                       }}
                       className="w-full bg-[#0A0806] hover:bg-[#E3A23D] text-[#E3A23D] hover:text-[#0A0806] py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 border-2 border-[#0A0806]"
                     >

