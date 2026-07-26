@@ -9,23 +9,6 @@ import { reportarError } from '../../../lib/sentry';
 import { atribuirReferido } from '../../../lib/referidos';
 import { avisarPedidoParaEntrega } from '../../../lib/entregas';
 
-// ============================================================================
-// CHECKOUT SEGURO
-//
-// Cambios clave respecto a la versión anterior:
-//  1. El servidor RECALCULA el precio de cada ítem. El precio y el total que
-//     manda el navegador se ignoran por completo (cualquiera puede editarlos
-//     con la consola del navegador).
-//  2. El descuento de saldo ahora es ATÓMICO vía la función SQL
-//     `descontar_saldo` (ver supabase/descontar_saldo.sql). Adiós condición
-//     de carrera de "gastar el mismo saldo dos veces".
-//  3. La URL del bot ya no está hardcodeada: va en la variable de entorno
-//     BOT_DELIVERY_URL, junto con un secreto BOT_DELIVERY_SECRET para que
-//     nadie más pueda ordenarle regalos a tu bot.
-//  4. El bot ahora respeta la CANTIDAD (x2 = 2 regalos) y la orden solo se
-//     marca ENTREGADO si TODOS los regalos salieron bien.
-// ============================================================================
-
 // ---------- Tipos ----------
 interface CartItemInput {
   id: string;
@@ -38,7 +21,7 @@ interface ValidatedItem {
   id: string;
   name: string;
   unitPrice: number; // USD, verificado por el servidor
-  vbucksPrice: number | null; // precio real en pavos — lo que Epic espera en expectedTotalPrice del regalo (NUNCA el precio en USD)
+  vbucksPrice: number | null; // precio real en pavos
   quantity: number;
   offer_id: string | null;
   source: 'db' | 'tienda-diaria';
@@ -46,7 +29,6 @@ interface ValidatedItem {
 
 // ---------- Validación de precios en el servidor ----------
 async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
-  // Sanidad general del carrito
   if (!Array.isArray(cart) || cart.length === 0 || cart.length > 20) {
     throw new Error('Carrito inválido');
   }
@@ -60,15 +42,6 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
     return { id: item.id.slice(0, 300), quantity: qty, name: item.name, offer_id: item.offer_id || null };
   });
 
-  // 1) Buscar en la tabla `products` — pero SOLO los IDs con forma de UUID.
-  //    Los productos propios siempre tienen un id UUID (generado por
-  //    Supabase); los ítems de la tienda diaria de Fortnite usan sus propios
-  //    IDs alfanuméricos, que NO tienen forma de UUID. Si le mandamos esos
-  //    IDs a `.in('id', ...)` sobre una columna de tipo uuid, Postgres
-  //    rechaza la consulta ENTERA con un error de tipo — rompiendo el
-  //    checkout de cualquier carrito que mezcle productos propios con
-  //    artículos de la tienda diaria (o que tenga solo artículos de la
-  //    tienda diaria). Filtrando acá evitamos mandarle basura a Postgres.
   const esUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
   const idsParaDB = cleaned.map((i) => i.id).filter(esUUID);
 
@@ -86,14 +59,13 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
   for (const item of cleaned) {
     const db = dbById.get(item.id);
     if (db) {
-      // Precio REAL desde la base de datos — el del cliente se ignora
       validated.push({
         id: item.id,
         name: db.name,
         unitPrice: Number(db.price),
-        vbucksPrice: null, // los productos propios no son ítems de la tienda de Fortnite
+        vbucksPrice: null,
         quantity: item.quantity,
-        offer_id: null, // los productos propios no usan offerId de Fortnite
+        offer_id: null,
         source: 'db',
       });
     } else {
@@ -101,8 +73,6 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
     }
   }
 
-  // 2) Los que no están en la DB deben ser ítems de la tienda diaria.
-  //    Verificamos contra fortnite-api.com (la misma fuente del frontend).
   if (pendingDaily.length > 0) {
     const [entries, margen] = await Promise.all([getShopEntries(), getMargenTienda()]);
 
@@ -113,8 +83,6 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
         match = entries.find((e) => e.offerId === item.offer_id);
       }
       if (!match) {
-        // Fallback para ítems sin offerId: el frontend genera el id como
-        // encodeURIComponent(`${nombre}-${precioUSD}`), así que probamos por nombre.
         const decoded = decodeURIComponent(item.id);
         match = entries.find((e) => {
           const n = entryName(e);
@@ -129,8 +97,8 @@ async function validateCart(cart: CartItemInput[]): Promise<ValidatedItem[]> {
       validated.push({
         id: item.id,
         name: entryName(match) || item.name || 'Ítem de tienda',
-        unitPrice: precioTiendaUsd(match.finalPrice, margen), // misma fórmula que /api/tienda
-        vbucksPrice: match.finalPrice, // precio REAL en pavos, para mandarle al bot (Epic espera esto, no dólares)
+        unitPrice: precioTiendaUsd(match.finalPrice, margen),
+        vbucksPrice: match.finalPrice,
         quantity: item.quantity,
         offer_id: match.offerId || null,
         source: 'tienda-diaria',
@@ -149,7 +117,6 @@ export async function POST(req: Request) {
     const cuerpo = await req.json();
     const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode, refCode, xboxEmail, xboxPassword } = cuerpo;
 
-    // Validaciones de entrada
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       return NextResponse.json({ error: 'Falta un email válido' }, { status: 400 });
     }
@@ -160,7 +127,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Falta el comprobante de pago' }, { status: 400 });
     }
 
-    // 1. RECALCULAR PRECIOS EN EL SERVIDOR (ignoramos lo que diga el cliente)
     let items: ValidatedItem[];
     try {
       items = await validateCart(cart);
@@ -175,15 +141,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Total inválido' }, { status: 400 });
     }
 
-    // (Solo informativo: si el total del cliente difiere, lo logueamos.
-    //  Puede ser un intento de fraude o un carrito con precios viejos.)
     if (cuerpo.totalPrice !== undefined && Math.abs(Number(cuerpo.totalPrice) - totalVerificado) > 0.01) {
-      console.warn(
-        `⚠️ Discrepancia de precio: cliente dijo ${cuerpo.totalPrice}, servidor calculó ${totalVerificado} (${email})`
-      );
+      console.warn(`⚠️ Discrepancia de precio: cliente dijo ${cuerpo.totalPrice}, servidor calculó ${totalVerificado} (${email})`);
     }
 
-    // 1b. CUPÓN (canje atómico: valida y consume el uso en una sola operación)
     let descuento = 0;
     let cuponAplicado: string | null = null;
     if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
@@ -211,7 +172,6 @@ export async function POST(req: Request) {
 
     const totalFinal = Number(Math.max(totalVerificado - descuento, 0).toFixed(2));
 
-    // 2. DESCONTAR SALDO (atómico, sin condición de carrera)
     let nuevoSaldo = 0;
     let emailAutenticado: string | null = null;
 
@@ -236,13 +196,11 @@ export async function POST(req: Request) {
         if (msg.includes('PERFIL_NO_ENCONTRADO')) {
           return NextResponse.json({ error: 'No registrado.' }, { status: 404 });
         }
-        console.error('Error descontando saldo:', saldoError);
         return NextResponse.json({ error: 'Error procesando el pago con saldo.' }, { status: 500 });
       }
       nuevoSaldo = Number(saldoResultado);
     }
 
-    // 3. CREAR LA ORDEN (con los precios VERIFICADOS, no los del cliente)
     const itemsParaOrden = items.map((i) => ({
       id: i.id,
       name: i.name,
@@ -265,10 +223,7 @@ export async function POST(req: Request) {
           coupon_code: cuponAplicado,
           discount: descuento,
           status: 'PENDIENTE',
-          // Solo para pedidos de recarga directa — nunca se manda por URL ni
-          // a servicios de terceros, va cifrado por HTTPS en el cuerpo de la
-          // petición y queda guardado únicamente acá, visible solo desde el
-          // panel de admin.
+          // Guardamos las credenciales temporalmente en la BD
           xbox_email: xboxEmail ? String(xboxEmail).trim().slice(0, 200) : null,
           xbox_password: xboxPassword ? String(xboxPassword).slice(0, 200) : null,
         },
@@ -277,29 +232,17 @@ export async function POST(req: Request) {
       .single();
 
     if (ordenError || !orden) {
-      // Si ya cobramos con saldo y la orden falló, DEVOLVEMOS la plata
       if (paymentMethod === 'saldo' && emailAutenticado) {
-        await supabaseAdmin.rpc('devolver_saldo', {
-          p_email: emailAutenticado,
-          p_monto: totalFinal,
-        });
+        await supabaseAdmin.rpc('devolver_saldo', { p_email: emailAutenticado, p_monto: totalFinal });
       }
       if (cuponAplicado) await supabaseAdmin.rpc('liberar_cupon', { p_code: cuponAplicado });
       return NextResponse.json({ error: `Error DB: ${ordenError?.message}` }, { status: 500 });
     }
 
-    // 3a. 🤝 REFERIDO: si llegó con un link de invitación y es su primera
-    //     compra, lo atribuimos (la recompensa se paga recién al ENTREGAR).
     if (refCode && typeof refCode === 'string') {
       await atribuirReferido(email.trim(), refCode);
     }
 
-    // 3a2. 🤝 SOLICITUD DE AMISTAD AUTOMÁTICA
-    // Cada vez que alguien compra, le pedimos al bot que le mande (o
-    // confirme) la solicitud de amistad — sin esperar a que haya pasado
-    // antes por "Vincular cuenta". Si ya son amigos o ya se la habíamos
-    // mandado, el bot devuelve un aviso informativo, no un error real; no
-    // bloqueamos ni afectamos el resultado de la compra por esto.
     if (process.env.BOT_DELIVERY_URL) {
       fetch(`${process.env.BOT_DELIVERY_URL}/api/bot/agregar-amigo`, {
         method: 'POST',
@@ -313,18 +256,16 @@ export async function POST(req: Request) {
       })
         .then(async (r) => {
           if (r.ok) {
-            // Arrancamos (o confirmamos) el contador de 48hs para este email.
             await supabaseAdmin
               .from('profiles')
               .update({ friend_requested_at: new Date().toISOString() })
               .eq('email', email.trim())
-              .is('friend_requested_at', null); // no pisar si ya tenía uno de antes
+              .is('friend_requested_at', null); 
           }
         })
-        .catch((e) => console.warn('No se pudo contactar al bot para la solicitud de amistad:', e));
+        .catch((e) => console.warn('No se pudo contactar al bot:', e));
     }
 
-    // 3b. 📧 EMAIL DE CONFIRMACIÓN AL CLIENTE (si falla, no rompe la compra)
     emailPedidoConfirmado({
       id: orden.id,
       user_email: email.trim(),
@@ -336,10 +277,6 @@ export async function POST(req: Request) {
       discount: descuento,
     }).catch(() => {});
 
-    // 4. AVISO A DISCORD CON BOTONES DE CUENTA — ningún regalo se manda
-    //    solo. El admin elige a mano con qué cuenta se entrega cada pedido,
-    //    y recién ahí se ejecuta el envío real (ver app/api/discord/route.ts,
-    //    rama "entregar_cuenta_").
     await avisarPedidoParaEntrega({
       id: orden.id,
       user_email: email.trim(),
