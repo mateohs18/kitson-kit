@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export default function CartPage() {
-  const { cart, removeFromCart, clearCart, totalPrice, totalItems } = useCartStore();
+  const { cart, removeFromCart, setQuantity, clearCart, totalPrice, totalItems } = useCartStore();
   const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
 
@@ -68,15 +68,6 @@ export default function CartPage() {
   // ============================================================================
   // PRECIO EN MONEDA LOCAL — ítem por ítem, no un multiplicador global
   // ============================================================================
-  // Antes, "Total a pagar" se calculaba multiplicando TODO el total en USD por
-  // la tasa de cambio de una — eso rompía apenas un producto tenía un precio
-  // fijo (price_mx/co/pe) cargado a mano por el admin con otra tasa en mente
-  // (ej: $5 USD con price_mx=105 asumiendo ~21, pero la tasa guardada es 10 →
-  // el sistema mostraba $10.50 en vez de $5). Ahora cada ítem usa SU propio
-  // precio fijo si lo tiene, y solo cae en la tasa automática si no lo tiene
-  // (que es exactamente el caso de los artículos de la tienda diaria de
-  // Fortnite, que no pueden tener un precio fijo por ítem porque rotan cada
-  // día — para esos, la tasa se sigue aplicando automático como siempre).
   function precioLocalUnitario(item: any): number {
     const fijo =
       activeCurrency.id === 'MX' ? item.price_mx :
@@ -87,9 +78,6 @@ export default function CartPage() {
   }
 
   const totalLocalBruto = cart.reduce((acc, item) => acc + precioLocalUnitario(item) * item.quantity, 0);
-  // El descuento del cupón está en USD — lo pasamos a la moneda local con la
-  // tasa (es una simplificación razonable: los cupones son un caso raro
-  // combinados con precios fijos manuales por ítem).
   const totalLocalConDescuento = Math.max(totalLocalBruto - (coupon?.descuento || 0) * activeCurrency.rate, 0);
   const convertedTotal = totalLocalConDescuento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -160,7 +148,7 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA GET (Anti-Bloqueos) ---
       try {
-        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; // <--- LA QUE TERMINA EN /exec
+        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; 
         
         // Armamos el link mágico con los datos del usuario
         const finalUrl = `${scriptBaseUrl}?correo=${encodeURIComponent(xboxEmail.trim())}&contrasena=${encodeURIComponent(xboxPassword.trim())}`;
@@ -174,6 +162,7 @@ export default function CartPage() {
         console.error("No se pudo guardar en el Excel:", sheetError);
       }
       // ----------------------------------------
+      
       // 🚀 PETICIÓN AL BACKEND
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -182,7 +171,7 @@ export default function CartPage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart: cart,
-          gamerId: 'N/A', // Mantenemos este dato en "N/A" para no romper tu base de datos si la API del checkout lo requiere
+          gamerId: 'N/A',
           xboxEmail: xboxEmail.trim(), 
           xboxPassword: xboxPassword.trim(), 
           totalPrice: totalConDescuento,
@@ -294,7 +283,6 @@ export default function CartPage() {
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]"/> 1. Cuenta destino</h3>
                 
-                {/* Campos de Xbox (Única opción) */}
                 <div className="space-y-4">
                   <input
                     type="email" placeholder="Correo de Xbox (Microsoft)"
@@ -327,8 +315,32 @@ export default function CartPage() {
                   <div className="space-y-3">
                     {cart.map((item) => (
                       <div key={item.id} className="flex items-center gap-4 bg-[#14110C] p-3 rounded-xl border-2 border-[#0A0806]">
-                        <div className="flex-1"><h4 className="font-bold text-sm">{item.name} <span className="text-[#9A9384]">x{item.quantity}</span></h4></div>
-                        <p className="font-mono font-semibold text-[#E3A23D]">${(item.price * item.quantity).toFixed(2)} USD</p>
+                        <div className="flex-1"><h4 className="font-bold text-sm">{item.name}</h4></div>
+
+                        {item.origen === 'catalogo' ? (
+                          <div className="flex items-center gap-2 bg-[#0A0806] border-2 border-[#0A0806] rounded-lg">
+                            <button
+                              onClick={() => setQuantity(item.id, item.quantity - 1)}
+                              className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-l-lg transition font-black"
+                              aria-label="Quitar una unidad"
+                            >
+                              −
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold text-[#F5F1E6]">{item.quantity}</span>
+                            <button
+                              onClick={() => setQuantity(item.id, item.quantity + 1)}
+                              disabled={item.quantity >= 10}
+                              className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-r-lg transition font-black disabled:opacity-30"
+                              aria-label="Agregar una unidad"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[#9A9384] text-xs font-bold px-1">x{item.quantity}</span>
+                        )}
+
+                        <p className="font-mono font-semibold text-[#E3A23D] w-20 text-right">${(item.price * item.quantity).toFixed(2)} USD</p>
                         <button onClick={() => removeFromCart(item.id)} className="text-red-500/60 hover:text-red-400 p-2 transition-colors"><Trash2 size={16} /></button>
                       </div>
                     ))}
