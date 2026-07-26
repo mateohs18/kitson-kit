@@ -149,7 +149,7 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA POST (Anti-Bloqueos) ---
       try {
-        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; 
+        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec'; 
         
         // Preparamos los datos en el formato correcto para Google Sheets
         const formData = new URLSearchParams();
