@@ -4,9 +4,10 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { getShopEntries, getMargenTienda, precioTiendaUsd, entryName } from '../../../lib/tienda-diaria';
-import { emailPedidoConfirmado, emailPedidoEntregado } from '../../../lib/emails';
+import { emailPedidoConfirmado } from '../../../lib/emails';
 import { reportarError } from '../../../lib/sentry';
-import { atribuirReferido, procesarReferidoTrasEntrega } from '../../../lib/referidos';
+import { atribuirReferido } from '../../../lib/referidos';
+import { avisarPedidoParaEntrega } from '../../../lib/entregas';
 
 // ============================================================================
 // CHECKOUT SEGURO
@@ -328,117 +329,22 @@ export async function POST(req: Request) {
       discount: descuento,
     }).catch(() => {});
 
-    // 4. ALERTA A DISCORD (igual que antes, pero con el total verificado)
-    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-    const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-
-    if (DISCORD_CHANNEL_ID && BOT_TOKEN) {
-      try {
-        const resumenProductos = itemsParaOrden
-          .map((item) => `• ${item.name} (x${item.quantity}) — $${item.price.toFixed(2)}`)
-          .join('\n');
-        const metodoTexto = paymentMethod === 'saldo' ? '💰 Pagado con Saldo' : '🏦 Transferencia';
-        const urlComprobante = receiptUrl ? `\n\n📄 **[Ver Comprobante](${receiptUrl})**` : '';
-        const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '')
-          .split(',')
-          .map((id) => id.trim())
-          .filter(Boolean);
-        const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
-
-        await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-          method: 'POST',
-          headers: { Authorization: `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: menciones || undefined,
-            embeds: [
-              {
-                title: paymentMethod === 'saldo' ? '✅ Nueva Orden (Pagada)' : '⏳ Verificar Transferencia',
-                description: `Se ha procesado una compra.\n**Método:** ${metodoTexto}\n**Total verificado:** $${totalFinal.toFixed(2)} USD${cuponAplicado ? ` (cupón ${cuponAplicado}: -$${descuento.toFixed(2)})` : ''}${urlComprobante}`,
-                color: paymentMethod === 'saldo' ? 5763719 : 16766720,
-                fields: [
-                  { name: '👤 Cliente', value: `\`${email}\``, inline: true },
-                  { name: '🎮 Epic ID', value: `\`${gamerId}\``, inline: true },
-                  { name: '📦 Artículos', value: resumenProductos, inline: false },
-                  { name: '🆔 Orden ID', value: `\`${orden.id}\``, inline: false },
-                ],
-              },
-            ],
-            components:
-              paymentMethod === 'saldo'
-                ? []
-                : [
-                    {
-                      type: 1,
-                      components: [
-                        { type: 2, style: 3, label: '📦 Marcar como Entregado', custom_id: `entregar_${orden.id}` },
-                      ],
-                    },
-                  ],
-          }),
-        });
-      } catch (discordError) {
-        // Discord caído no debe romper la compra del cliente
-        console.error('Error avisando a Discord:', discordError);
-      }
-    }
-
-    // 5. ENVIAR AL BOT DE ENTREGAS (solo pagos con saldo, ya confirmados)
-    //    La URL y el secreto viven en variables de entorno — NUNCA en el código.
-    //    Configurá en Railway/Vercel:
-    //      BOT_DELIVERY_URL    = https://tu-tunel-o-servidor.com
-    //      BOT_DELIVERY_SECRET = un-secreto-largo-que-tu-bot-tambien-verifique
-    const BOT_URL = process.env.BOT_DELIVERY_URL;
-    const BOT_SECRET = process.env.BOT_DELIVERY_SECRET;
-
-    if (paymentMethod === 'saldo' && BOT_URL) {
-      let todoEntregado = true;
-
-      for (const item of items) {
-        const codigoFortnite = item.offer_id || item.id;
-
-        // Respetar la cantidad: x2 = 2 regalos
-        for (let unidad = 0; unidad < item.quantity; unidad++) {
-          try {
-            const botResponse = await fetch(`${BOT_URL}/api/bot/enviar-regalo`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-                ...(BOT_SECRET ? { 'x-bot-secret': BOT_SECRET } : {}),
-              },
-              body: JSON.stringify({
-                epicName: gamerId.trim(),
-                offerId: codigoFortnite,
-                // Epic Games espera el precio en PAVOS (lo mismo que muestra la
-                // tienda del juego), no en dólares — mandar el USD acá hace que
-                // el regalo se rechace con "expected total price did not match".
-                precio: item.vbucksPrice ?? item.unitPrice,
-                mensaje: '¡Gracias por tu compra en Kitson!',
-              }),
-            });
-
-            if (!botResponse.ok) {
-              todoEntregado = false;
-              console.error(`❌ El bot rechazó "${item.name}" (unidad ${unidad + 1}):`, await botResponse.text());
-            }
-          } catch (botError) {
-            todoEntregado = false;
-            console.error('❌ Error de red conectando con el bot:', botError);
-          }
-        }
-      }
-
-      // Solo marcamos ENTREGADO si TODOS los regalos salieron bien.
-      // Si algo falló, queda PENDIENTE y el aviso de Discord te permite
-      // resolverlo a mano — el cliente nunca queda pagado y sin producto.
-      if (todoEntregado) {
-        await supabaseAdmin.from('orders').update({ status: 'ENTREGADO' }).eq('id', orden.id);
-        // 📧 Aviso de entrega inmediata (ya no depende del webhook de Supabase)
-        await emailPedidoEntregado({ id: orden.id, user_email: email.trim(), user_name: userName || 'Usuario' });
-        // 🤝 Recompensas de referidos (si corresponde)
-        await procesarReferidoTrasEntrega(email.trim(), totalFinal);
-      }
-    }
+    // 4. AVISO A DISCORD CON BOTONES DE CUENTA — ningún regalo se manda
+    //    solo. El admin elige a mano con qué cuenta se entrega cada pedido,
+    //    y recién ahí se ejecuta el envío real (ver app/api/discord/route.ts,
+    //    rama "entregar_cuenta_").
+    await avisarPedidoParaEntrega({
+      id: orden.id,
+      user_email: email.trim(),
+      user_name: userName || 'Usuario',
+      gamer_id: gamerId.trim(),
+      items: itemsParaOrden,
+      total_price: totalFinal,
+      coupon_code: cuponAplicado,
+      discount: descuento,
+      paymentMethod,
+      receiptUrl,
+    }).catch((e) => console.error('Error avisando pedido a Discord:', e));
 
     return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id, totalVerificado: totalFinal, descuento });
   } catch (error) {

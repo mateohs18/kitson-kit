@@ -4,6 +4,7 @@ import { aprobarRecarga } from '../../../lib/recargas';
 import { marcarAmistadCuenta } from '../../../lib/amistad';
 import { emailPedidoEntregado } from '../../../lib/emails';
 import { procesarReferidoTrasEntrega } from '../../../lib/referidos';
+import { ejecutarEntregaConCuenta } from '../../../lib/entregas';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +128,40 @@ export async function POST(req: Request) {
           },
         });
       }
+      // IMPORTANTE: esta rama va ANTES que 'entregar_' de abajo, porque
+      // 'entregar_cuenta_...' también empieza con 'entregar_' y si no,
+      // la comparación vieja la interceptaría primero por error.
+      if (customId.startsWith('entregar_cuenta_')) {
+        const resto = customId.replace('entregar_cuenta_', '');
+        const [orderId, botName] = resto.split('|');
+
+        // El envío real puede tardar unos segundos (varias llamadas a la
+        // API de Epic Games) — más de los 3 segundos que da Discord para
+        // responder. Por eso respondemos "procesando..." al instante
+        // (type 5) y editamos el mensaje después, cuando termine.
+        ejecutarEntregaConCuenta(orderId, botName)
+          .then(async (resultado) => {
+            const emojiTitulo = resultado.ok ? '✅ ENTREGADO' : '❌ FALLÓ EL ENVÍO';
+            await fetch(
+              `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  content: `${emojiTitulo}\n${resultado.resumen}`,
+                  embeds: interaction.message?.embeds || [],
+                  // Si salió bien, sacamos los botones (ya está resuelto).
+                  // Si falló, los dejamos para poder probar con otra cuenta.
+                  components: resultado.ok ? [] : interaction.message?.components || [],
+                }),
+              }
+            ).catch((e) => console.error('Error actualizando mensaje de Discord tras entrega:', e));
+          })
+          .catch((e) => console.error('Error ejecutando entrega con cuenta elegida:', e));
+
+        return Response.json({ type: 5 }); // DEFERRED_UPDATE_MESSAGE — "ya lo vimos, ya viene"
+      }
+
       if (customId.startsWith('entregar_')) {
         const orderId = customId.split('_')[1];
         const { data: ordenEntregada } = await supabase
