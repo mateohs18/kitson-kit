@@ -11,8 +11,9 @@ import { supabase } from '../../lib/supabase';
 import {
   Wallet, Pencil, Check, X, Zap, Gift, Clock, CheckCircle2, AlertTriangle,
   UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Trophy, Package, Gamepad2,
-  Hourglass, ShieldCheck, Camera, Users, ChevronDown
+  Hourglass, ShieldCheck, Camera, Users, ChevronDown, Menu
 } from 'lucide-react';
+import CurrencySelector from '../../components/CurrencySelector';
 
 const PACKAGES = [
   { id: 'basico', label: 'Pack Básico', pay: 5, bonus: 0 },
@@ -48,8 +49,10 @@ export default function MiCuenta() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const addToCart = useCartStore((s) => s.addToCart);
+  const totalItems = useCartStore((s) => s.totalItems);
 
   const [loading, setLoading] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [perfil, setPerfil] = useState<{ balance: number; epicId: string; friendRequestedAt: string | null; pedidosEntregados: number; nivel: { nombre: string; siguiente: string | null; faltan: number } } | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'activos' | 'historial' | 'movimientos'>('activos');
@@ -313,11 +316,45 @@ export default function MiCuenta() {
 
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body selection:bg-[#E3A23D] selection:text-[#0A0806]">
-      <header className="p-6 md:px-10 border-b-4 border-[#0A0806] bg-[#E3A23D] sticky top-0 z-[100]">
-        <Link href="/" className="flex items-center gap-2 text-[#0A0806] hover:opacity-70 transition-colors w-fit font-bold text-sm">
-          <ChevronLeft size={20} /> Volver a la tienda
-        </Link>
+      <header className="flex items-center justify-between p-4 md:px-8 border-b-4 border-[#0A0806] bg-[#E3A23D] sticky top-0 z-[100]">
+        <div className="flex-1 flex justify-start">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-full border-[3px] border-[#0A0806] overflow-hidden bg-[#F5F1E6]">
+              <Image src="/logo.jpg" alt="Logo Kitson Kit" width={40} height={40} className="w-full h-full object-cover" />
+            </div>
+            <span className="font-display font-bold text-xl text-[#0A0806] hidden xl:block">KITSON KIT</span>
+          </Link>
+        </div>
+
+        <nav className="hidden lg:flex flex-1 justify-center gap-8 font-semibold text-sm text-[#0A0806]">
+          <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
+          <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
+          <Link href="/tienda-diaria" className="hover:opacity-70 transition">Tienda Fortnite</Link>
+          <Link href="/mi-cuenta" className="opacity-100 underline underline-offset-4 transition">Mi Cuenta</Link>
+        </nav>
+
+        <div className="flex-1 flex items-center justify-end gap-3">
+          <div className="hidden sm:block"><CurrencySelector /></div>
+
+          <Link href="/carrito" className="flex items-center gap-2 bg-[#0A0806] text-[#E3A23D] py-2 px-4 rounded-lg font-bold hover:opacity-90 transition">
+            <ShoppingCart size={18} />
+            <span className="text-xs font-black">{totalItems()}</span>
+          </Link>
+
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-[#0A0806] ml-1 p-2">
+            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
+        </div>
       </header>
+
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-[#1D1913] border-b-4 border-[#0A0806] px-6 py-4 flex flex-col gap-3 font-semibold text-sm sticky top-[72px] z-[99]">
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-[#E3A23D] transition">Inicio</Link>
+          <Link href="/#catalogo" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-[#E3A23D] transition">Catálogo</Link>
+          <Link href="/tienda-diaria" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-[#E3A23D] transition">Tienda Fortnite</Link>
+          <Link href="/mi-cuenta" onClick={() => setIsMobileMenuOpen(false)} className="text-[#E3A23D]">Mi Cuenta</Link>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 items-start">
 
@@ -597,42 +634,40 @@ export default function MiCuenta() {
                 <Link href="/#catalogo" className="text-[#E3A23D] font-bold text-sm hover:underline mt-2 inline-block">Ir al catálogo</Link>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {activeOrders.map((order) => {
                   const gift = tieneRegalos(order.items);
                   let estado: { color: string; icon: ReactNode; texto: string };
 
                   if (!gift) {
-                    estado = { color: '#E3A23D', icon: <Clock size={16} />, texto: 'En proceso — te avisamos apenas se acredite.' };
+                    estado = { color: '#E3A23D', icon: <Clock size={14} />, texto: 'En proceso' };
                   } else if (!order.friend_request_sent_at) {
-                    estado = { color: '#EF4444', icon: <AlertTriangle size={16} />, texto: 'Aceptá nuestra solicitud de amistad en Epic Games para iniciar el contador de 48hs.' };
+                    estado = { color: '#EF4444', icon: <AlertTriangle size={14} />, texto: 'Aceptá la solicitud de amistad' };
                   } else {
                     const elapsed = now - new Date(order.friend_request_sent_at).getTime();
                     const remaining = 48 * 60 * 60 * 1000 - elapsed;
                     if (remaining > 0) {
-                      estado = { color: '#E3A23D', icon: <Clock size={16} />, texto: `Esperando las 48hs de amistad. Faltan: ${formatoRestante(remaining)}` };
+                      estado = { color: '#E3A23D', icon: <Clock size={14} />, texto: `Faltan ${formatoRestante(remaining)}` };
                     } else {
-                      estado = { color: '#7BC77E', icon: <Gift size={16} />, texto: 'Ya pasaron las 48hs — tu regalo está en camino.' };
+                      estado = { color: '#7BC77E', icon: <Gift size={14} />, texto: 'En camino' };
                     }
                   }
 
                   return (
-                    <div key={order.id} className="kk-panel rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <p className="font-mono text-xs text-[#9A9384] mb-1">#{order.id.slice(0, 8)}</p>
-                        <p className="font-bold text-[#F5F1E6]">{itemsSummary(order.items)}</p>
-                        <p className="font-mono text-sm text-[#E3A23D]">${Number(order.total_price).toFixed(2)} USD</p>
+                    <Link
+                      key={order.id}
+                      href={`/pedido/${order.id}`}
+                      className="kk-panel kk-card-hover rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-[#F5F1E6] truncate">{itemsSummary(order.items)}</p>
+                        <p className="font-mono text-[11px] text-[#9A9384]">#{order.id.slice(0, 8)} · <span className="text-[#E3A23D]">${Number(order.total_price).toFixed(2)} USD</span></p>
                       </div>
-                      <div className="flex flex-col sm:items-end gap-2">
-                        <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold max-w-sm" style={{ backgroundColor: `${estado.color}18`, color: estado.color }}>
-                          {estado.icon}
-                          <span>{estado.texto}</span>
-                        </div>
-                        <Link href={`/pedido/${order.id}`} className="text-[#7BC77E] hover:underline text-xs font-bold flex items-center gap-1 w-fit">
-                          <Package size={12} /> Ver seguimiento en vivo →
-                        </Link>
+                      <div className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold shrink-0 whitespace-nowrap" style={{ backgroundColor: `${estado.color}18`, color: estado.color }}>
+                        {estado.icon}
+                        {estado.texto}
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
