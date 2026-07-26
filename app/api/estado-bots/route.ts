@@ -50,11 +50,16 @@ export async function GET() {
       pavosDisponibles: activos.reduce((acc, b) => acc + (Number(b.vbucks) || 0), 0),
       regalosHoy: activos.reduce((acc, b) => acc + Math.max(0, Number(b.giftsRemaining) || 0), 0),
       // Nombre de usuario de Epic de cada cuenta (ya es público dentro del
-      // juego, no es información sensible) + su saldo, para que el cliente
-      // pueda agregarlas como amigo directamente, sin esperar a comprar.
+      // juego, no es información sensible) + su saldo y cupo de regalos, para
+      // que el cliente pueda agregarlas como amigo directamente. El cupo de
+      // regalos es el que calcula el propio bot: 5 por cuenta, cada uno se
+      // renueva individualmente 24hs después de haberse usado (no es un
+      // reinicio fijo a medianoche — cada regalo tiene su propio contador).
       cuentas: activos.map((b) => ({
         nombre: b.displayName || b.name,
         vbucks: Number(b.vbucks) || 0,
+        regalosRestantes: Math.max(0, Number(b.giftsRemaining) || 0),
+        regalosTotales: Number(b.giftLimit) || 5,
       })),
     };
 

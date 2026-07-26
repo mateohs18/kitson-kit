@@ -12,7 +12,7 @@ import { Copy, Check, Gamepad2 } from 'lucide-react';
 // Se auto-oculta por completo si el bot no responde.
 // ============================================================================
 
-interface Cuenta { nombre: string; vbucks: number }
+interface Cuenta { nombre: string; vbucks: number; regalosRestantes: number; regalosTotales: number }
 
 export default function EstadoBots() {
   const [cuentas, setCuentas] = useState<Cuenta[] | null>(null);
@@ -57,10 +57,18 @@ export default function EstadoBots() {
               <Gamepad2 size={14} className="text-[#4A93D6] shrink-0" />
               <span className="font-mono font-bold text-sm text-[#F5F1E6] truncate">{c.nombre}</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://fortnite-api.com/images/vbuck.png" alt="" className="w-3.5 h-3.5" loading="lazy" />
-              <span className="font-mono text-xs font-bold text-[#E3A23D]">{c.vbucks.toLocaleString('en-US')}</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="flex items-center gap-1" title="Saldo de V-Bucks">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://fortnite-api.com/images/vbuck.png" alt="" className="w-3.5 h-3.5" loading="lazy" />
+                <span className="font-mono text-xs font-bold text-[#E3A23D]">{c.vbucks.toLocaleString('en-US')}</span>
+              </span>
+              <span
+                className={`font-mono text-xs font-bold ${c.regalosRestantes > 0 ? 'text-[#7BC77E]' : 'text-[#5A554A]'}`}
+                title="Regalos disponibles hoy — cada uno se renueva 24hs después de usarse"
+              >
+                🎁 {c.regalosRestantes}/{c.regalosTotales}
+              </span>
               <button
                 onClick={() => copiar(c.nombre)}
                 className="text-[#9A9384] hover:text-[#E3A23D] transition p-1"
