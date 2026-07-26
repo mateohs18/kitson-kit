@@ -440,6 +440,14 @@ export default function CartPage() {
                   <div className="space-y-3">
                     {cart.map((item) => (
                       <div key={item.id} className="flex items-center gap-4 bg-[#14110C] p-3 rounded-xl border-2 border-[#0A0806]">
+                        {item.image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0 border border-[#3A3527]" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-[#1D1913] border border-[#3A3527] flex items-center justify-center shrink-0">
+                            <Gamepad2 size={20} className="text-[#5A554A]" />
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-sm truncate">
                             {item.name} <span className="text-[#9A9384]">x{item.quantity}</span>

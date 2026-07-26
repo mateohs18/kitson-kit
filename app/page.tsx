@@ -185,16 +185,12 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="relative px-6 md:px-12 pt-16 pb-24 md:pt-20 md:pb-32 grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center max-w-7xl mx-auto">
+      <section className="relative px-6 md:px-12 pt-6 pb-20 md:pt-8 md:pb-28 grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center max-w-7xl mx-auto">
         <div>
-          <span className="inline-flex items-center gap-2 bg-[#4A93D6] text-[#0C2438] font-bold text-xs px-4 py-2 rounded-lg border-2 border-[#0A0806] mb-6">
-            <span className="flex h-2 w-2 rounded-full bg-[#0C2438] animate-pulse"></span>
-            TIENDA ACTIVA HOY
-          </span>
-          <h1 className="font-display font-extrabold text-4xl md:text-6xl leading-[1.05] mb-6">
+          <h1 className="font-display font-extrabold text-4xl md:text-6xl leading-[1.05] mb-5">
             Subí de nivel<br/>tu <span className="text-[#E3A23D]">cuenta.</span>
           </h1>
-          <p className="text-base md:text-lg text-[#9A9384] mb-8 max-w-xl">
+          <p className="text-base md:text-lg text-[#9A9384] mb-7 max-w-xl">
             Adquiere cosméticos exclusivos, recargas y suscripciones de forma automatizada, segura y sin riesgo de ban.
           </p>
           <div className="flex flex-wrap gap-4">
