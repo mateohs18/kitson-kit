@@ -134,7 +134,7 @@ const FortniteItemCard = ({ entry, activeCurrency, addToCart, featured = false, 
   // el mismo objeto siempre genere el mismo ID (y así se agrupe con quantity: 2
   // en vez de duplicarse como dos líneas distintas en el carrito).
   const itemId = entry.offerId || encodeURIComponent(`${name}-${baseUsdPrice}`);
-  const itemPayload = { id: itemId, name, price: baseUsdPrice, image_url: imagenMostrada, offer_id: entry.offerId || null, vbucks: vbucksPrice };
+  const itemPayload = { id: itemId, name, price: baseUsdPrice, image_url: imagenMostrada, offer_id: entry.offerId || null, vbucks: vbucksPrice, origen: 'tienda-diaria' as const };
 
   const gradiente = gradienteOficial(entry, colorRareza);
 
@@ -236,7 +236,7 @@ const QuickViewModal = ({ entry, activeCurrency, addToCart, onClose }: { entry: 
   const baseUsdPrice = entry.kkUsdPrice ?? entry.finalPrice / 100;
   const localPrice = (baseUsdPrice * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const itemId = entry.offerId || encodeURIComponent(`${meta.name}-${baseUsdPrice}`);
-  const itemPayload = { id: itemId, name: meta.name, price: baseUsdPrice, image_url: meta.displayImage, offer_id: entry.offerId || null, vbucks: entry.finalPrice };
+  const itemPayload = { id: itemId, name: meta.name, price: baseUsdPrice, image_url: meta.displayImage, offer_id: entry.offerId || null, vbucks: entry.finalPrice, origen: 'tienda-diaria' as const };
 
   const fechaFmt = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 

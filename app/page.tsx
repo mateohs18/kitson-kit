@@ -335,7 +335,7 @@ export default function Home() {
                         // Los precios fijos (price_mx/co/pe) viajan intactos
                         // junto al producto, para que el carrito los use tal
                         // cual al mostrar el total — sin ninguna conversión.
-                        addToCart(p);
+                        addToCart({ ...p, origen: 'catalogo' });
                       }}
                       className="w-full bg-[#0A0806] hover:bg-[#E3A23D] text-[#E3A23D] hover:text-[#0A0806] py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 border-2 border-[#0A0806]"
                     >

@@ -11,6 +11,16 @@ export interface Product {
   delivery_type?: 'regalo' | 'recarga';
   offer_id?: string | null;
   vbucks?: number;
+  // Precios fijos por país, cargados a mano por el admin — cuando existen,
+  // el carrito los usa TAL CUAL para mostrarle al cliente el total en su
+  // moneda, sin ninguna cuenta con la tasa de cambio de por medio.
+  price_mx?: number | null;
+  price_co?: number | null;
+  price_pe?: number | null;
+  // 'catalogo' = producto propio (podés elegir cantidad en el carrito).
+  // 'tienda-diaria' = artículo de la tienda de Fortnite (rota cada día, no
+  // tiene sentido pedir "3 unidades" de una skin puntual del día de hoy).
+  origen?: 'catalogo' | 'tienda-diaria';
 }
 
 // 2. Definimos cómo luce un ítem dentro del carrito (Producto + Cantidad)
@@ -24,6 +34,7 @@ interface CartState {
   isDrawerOpen: boolean;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
+  setQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   totalPrice: () => number;
   totalItems: () => number;
@@ -61,6 +72,23 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           cart: state.cart.filter((item) => item.id !== productId),
         }));
+      },
+
+      // Cambia la cantidad de un ítem directamente (para el selector +/- del
+      // carrito). Si baja a 0, lo saca del carrito. Tope de 10 por ítem,
+      // mismo límite que ya usa el checkout del lado del servidor.
+      setQuantity: (productId, quantity) => {
+        set((state) => {
+          if (quantity <= 0) {
+            return { cart: state.cart.filter((item) => item.id !== productId) };
+          }
+          const tope = Math.min(quantity, 10);
+          return {
+            cart: state.cart.map((item) =>
+              item.id === productId ? { ...item, quantity: tope } : item
+            ),
+          };
+        });
       },
 
       clearCart: () => {
