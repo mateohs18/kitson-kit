@@ -202,11 +202,10 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-bold text-[#9A9384] uppercase tracking-widest mr-1">Pagá con:</span>
             {['Binance', 'Yape', 'Nequi', 'OXXO', 'Transferencia', 'Saldo Kitson'].map((m) => (
-              <span key={m} className="bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#D9D4C7]">{m}</span>
+              <span key={m} className="bg-[#1D1913]/60 border border-[#3A3527] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#D9D4C7]">{m}</span>
             ))}
+            <EstadoBots />
           </div>
-
-          <EstadoBots />
         </div>
 
         <div className="bg-[#4A93D6] border-[4px] border-[#0A0806] rounded-3xl p-6 relative overflow-hidden">

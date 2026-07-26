@@ -94,7 +94,7 @@ body {
 
 .kk-panel {
   background: var(--kk-panel);
-  border: 3px solid var(--kk-ink);
+  border: 1.5px solid var(--kk-ink);
   border-radius: 14px;
 }
 
@@ -102,6 +102,6 @@ body {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .kk-card-hover:hover {
-  transform: translate(-3px, -3px);
-  box-shadow: 5px 5px 0 var(--kk-ink);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 var(--kk-ink);
 }
