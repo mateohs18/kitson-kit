@@ -1,5 +1,12 @@
 "use client";
 
+// Esta página usa useSession() (depende de si el visitante está logueado o
+// no), así que no tiene sentido "pre-generarla" de antemano en el build.
+// Sin esta línea, Next.js puede explotar con "Cannot destructure property
+// 'data' of useSession(...) as it is undefined" al intentar prerenderizarla.
+export const dynamic = 'force-dynamic';
+
+
 import { useEffect, useState, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
 import { ShieldAlert, CheckCircle2, Clock, Package, Wallet, Plus, ExternalLink, Inbox, ShoppingBag, Pencil, Trash2, X, Gamepad2, Star, UserPlus, DollarSign, Gift, Ticket, TrendingUp, Zap } from 'lucide-react';
@@ -1193,6 +1200,15 @@ export default function AdminPanel() {
                               {it.delivery_type && <span className="text-[#4A93D6] inline-flex items-center gap-1">{it.delivery_type === 'recarga' ? '⚡ Recarga' : <><Gift size={11} /> Regalo</>}</span>}
                             </div>
                           ))}
+                          {(order.xbox_email || order.xbox_password) && (
+                            <div className="mt-3 bg-[#4A93D6]/10 border border-[#4A93D6]/30 rounded-lg px-3 py-2.5">
+                              <p className="text-[10px] font-black text-[#4A93D6] uppercase tracking-widest mb-1.5">🎮 Datos de recarga directa (Xbox) — solo visible acá</p>
+                              <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs font-mono">
+                                {order.xbox_email && <span className="text-[#D9D4C7]">📧 {order.xbox_email}</span>}
+                                {order.xbox_password && <span className="text-[#D9D4C7]">🔑 {order.xbox_password}</span>}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>

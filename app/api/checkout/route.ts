@@ -147,7 +147,7 @@ export async function POST(req: Request) {
 
   try {
     const cuerpo = await req.json();
-    const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode, refCode } = cuerpo;
+    const { email, userName, cart, gamerId, paymentMethod, receiptUrl, couponCode, refCode, xboxEmail, xboxPassword } = cuerpo;
 
     // Validaciones de entrada
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -250,6 +250,7 @@ export async function POST(req: Request) {
       vbucksPrice: i.vbucksPrice,
       quantity: i.quantity,
       offer_id: i.offer_id,
+      origen: (i.source === 'tienda-diaria' ? 'tienda-diaria' : 'catalogo') as 'catalogo' | 'tienda-diaria',
     }));
 
     const { data: orden, error: ordenError } = await supabaseAdmin
@@ -264,6 +265,12 @@ export async function POST(req: Request) {
           coupon_code: cuponAplicado,
           discount: descuento,
           status: 'PENDIENTE',
+          // Solo para pedidos de recarga directa — nunca se manda por URL ni
+          // a servicios de terceros, va cifrado por HTTPS en el cuerpo de la
+          // petición y queda guardado únicamente acá, visible solo desde el
+          // panel de admin.
+          xbox_email: xboxEmail ? String(xboxEmail).trim().slice(0, 200) : null,
+          xbox_password: xboxPassword ? String(xboxPassword).slice(0, 200) : null,
         },
       ])
       .select()
@@ -344,6 +351,8 @@ export async function POST(req: Request) {
       discount: descuento,
       paymentMethod,
       receiptUrl,
+      xboxEmail: xboxEmail || null,
+      xboxPassword: xboxPassword || null,
     }).catch((e) => console.error('Error avisando pedido a Discord:', e));
 
     return NextResponse.json({ success: true, nuevoSaldo, ordenId: orden.id, totalVerificado: totalFinal, descuento });

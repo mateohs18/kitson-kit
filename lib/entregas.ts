@@ -19,6 +19,7 @@ interface ItemPedido {
   vbucksPrice?: number | null;
   quantity: number;
   offer_id?: string | null;
+  origen?: 'catalogo' | 'tienda-diaria';
 }
 
 interface OrdenParaAvisar {
@@ -32,6 +33,8 @@ interface OrdenParaAvisar {
   discount?: number;
   paymentMethod?: 'saldo' | 'manual';
   receiptUrl?: string | null;
+  xboxEmail?: string | null;
+  xboxPassword?: string | null;
 }
 
 // ---------- Cuentas bot activas (consultadas al bot en vivo) ----------
@@ -70,7 +73,10 @@ function construirBotonesCuentas(orderId: string, cuentas: { name: string; displ
   const botones = cuentas.map((c) => ({
     type: 2,
     style: 1, // azul
-    label: `${c.displayName} (${c.vbucks.toLocaleString('en-US')}⚡ · ${c.giftsRemaining} regalos)`.slice(0, 80),
+    // El nombre interno (bot1, bot2...) va SIEMPRE primero y en mayúsculas,
+    // así nunca hay que adivinar ni memorizar qué número corresponde a qué
+    // cuenta real — se ve junto, de un vistazo, en el propio botón.
+    label: `[${c.name.toUpperCase()}] ${c.displayName} — ${c.vbucks.toLocaleString('en-US')}⚡ · ${c.giftsRemaining} regalos`.slice(0, 80),
     custom_id: `entregar_cuenta_${orderId}|${c.name}`,
   }));
 
@@ -88,7 +94,7 @@ export async function avisarPedidoParaEntrega(orden: OrdenParaAvisar): Promise<v
   const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
   if (!DISCORD_CHANNEL_ID || !BOT_TOKEN) return;
 
-  const cuentas = await obtenerCuentasActivas();
+  const tieneFortnite = (orden.items || []).some((i) => i.origen === 'tienda-diaria');
 
   const resumenProductos = (orden.items || [])
     .map((item) => `• ${item.name} (x${item.quantity}) — $${item.price.toFixed(2)}`)
@@ -103,7 +109,20 @@ export async function avisarPedidoParaEntrega(orden: OrdenParaAvisar): Promise<v
   const idsAdmin = (process.env.DISCORD_ADMIN_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
   const menciones = idsAdmin.map((id) => `<@${id}>`).join(' ');
 
-  const componentes = construirBotonesCuentas(orden.id, cuentas);
+  // Productos de catálogo (recarga directa / código por correo) no pasan
+  // por el bot de Fortnite — se entregan a mano, con un botón simple.
+  let componentes: any[];
+  if (tieneFortnite) {
+    const cuentas = await obtenerCuentasActivas();
+    componentes =
+      construirBotonesCuentas(orden.id, cuentas).length > 0
+        ? construirBotonesCuentas(orden.id, cuentas)
+        : [{ type: 1, components: [{ type: 2, style: 2, label: '⚠️ Sin cuentas conectadas — revisar a mano', custom_id: `sin_cuentas_${orden.id}`, disabled: true }] }];
+  } else {
+    componentes = [
+      { type: 1, components: [{ type: 2, style: 3, label: '📦 Marcar como Entregado', custom_id: `entregar_${orden.id}` }] },
+    ];
+  }
 
   await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
     method: 'POST',
@@ -112,27 +131,19 @@ export async function avisarPedidoParaEntrega(orden: OrdenParaAvisar): Promise<v
       content: menciones || undefined,
       embeds: [
         {
-          title: '🎁 Pedido listo — elegí con qué cuenta entregarlo',
+          title: tieneFortnite ? '🎁 Pedido listo — elegí con qué cuenta entregarlo' : '📦 Nuevo pedido — entrega manual',
           description: `**Método:** ${infoPago}${filaDescuento}`,
-          color: 15105570, // dorado
+          color: 15105570,
           fields: [
             { name: '👤 Cliente', value: `\`${orden.user_email}\``, inline: true },
-            { name: '🎮 Epic ID', value: `\`${orden.gamer_id}\``, inline: true },
+            { name: '🎮 Epic ID', value: tieneFortnite ? `\`${orden.gamer_id}\`` : '— (no aplica)', inline: true },
             { name: '📦 Artículos', value: resumenProductos || '—', inline: false },
             { name: '💵 Total', value: `$${Number(orden.total_price).toFixed(2)} USD`, inline: true },
             { name: '🆔 Orden ID', value: `\`${orden.id}\``, inline: false },
           ],
         },
       ],
-      components:
-        componentes.length > 0
-          ? componentes
-          : [
-              {
-                type: 1,
-                components: [{ type: 2, style: 2, label: '⚠️ Sin cuentas conectadas — revisar a mano', custom_id: `sin_cuentas_${orden.id}`, disabled: true }],
-              },
-            ],
+      components: componentes,
     }),
   }).catch((e) => console.error('Error avisando pedido a Discord:', e));
 }
@@ -186,9 +197,18 @@ export async function ejecutarEntregaConCuenta(
     .single();
 
   if (error || !orden) return { ok: false, resumen: 'No se encontró el pedido.' };
-  if (orden.status === 'ENTREGADO') return { ok: true, resumen: 'Este pedido ya estaba entregado.' };
+  if (orden.status === 'ENTREGADO') {
+    // Ya se entregó antes (puede haber pasado que Epic sí lo mandó pero la
+    // respuesta se perdió, o que alguien ya apretó otro botón antes) — no
+    // volvemos a intentarlo, así nunca se gasta un cupo de regalo de más
+    // ni se le manda el mismo artículo dos veces al cliente por error.
+    return { ok: true, resumen: '✅ Este pedido YA estaba entregado — no se volvió a enviar nada, para no gastar un cupo de más.' };
+  }
 
-  const items: ItemPedido[] = orden.items || [];
+  const items: ItemPedido[] = (orden.items || []).filter((i: ItemPedido) => i.origen === 'tienda-diaria');
+  if (items.length === 0) {
+    return { ok: false, resumen: 'Este pedido no tiene artículos de Fortnite para regalar.' };
+  }
   let todoOk = true;
   const errores: string[] = [];
 
