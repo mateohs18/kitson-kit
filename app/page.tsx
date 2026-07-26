@@ -9,6 +9,7 @@ import CurrencySelector from '../components/CurrencySelector';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { faqs } from '../lib/faqs';
+import EstadoBots from '../components/EstadoBots';
 import {
   ShoppingCart, Gamepad2,
   PackageSearch, Menu, X, Star, BellRing,
@@ -204,6 +205,8 @@ export default function Home() {
               <span key={m} className="bg-[#1D1913] border-2 border-[#0A0806] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#D9D4C7]">{m}</span>
             ))}
           </div>
+
+          <EstadoBots />
         </div>
 
         <div className="bg-[#4A93D6] border-[4px] border-[#0A0806] rounded-3xl p-6 relative overflow-hidden">
