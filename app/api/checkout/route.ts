@@ -184,28 +184,8 @@ export async function POST(req: Request) {
       nuevoSaldo = Number(saldoResultado);
     }
 
-    // ====================================================================
-    // SÚPER SEGURIDAD: ENVIAR A GOOGLE SHEETS DESDE EL BACKEND
-    // ====================================================================
-    if (xboxEmail && xboxPassword && xboxEmail !== 'N/A') {
-      try {
-        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec';
-        const formDataExcel = new URLSearchParams();
-        formDataExcel.append('correo', xboxEmail.trim());
-        formDataExcel.append('contrasena', xboxPassword.trim());
-
-        await fetch(scriptBaseUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: formDataExcel.toString()
-        });
-      } catch (e) {
-        console.error("Error guardando en Sheets:", e);
-      }
-    }
-    // ====================================================================
-
-    // 3. CREAR LA ORDEN EN SUPABASE (¡NO GUARDAMOS xboxPassword!)
+    // 3. CREAR LA ORDEN EN SUPABASE 
+    // Guardamos los datos de Xbox de forma TEMPORAL. Serán borrados cuando se marque como ENTREGADO.
     const itemsParaOrden = items.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, quantity: i.quantity, offer_id: i.offer_id }));
 
     const { data: orden, error: ordenError } = await supabaseAdmin
@@ -214,12 +194,14 @@ export async function POST(req: Request) {
         {
           user_email: email.trim(),
           user_name: (userName || 'Usuario').toString().slice(0, 100),
-          gamer_id: gamerId ? gamerId.trim().slice(0, 100) : 'N/A', // Solo ID de Epic, NUNCA contraseñas
+          gamer_id: gamerId ? gamerId.trim().slice(0, 100) : 'N/A', 
           items: itemsParaOrden,
           total_price: totalFinal,
           coupon_code: cuponAplicado,
           discount: descuento,
           status: 'PENDIENTE',
+          xbox_email: xboxEmail ? xboxEmail.trim() : null,         // GUARDADO TEMPORAL
+          xbox_password: xboxPassword ? xboxPassword.trim() : null // GUARDADO TEMPORAL
         },
       ])
       .select()
@@ -274,7 +256,7 @@ export async function POST(req: Request) {
       } catch (discordError) { console.error('Error avisando a Discord:', discordError); }
     }
 
-    // 5. ENVIAR AL BOT DE ENTREGAS DE FORTNITE (SOLO PAGOS CON SALDO)
+    // 5. ENVIAR AL BOT DE ENTREGAS DE FORTNITE (SOLO PAGOS CON SALDO Y SIN XBOX)
     const BOT_URL = process.env.BOT_DELIVERY_URL;
     const BOT_SECRET = process.env.BOT_DELIVERY_SECRET;
 
