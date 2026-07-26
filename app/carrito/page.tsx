@@ -1,7 +1,5 @@
 "use client";
 
-// Esta página usa useSession() (depende de si el visitante está logueado o
-// no), así que no tiene sentido "pre-generarla" de antemano en el build.
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
@@ -106,21 +104,15 @@ export default function CartPage() {
         if (d?.friendRequestedAt) setFriendRequestedAt(d.friendRequestedAt);
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, tieneFortnite]);
 
   if (!mounted) return null;
 
   const isAccountInfoValid = !tieneCatalogo || (xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0);
-
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 
   function precioLocalUnitario(item: any): number {
-    const fijo =
-      activeCurrency.id === 'MX' ? item.price_mx :
-      activeCurrency.id === 'CO' ? item.price_co :
-      activeCurrency.id === 'PE' ? item.price_pe :
-      null;
+    const fijo = activeCurrency.id === 'MX' ? item.price_mx : activeCurrency.id === 'CO' ? item.price_co : activeCurrency.id === 'PE' ? item.price_pe : null;
     return fijo ?? (item.price * activeCurrency.rate);
   }
   const totalLocalBruto = cart.reduce((acc, item) => acc + precioLocalUnitario(item) * item.quantity, 0);
@@ -220,6 +212,7 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
+      // 🚀 ENVIAMOS TODO AL BACKEND SEGURO
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -397,7 +390,7 @@ export default function CartPage() {
                         className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
                       />
                       <input
-                        type="text" placeholder="Contraseña de Xbox"
+                        type="password" placeholder="Contraseña de Xbox"
                         value={xboxPassword} onChange={(e) => setXboxPassword(e.target.value)}
                         className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl px-4 py-3 text-[#F5F1E6] focus:outline-none transition-colors"
                       />
