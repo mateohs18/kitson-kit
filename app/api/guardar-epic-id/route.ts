@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     console.log('[guardar-epic-id] Entrando al bloque de contactar al bot. BOT_DELIVERY_URL:', process.env.BOT_DELIVERY_URL ? 'configurada' : '❌ NO CONFIGURADA');
 
     let botOk = false;
+    let algunaYaEraAmiga = false;
 
     if (process.env.BOT_DELIVERY_URL) {
       try {
@@ -58,6 +59,12 @@ export async function POST(req: Request) {
         botOk = botRes.ok;
         const detalle = await botRes.text().catch(() => '');
         console.log(`[guardar-epic-id] El bot respondió con status ${botRes.status} (ok=${botOk}):`, detalle);
+        if (botOk) {
+          try {
+            const json = JSON.parse(detalle);
+            algunaYaEraAmiga = !!json.algunaYaEraAmiga;
+          } catch {}
+        }
       } catch (e) {
         console.warn('[guardar-epic-id] No se pudo contactar al bot (excepción):', e);
       }
@@ -66,10 +73,18 @@ export async function POST(req: Request) {
     }
 
     if (botOk) {
-      console.log('[guardar-epic-id] ✅ Bot OK — arrancando contador de 48hs.');
+      // Si el bot nos dijo que alguna cuenta YA era amiga de antes (no una
+      // solicitud recién mandada), no tiene sentido arrancar el reloj de
+      // 48hs desde cero — esa amistad real ya existía, así que la marcamos
+      // como cumplida de una. Si eran todas solicitudes nuevas, sí arranca
+      // el reloj normal desde ahora.
+      const marcaTiempo = algunaYaEraAmiga
+        ? new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString() // 49hs atrás = ya cumplidas las 48
+        : new Date().toISOString();
+      console.log(`[guardar-epic-id] ✅ Bot OK — algunaYaEraAmiga=${algunaYaEraAmiga}, marca de tiempo: ${marcaTiempo}`);
       await supabaseAdmin
         .from('profiles')
-        .update({ friend_requested_at: new Date().toISOString() })
+        .update({ friend_requested_at: marcaTiempo })
         .eq('email', email);
     } else {
       console.log('[guardar-epic-id] ⚠️ Bot falló o no configurado — cayendo al aviso por Discord.');
