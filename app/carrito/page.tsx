@@ -35,7 +35,7 @@ function AvisoError({ mensaje, onClose }: { mensaje: string; onClose: () => void
 }
 
 export default function CartPage() {
-  const { cart, removeFromCart, clearCart, totalPrice, totalItems } = useCartStore();
+  const { cart, removeFromCart, setQuantity, clearCart, totalPrice, totalItems } = useCartStore();
   const { getActiveConfig } = useCurrencyStore();
   const activeCurrency = getActiveConfig();
 
@@ -212,7 +212,6 @@ export default function CartPage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // 🚀 ENVIAMOS TODO AL BACKEND SEGURO
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -443,13 +442,41 @@ export default function CartPage() {
                         )}
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-sm truncate">
-                            {item.name} <span className="text-[#9A9384]">x{item.quantity}</span>
+                            {item.name}
                             {item.origen === 'tienda-diaria' && (
-                              <span className="ml-2 bg-[#4A93D6]/15 text-[#4A93D6] text-[10px] font-black uppercase px-1.5 py-0.5 rounded">Fortnite</span>
+                              <span className="ml-2 bg-[#4A93D6]/15 text-[#4A93D6] text-[10px] font-black uppercase px-1.5 py-0.5 rounded align-middle">Fortnite</span>
                             )}
                           </h4>
                         </div>
-                        <p className="font-mono font-semibold text-[#E3A23D] shrink-0">
+
+                        {item.origen === 'catalogo' ? (
+                          // Selector de cantidad — solo para productos propios.
+                          // Los artículos de la tienda diaria rotan cada día, no
+                          // tiene sentido pedir "varias unidades" de la skin
+                          // puntual de hoy — esos quedan fijos en x1.
+                          <div className="flex items-center gap-2 bg-[#0A0806] border-2 border-[#0A0806] rounded-lg shrink-0">
+                            <button
+                              onClick={() => setQuantity(item.id, item.quantity - 1)}
+                              className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-l-lg transition font-black"
+                              aria-label="Quitar una unidad"
+                            >
+                              −
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold text-[#F5F1E6]">{item.quantity}</span>
+                            <button
+                              onClick={() => setQuantity(item.id, item.quantity + 1)}
+                              disabled={item.quantity >= 10}
+                              className="w-8 h-8 flex items-center justify-center text-[#E3A23D] hover:bg-white/5 rounded-r-lg transition font-black disabled:opacity-30"
+                              aria-label="Agregar una unidad"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[#9A9384] text-xs font-bold px-1 shrink-0">x{item.quantity}</span>
+                        )}
+
+                        <p className="font-mono font-semibold text-[#E3A23D] shrink-0 w-24 text-right">
                           {activeCurrency.symbol}{(precioLocalUnitario(item) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeCurrency.currency}
                         </p>
                         <button onClick={() => removeFromCart(item.id)} className="text-red-500/60 hover:text-red-400 p-2 transition-colors shrink-0"><Trash2 size={16} /></button>
