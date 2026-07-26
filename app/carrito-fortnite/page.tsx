@@ -14,7 +14,7 @@ import { signIn, useSession } from 'next-auth/react';
 import {
   ShoppingCart, Trash2, Gamepad2, Menu, X,
   Loader2, CheckCircle2, UploadCloud, Copy, Wallet, Check,
-  ShieldCheck, Hourglass, Pencil, AlertTriangle
+  ShieldCheck, Hourglass, Pencil,
 } from 'lucide-react';
 
 function formatoRestante(ms: number) {
@@ -33,7 +33,6 @@ export default function CarritoFortnitePage() {
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Estados CONECTADOS a la API de Epic Games
   const [epicId, setEpicId] = useState('');
   const [epicIdGuardado, setEpicIdGuardado] = useState('');
   const [editandoEpicId, setEditandoEpicId] = useState(true);
@@ -57,14 +56,11 @@ export default function CarritoFortnitePage() {
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { setCoupon(null); setCouponError(null); }, [cart]);
-  
-  // Actualizador para el contador de las 48hs
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 30000);
     return () => clearInterval(t);
   }, []);
 
-  // API Interna: Cargar perfil
   useEffect(() => {
     if (!session?.user?.email) return;
     fetch('/api/mi-perfil')
@@ -86,7 +82,6 @@ export default function CarritoFortnitePage() {
   const totalConDescuento = Math.max(totalPrice() - (coupon?.descuento || 0), 0);
   const convertedTotal = (totalConDescuento * activeCurrency.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Lógica de las 48 horas
   const remaining = friendRequestedAt ? 48 * 60 * 60 * 1000 - (ahora - new Date(friendRequestedAt).getTime()) : null;
   const amistadLista = friendRequestedAt !== null && (remaining ?? 0) <= 0;
 
@@ -95,7 +90,6 @@ export default function CarritoFortnitePage() {
   const paymentReady = paymentMethod === 'saldo' ? balance >= totalConDescuento && totalConDescuento > 0 : !!receiptFile;
   const currentStep = !cuentaLista ? 1 : !paymentReady ? 2 : 3;
 
-  // API Interna: Guardar Epic ID y activar contador
   const guardarEpicId = async () => {
     if (!epicIdValido) {
       setEpicIdError('Escribí tu nombre de usuario de Epic Games (sin espacios, mínimo 3 caracteres).');
@@ -177,7 +171,6 @@ export default function CarritoFortnitePage() {
         finalReceiptUrl = uploadData.url;
       }
 
-      // 🚀 PETICIÓN AL BACKEND (Sin conexión a Google Sheets)
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +178,7 @@ export default function CarritoFortnitePage() {
           email: session.user.email,
           userName: session.user.name || 'Usuario',
           cart,
-          gamerId: epicIdGuardado.trim(), // API interna
+          gamerId: epicIdGuardado.trim(),
           totalPrice: totalConDescuento,
           couponCode: coupon?.code || null,
           refCode: (() => { try { return localStorage.getItem('kitson_ref'); } catch { return null; } })(),
@@ -300,14 +293,6 @@ export default function CarritoFortnitePage() {
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="flex-1 space-y-6">
-
-              <div className="bg-[#4A93D6]/20 border-2 border-[#4A93D6] p-4 rounded-xl flex gap-4 items-start">
-                <AlertTriangle className="text-[#4A93D6] shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-bold text-[#4A93D6] mb-1">Regla de 48 horas</h4>
-                  <p className="text-sm text-[#D9D4C7]">Si es tu primera compra, debes aceptar a nuestro bot en Fortnite. Epic Games requiere 48hs de amistad antes de poder enviar regalos.</p>
-                </div>
-              </div>
 
               <div className="kk-panel p-6 rounded-3xl">
                 <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Gamepad2 className="text-[#E3A23D]" /> 1. Tu cuenta de Epic Games</h3>
@@ -467,6 +452,7 @@ export default function CarritoFortnitePage() {
                           ))}
                         </div>
                       </div>
+
                       <div className="mb-8">
                         <label className="block text-sm font-bold text-[#D9D4C7] mb-2">Sube la captura de pago <span className="text-red-400">*</span></label>
                         <label className="relative flex flex-col items-center justify-center w-full py-6 px-4 bg-[#14110C] border-2 border-dashed border-[#3A3527] hover:border-[#E3A23D] rounded-2xl cursor-pointer transition-colors group">
