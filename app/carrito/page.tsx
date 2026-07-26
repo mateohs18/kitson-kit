@@ -456,7 +456,9 @@ export default function CartPage() {
                             )}
                           </h4>
                         </div>
-                        <p className="font-mono font-semibold text-[#E3A23D] shrink-0">${(item.price * item.quantity).toFixed(2)} USD</p>
+                        <p className="font-mono font-semibold text-[#E3A23D] shrink-0">
+                          {activeCurrency.symbol}{(precioLocalUnitario(item) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeCurrency.currency}
+                        </p>
                         <button onClick={() => removeFromCart(item.id)} className="text-red-500/60 hover:text-red-400 p-2 transition-colors shrink-0"><Trash2 size={16} /></button>
                       </div>
                     ))}
