@@ -243,20 +243,26 @@ export async function ejecutarEntregaManual(orderId: string): Promise<{ ok: bool
   // 1. Buscamos el pedido en Supabase
   const { data: orden, error } = await supabaseAdmin
     .from('orders')
-    .select('id, user_email, user_name, total_price, status, xbox_email, xbox_password')
+    // Agregamos "items" al select para poder contar la cantidad
+    .select('id, user_email, user_name, total_price, status, xbox_email, xbox_password, items')
     .eq('id', orderId)
     .single();
 
   if (error || !orden) return { ok: false, resumen: 'No se encontró el pedido en la base de datos.' };
   if (orden.status === 'ENTREGADO') return { ok: true, resumen: '✅ Este pedido ya estaba entregado.' };
 
-  // 2. Si tiene credenciales de Xbox, las enviamos a Sheets ahora mismo
+  // Calculamos la cantidad total de artículos comprados
+  const itemsPedido = orden.items || [];
+  const cantidadTotal = itemsPedido.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 1), 0);
+
+  // 2. Enviamos a Google Sheets SOLO AHORA que presionaste el botón
   if (orden.xbox_email && orden.xbox_password) {
     try {
       const scriptBaseUrl = 'https://script.google.com/macros/s/AKfycbwH-s9lcSaWJAeKzUXGfBqmQypKKq2seh0bSO5eQLN88CvN-5PHXBW_X_xlPjCKmPfEjg/exec';
       const formDataExcel = new URLSearchParams();
       formDataExcel.append('correo', orden.xbox_email);
       formDataExcel.append('contrasena', orden.xbox_password);
+      formDataExcel.append('cantidad', cantidadTotal.toString()); // <--- ENVIAMOS LA CANTIDAD (QTY)
 
       const res = await fetch(scriptBaseUrl, {
         method: 'POST',
@@ -264,6 +270,7 @@ export async function ejecutarEntregaManual(orderId: string): Promise<{ ok: bool
         body: formDataExcel.toString()
       });
 
+      if (!res.ok) throw new Error('Falló la conexión con Google Sheets');
     } catch (sheetError) {
       console.error("Error enviando a Sheets:", sheetError);
       return { ok: false, resumen: '❌ Error de conexión con Google Sheets.' };
