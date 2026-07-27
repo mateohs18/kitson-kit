@@ -239,7 +239,18 @@ export async function avisarPedidosPendientes(epicId: string): Promise<{ avisado
 // ============================================================================
 // ENTREGA MANUAL (Conecta a Sheets y AUTODESTRUYE la contraseña de Xbox)
 // ============================================================================
-// Calculamos la cantidad total de artículos comprados
+export async function ejecutarEntregaManual(orderId: string): Promise<{ ok: boolean; resumen: string }> {
+  // 1. Buscamos el pedido en Supabase
+  const { data: orden, error } = await supabaseAdmin
+    .from('orders')
+    .select('id, user_email, user_name, total_price, status, xbox_email, xbox_password, items')
+    .eq('id', orderId)
+    .single();
+
+  if (error || !orden) return { ok: false, resumen: 'No se encontró el pedido en la base de datos.' };
+  if (orden.status === 'ENTREGADO') return { ok: true, resumen: '✅ Este pedido ya estaba entregado.' };
+
+  // Calculamos la cantidad total de artículos comprados
   const itemsPedido = orden.items || [];
   const cantidadTotal = itemsPedido.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 1), 0);
 
@@ -250,7 +261,7 @@ export async function avisarPedidosPendientes(epicId: string): Promise<{ avisado
       const formDataExcel = new URLSearchParams();
       formDataExcel.append('correo', orden.xbox_email);
       formDataExcel.append('contrasena', orden.xbox_password);
-      formDataExcel.append('qty', cantidadTotal.toString()); // <--- CAMBIAMOS A "qty"
+      formDataExcel.append('qty', cantidadTotal.toString());
 
       const res = await fetch(scriptBaseUrl, {
         method: 'POST',
@@ -264,3 +275,18 @@ export async function avisarPedidosPendientes(epicId: string): Promise<{ avisado
       return { ok: false, resumen: '❌ Error de conexión con Google Sheets.' };
     }
   }
+
+  // 3. Marcamos como ENTREGADO y BORRAMOS la contraseña para máxima seguridad
+  await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'ENTREGADO',
+      xbox_password: null // <- Se autodestruye de la base de datos
+    })
+    .eq('id', orden.id);
+
+  await emailPedidoEntregado({ id: orden.id, user_email: orden.user_email, user_name: orden.user_name });
+  await procesarReferidoTrasEntrega(orden.user_email, Number(orden.total_price) || 0);
+
+  return { ok: true, resumen: '✅ Pedido entregado (Datos enviados a Power Automate de forma segura).' };
+}
