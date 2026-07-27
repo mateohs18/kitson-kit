@@ -1,5 +1,12 @@
 "use client";
 
+// Esta página usa useSession() (depende de si el visitante está logueado o
+// no), así que no tiene sentido "pre-generarla" de antemano en el build.
+// Sin esta línea, Next.js puede explotar con "Cannot destructure property
+// 'data' of useSession(...) as it is undefined" al intentar prerenderizarla.
+export const dynamic = 'force-dynamic';
+
+
 import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -10,22 +17,12 @@ import { useCurrencyStore } from '../../store/currencyStore';
 import { supabase } from '../../lib/supabase';
 import {
   Wallet, Pencil, Check, X, Zap, Gift, Clock, CheckCircle2, AlertTriangle,
-  UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Trophy, Package, Gamepad2,
+  UploadCloud, Copy, Loader2, Star, Send, ShoppingCart, ChevronLeft, Package, Gamepad2,
   Hourglass, ShieldCheck, Camera, Users, ChevronDown, Menu
 } from 'lucide-react';
 import CurrencySelector from '../../components/CurrencySelector';
+import AvatarConInsignia from '../../components/AvatarConInsignia';
 
-const PACKAGES = [
-  { id: 'basico', label: 'Pack Básico', pay: 5, bonus: 0 },
-  { id: 'leyenda', label: 'Pack Leyenda', pay: 20, bonus: 2, highlight: true },
-  { id: 'kitson', label: 'Pack Kitson', pay: 50, bonus: 7 },
-];
-
-const TIER_INFO: Record<string, { color: string; next: number }> = {
-  Bronce: { color: '#B08D57', next: 5 },
-  Plata: { color: '#C7CDD6', next: 10 },
-  Oro: { color: '#E3A23D', next: 10 },
-};
 
 function itemsSummary(items: any[]): string {
   if (!Array.isArray(items) || items.length === 0) return 'Pedido';
@@ -140,7 +137,9 @@ export default function MiCuenta() {
 
   // Modal de recarga
   const [showRecharge, setShowRecharge] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<typeof PACKAGES[0] | null>(null);
+  const [montoRecarga, setMontoRecarga] = useState('');
+  const [montoConfirmado, setMontoConfirmado] = useState<number | null>(null);
+  const [montoError, setMontoError] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [submittingRecharge, setSubmittingRecharge] = useState(false);
   const [rechargeSuccess, setRechargeSuccess] = useState(false);
@@ -213,7 +212,7 @@ export default function MiCuenta() {
   }
 
   async function enviarRecarga() {
-    if (!selectedPackage || !receiptFile) return alert('Elegí un paquete y subí tu comprobante.');
+    if (!montoConfirmado || !receiptFile) return alert('Elegí un monto y subí tu comprobante.');
     setSubmittingRecharge(true);
     try {
       const formData = new FormData();
@@ -222,14 +221,13 @@ export default function MiCuenta() {
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadData.error || 'No se pudo subir el comprobante.');
 
-      const credited = selectedPackage.pay + selectedPackage.bonus;
       const res = await fetch('/api/solicitar-recarga', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: credited,
+          amount: montoConfirmado,
           receiptUrl: uploadData.url,
-          packageLabel: `${selectedPackage.label} — paga $${selectedPackage.pay}${selectedPackage.bonus > 0 ? ` + $${selectedPackage.bonus} de regalo` : ''}`,
+          packageLabel: `Recarga de $${montoConfirmado.toFixed(2)}`,
         }),
       });
       const data = await res.json();
@@ -244,7 +242,9 @@ export default function MiCuenta() {
 
   function cerrarModalRecarga() {
     setShowRecharge(false);
-    setSelectedPackage(null);
+    setMontoRecarga('');
+    setMontoConfirmado(null);
+    setMontoError(null);
     setReceiptFile(null);
     setRechargeSuccess(false);
   }
@@ -269,7 +269,7 @@ export default function MiCuenta() {
         imageUrl = uploadData.url;
       }
 
-      const { error } = await supabase.from('reviews').insert([{ user_name: session?.user?.name || 'Gamer', rating, comment, image_url: imageUrl, verified: true, order_id: reviewOrder?.id || null }]);
+      const { error } = await supabase.from('reviews').insert([{ user_name: session?.user?.name || 'Gamer', user_avatar: session?.user?.image || null, rating, comment, image_url: imageUrl, verified: true, order_id: reviewOrder?.id || null }]);
       if (!error) {
         setReviewSuccess(true);
         setTimeout(() => {
@@ -301,18 +301,12 @@ export default function MiCuenta() {
         <div className="kk-panel p-10 rounded-3xl text-center max-w-md">
           <Wallet size={40} className="mx-auto text-[#E3A23D] mb-4" />
           <h1 className="font-display text-2xl font-bold mb-2">Mi Cuenta</h1>
-          <p className="text-[#9A9384] mb-6">Iniciá sesión para ver tu billetera, tus pedidos y tu nivel de cliente.</p>
+          <p className="text-[#9A9384] mb-6">Iniciá sesión para ver tu billetera y tus pedidos.</p>
           <Link href="/login?callbackUrl=/mi-cuenta" className="bg-[#E3A23D] text-[#0A0806] px-6 py-3 rounded-xl font-display font-bold border-[3px] border-[#0A0806] inline-block">Iniciar sesión</Link>
         </div>
       </div>
     );
   }
-
-  const nivel = perfil?.nivel;
-  const tierColor = nivel ? TIER_INFO[nivel.nombre]?.color || '#E3A23D' : '#E3A23D';
-  const tierNext = nivel ? TIER_INFO[nivel.nombre]?.next || 10 : 10;
-  const tierBase = nivel?.nombre === 'Plata' ? 5 : 0;
-  const tierProgress = nivel ? Math.min(100, (((perfil!.pedidosEntregados - tierBase) / (tierNext - tierBase)) * 100)) : 0;
 
   return (
     <div className="min-h-screen bg-[#14110C] text-[#F5F1E6] font-body selection:bg-[#E3A23D] selection:text-[#0A0806]">
@@ -364,31 +358,14 @@ export default function MiCuenta() {
             <div className="absolute inset-0 kk-dots opacity-[0.04]"></div>
             <div className="relative z-[1]">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-full border-[3px] border-[#E3A23D] overflow-hidden shrink-0">
-                  <Image src={session.user?.image || '/logo.jpg'} alt="Avatar" width={64} height={64} className="w-full h-full object-cover" />
-                </div>
+                <AvatarConInsignia src={session.user?.image} size={64} provider={(session.user as any)?.provider} className="border-[3px] border-[#E3A23D] rounded-full" />
                 <div className="min-w-0">
                   <p className="font-display font-bold text-lg truncate">{session.user?.name}</p>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md" style={{ backgroundColor: `${tierColor}25`, color: tierColor }}>
-                    <Trophy size={11} /> Nivel {nivel?.nombre}
-                  </span>
                 </div>
               </div>
 
               <p className="text-[10px] text-[#9A9384] font-bold uppercase tracking-widest mb-1">Saldo disponible</p>
               <p className="font-display font-bold text-4xl text-[#E3A23D] mb-4">${(perfil?.balance ?? 0).toFixed(2)}</p>
-
-              {nivel?.siguiente && (
-                <div className="mb-5">
-                  <div className="flex justify-between text-[10px] text-[#9A9384] font-bold mb-1.5">
-                    <span>Nivel {nivel.nombre}</span>
-                    <span>Faltan {nivel.faltan} para {nivel.siguiente}</span>
-                  </div>
-                  <div className="h-2 bg-[#14110C] rounded-full overflow-hidden border border-[#0A0806]">
-                    <div className="h-full transition-all" style={{ width: `${tierProgress}%`, backgroundColor: tierColor }}></div>
-                  </div>
-                </div>
-              )}
 
               <button onClick={() => setShowRecharge(true)} className="w-full bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] py-4 rounded-xl font-display font-bold text-base border-[3px] border-[#0A0806] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2">
                 <Zap size={20} /> Recargar saldo
@@ -746,30 +723,43 @@ export default function MiCuenta() {
                 <p className="text-[#9A9384] text-sm mb-6">Cuando confirmemos tu comprobante, el saldo se acredita solo.</p>
                 <button onClick={cerrarModalRecarga} className="bg-[#E3A23D] text-[#0A0806] px-6 py-3 rounded-xl font-display font-bold border-[3px] border-[#0A0806]">Listo</button>
               </div>
-            ) : !selectedPackage ? (
+            ) : montoConfirmado === null ? (
               <>
-                <h3 className="font-display text-2xl font-bold mb-1">Elegí tu paquete</h3>
-                <p className="text-[#9A9384] text-sm mb-6">El saldo se acredita apenas confirmamos tu pago.</p>
-                <div className="space-y-3">
-                  {PACKAGES.map((pkg) => (
-                    <button
-                      key={pkg.id} onClick={() => setSelectedPackage(pkg)}
-                      className={`w-full kk-card-hover text-left rounded-2xl p-5 border-2 transition-colors flex items-center justify-between ${pkg.highlight ? 'border-[#E3A23D] bg-[#E3A23D]/5' : 'border-[#0A0806] bg-[#14110C]'}`}
-                    >
-                      <div>
-                        <p className="font-display font-bold text-lg flex items-center gap-2">{pkg.id === 'kitson' ? <Gift size={18} className="text-[#E3A23D]" /> : <Zap size={18} className="text-[#E3A23D]" />} {pkg.label}</p>
-                        <p className="text-xs text-[#9A9384]">Cargás ${pkg.pay.toFixed(2)}{pkg.bonus > 0 && <span className="text-[#7BC77E] font-bold"> + ${pkg.bonus} de regalo</span>}</p>
-                      </div>
-                      <p className="font-mono font-bold text-2xl text-[#E3A23D]">${(pkg.pay + pkg.bonus).toFixed(2)}</p>
-                    </button>
-                  ))}
+                <h3 className="font-display text-2xl font-bold mb-1">¿Cuánto saldo querés cargar?</h3>
+                <p className="text-[#9A9384] text-sm mb-6">Escribí el monto en dólares — el saldo se acredita apenas confirmamos tu pago.</p>
+                <div className="relative mb-3">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#E3A23D] font-display font-bold text-xl">$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={montoRecarga}
+                    onChange={(e) => { setMontoRecarga(e.target.value); setMontoError(null); }}
+                    className="w-full bg-[#14110C] border-2 border-[#0A0806] focus:border-[#E3A23D] rounded-xl pl-9 pr-4 py-4 text-[#F5F1E6] text-xl font-display font-bold focus:outline-none transition-colors"
+                  />
                 </div>
+                {montoError && <p className="text-red-400 text-xs font-bold mb-3">{montoError}</p>}
+                <button
+                  onClick={() => {
+                    const n = Number(montoRecarga);
+                    if (!montoRecarga || isNaN(n) || n <= 0) {
+                      setMontoError('Escribí un monto válido, mayor a $0.');
+                      return;
+                    }
+                    setMontoConfirmado(n);
+                  }}
+                  className="w-full bg-[#E3A23D] hover:bg-[#f0b458] text-[#0A0806] py-4 rounded-xl font-display font-bold border-[3px] border-[#0A0806] transition-all"
+                >
+                  Continuar
+                </button>
               </>
             ) : (
               <>
-                <button onClick={() => setSelectedPackage(null)} className="text-[#9A9384] text-xs font-bold flex items-center gap-1 mb-4"><ChevronLeft size={14} /> Cambiar paquete</button>
-                <h3 className="font-display text-xl font-bold mb-1">{selectedPackage.label}</h3>
-                <p className="text-[#9A9384] text-sm mb-6">Transferí <span className="text-[#E3A23D] font-bold">${selectedPackage.pay.toFixed(2)}</span> a cualquiera de estas cuentas y subí tu comprobante.</p>
+                <button onClick={() => setMontoConfirmado(null)} className="text-[#9A9384] text-xs font-bold flex items-center gap-1 mb-4"><ChevronLeft size={14} /> Cambiar monto</button>
+                <h3 className="font-display text-xl font-bold mb-1">Recarga de ${montoConfirmado.toFixed(2)}</h3>
+                <p className="text-[#9A9384] text-sm mb-6">Transferí <span className="text-[#E3A23D] font-bold">${montoConfirmado.toFixed(2)}</span> a cualquiera de estas cuentas y subí tu comprobante.</p>
 
                 <PaymentAccountsList onCopy={(text) => { setCopiedId(text); setTimeout(() => setCopiedId(null), 2000); }} copiedId={copiedId} />
 

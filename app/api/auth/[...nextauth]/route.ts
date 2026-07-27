@@ -56,7 +56,25 @@ export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt" as const,
-  }
+  },
+  callbacks: {
+    // Guardamos con qué proveedor entró (google/discord/credentials) en el
+    // token, y lo pasamos a la sesión — así el sitio puede mostrar un
+    // ícono distinto según cómo se logueó (por ejemplo, el de Google en
+    // la foto de perfil).
+    async jwt({ token, account }: { token: any; account: any }) {
+      if (account?.provider) {
+        token.provider = account.provider;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: any; token: any }) {
+      if (session.user) {
+        session.user.provider = token.provider;
+      }
+      return session;
+    },
+  },
 };
 
 // 2. Creamos el manejador (handler)

@@ -17,6 +17,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
 import { faqs } from '../lib/faqs';
 import EstadoBots from '../components/EstadoBots';
+import AvatarConInsignia from '../components/AvatarConInsignia';
 import {
   ShoppingCart, Gamepad2,
   PackageSearch, Menu, X, Star, BellRing,
@@ -147,7 +148,7 @@ export default function Home() {
           </Link>
           {session ? (
             <Link href="/mi-cuenta" className="hidden sm:flex items-center gap-2 bg-[#0A0806] py-1.5 px-1.5 pr-4 rounded-lg hover:opacity-80 transition">
-              <Image src={session.user?.image || "/logo.jpg"} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border-2 border-[#E3A23D] object-cover" />
+              <AvatarConInsignia src={session.user?.image} size={32} provider={(session.user as any)?.provider} className="border-2 border-[#E3A23D] rounded-full" />
               <span className="text-sm font-bold text-[#F5F1E6]">{session.user?.name}</span>
             </Link>
           ) : (
@@ -405,7 +406,12 @@ export default function Home() {
                     <div className="flex items-start justify-between mb-4 relative z-10">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div className="w-12 h-12 bg-[#14110C] border-2 border-[#0A0806] text-[#E3A23D] rounded-full flex items-center justify-center font-display font-bold text-xl">{r.user_name.charAt(0).toUpperCase()}</div>
+                          {r.user_avatar ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={r.user_avatar} alt={r.user_name} className="w-12 h-12 rounded-full object-cover border-2 border-[#0A0806]" />
+                          ) : (
+                            <div className="w-12 h-12 bg-[#14110C] border-2 border-[#0A0806] text-[#E3A23D] rounded-full flex items-center justify-center font-display font-bold text-xl">{r.user_name.charAt(0).toUpperCase()}</div>
+                          )}
                           <div className="absolute -bottom-1 -right-1 bg-[#1D1913] rounded-full p-0.5"><CheckCircle2 size={14} className="text-[#E3A23D]" /></div>
                         </div>
                         <div>
