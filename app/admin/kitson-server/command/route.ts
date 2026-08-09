@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // AJUSTAR si tu ruta es distinta
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+function esAdmin(session: any) {
+  const email = session?.user?.email?.toLowerCase();
+  return !!email && ADMIN_EMAILS.includes(email);
+}
 
 // Comandos que este endpoint tiene permitido mandar. Es una whitelist
 // doble: el Tecno también valida esto de su lado (ver
@@ -22,7 +32,7 @@ const COMANDOS_PERMITIDOS = [
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session /* || !session.user.isAdmin */) {
+  if (!esAdmin(session)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

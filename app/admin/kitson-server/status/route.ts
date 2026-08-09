@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-// AJUSTAR: importá tu helper real de sesión de NextAuth acá.
-// Ejemplos comunes según tu versión de next-auth:
-//   import { getServerSession } from "next-auth";
-//   import { authOptions } from "@/lib/auth"; // o donde tengas tu config
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // AJUSTAR si tu ruta es distinta
 
 // service_role key: SOLO se usa acá, del lado del servidor. Nunca en
 // código de cliente/navegador.
@@ -14,10 +10,21 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Lista de emails admin, separados por coma, en una env var.
+// Ej: ADMIN_EMAILS=vos@gmail.com,otroadmin@gmail.com
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+function esAdmin(session: any) {
+  const email = session?.user?.email?.toLowerCase();
+  return !!email && ADMIN_EMAILS.includes(email);
+}
+
 export async function GET() {
-  // AJUSTAR: reemplazá esto por tu chequeo real de "es admin".
   const session = await getServerSession(authOptions);
-  if (!session /* || !session.user.isAdmin */) {
+  if (!esAdmin(session)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
