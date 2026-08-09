@@ -41,10 +41,8 @@ export async function GET() {
     .limit(10);
 
   if (errorStatus || errorComandos) {
-    return NextResponse.json(
-      { error: (errorStatus || errorComandos).message },
-      { status: 500 }
-    );
+    const mensaje = errorStatus?.message || errorComandos?.message || "Error desconocido";
+    return NextResponse.json({ error: mensaje }, { status: 500 });
   }
 
   // Consideramos "online" si mandó un heartbeat en los últimos 90s
